@@ -1,0 +1,16 @@
+{
+	"authors": [
+		"Herringway"
+	],
+	"copyright": "Copyright © 2023, Herringway",
+	"description": "Console port helper library",
+	"license": "BSL-1.0",
+	"dependencies": {
+		"bindbc-sdl": "~>1.4.1",
+		"arsd-official:png": "~>11.0",
+		"siryul": "~>0.6",
+		"spc700": "*"
+	},
+	"versions": ["sdl", "SDL_2018", "SDL_Mixer_200"],
+	"name": "librehome"
+}
