@@ -18,9 +18,10 @@ class SDL2Video : VideoBackend {
 		enforceSDL(SDL_Init(SDL_INIT_VIDEO) == 0, "Error initializing SDL");
 		infof("SDL video subsystem initialized (%s)", SDL_GetCurrentVideoDriver().fromStringz);
 	}
-	void createWindow(string title, WindowSettings settings) @trusted {
-		assert(settings.width > 0, "Zero width is invalid");
-		assert(settings.height > 0, "Zero height is invalid");
+	void createWindow(string title, WindowSettings settings) @trusted
+		in(settings.width > 0, "Zero width is invalid")
+		in(settings.height > 0, "Zero height is invalid")
+	{
 		enum windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
 		this.settings = settings;
 		infof("%s, %s", settings.width, settings.height);
