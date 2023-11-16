@@ -24,7 +24,6 @@ class SDL2Video : VideoBackend {
 	{
 		enum windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
 		this.settings = settings;
-		infof("%s, %s", settings.width, settings.height);
 		window = SDL_CreateWindow(
 			title.toStringz,
 			SDL_WINDOWPOS_UNDEFINED,
