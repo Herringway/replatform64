@@ -29,6 +29,7 @@ class SDL2Platform : PlatformBackend {
 	override bool processEvents() @trusted {
 		SDL_Event event;
 		while(SDL_PollEvent(&event)) {
+			(cast(SDL2Video)video).handleUIEvent(&event);
 			if ((cast(SDL2Input)input).processEvent(event)) {
 				return true;
 			}

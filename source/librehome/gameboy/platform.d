@@ -7,6 +7,8 @@ import librehome.gameboy.renderer;
 import librehome.backend.common;
 import librehome.backend.sdl2;
 
+import librehome.ui;
+
 import core.thread;
 import std.file;
 import std.logger;
@@ -16,9 +18,10 @@ import std.stdio;
 import siryul;
 
 struct Settings {
-	WindowSettings window;
+	VideoSettings video;
 	InputSettings input;
 	bool yamlSave;
+	bool debugging;
 }
 
 enum settingsFile = "settings.yaml";
@@ -32,6 +35,7 @@ enum LCDYUpdateStrategy {
 struct GameBoySimple {
 	void function() entryPoint;
 	void function() interruptHandler;
+	DebugFunction debugMenuRenderer;
 	string title;
 	string sourceFile;
 	string saveFile;
@@ -72,7 +76,7 @@ struct GameBoySimple {
 		backend.initialize();
 		backend.audio.initialize(&apu, &audioCallback, AUDIO_SAMPLE_RATE, 2);
 		backend.input.initialize(settings.input);
-		renderer.initialize(title, settings.window, backend.video);
+		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer);
 
 		while (true) {
 			if (backend.processEvents()) {

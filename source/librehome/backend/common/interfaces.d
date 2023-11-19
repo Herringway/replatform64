@@ -1,20 +1,22 @@
 module librehome.backend.common.interfaces;
 
 public import librehome.backend.common.inputconstants;
+import librehome.ui;
 
 alias AudioCallback = void function(void*, ubyte[]) nothrow;
-
+alias DebugFunction = void function(const UIState);
 interface AudioBackend {
 	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels) @safe;
 	void deinitialize() @safe;
 }
 
 interface VideoBackend {
-	void initialize() @safe;
+	void initialize(DebugFunction) @safe;
 	void deinitialize() @safe;
 	void getDrawingTexture(out Texture texture) @safe;
 	void createWindow(string title, WindowSettings settings) @safe;
 	void createTexture(uint width, uint height, PixelFormat format) @safe;
+	void startFrame() @safe;
 	void finishFrame() @safe;
 	void waitNextFrame() @safe;
 }
@@ -31,16 +33,22 @@ abstract class PlatformBackend {
 	void deinitialize() @safe;
 	bool processEvents() @safe;
 }
-struct WindowSettings {
+
+struct VideoSettings {
 	WindowMode mode;
-	bool keepAspectRatio;
+	bool keepAspectRatio = true;
 	uint zoom = 1;
+}
+
+struct WindowSettings {
+	VideoSettings userSettings;
 	uint width;
 	uint height;
 	uint leftPadding;
 	uint rightPadding;
 	uint topPadding;
 	uint bottomPadding;
+	bool debugging;
 }
 
 struct InputSettings {

@@ -2,6 +2,7 @@ module librehome.backend.sdl2.input;
 
 import librehome.backend.common;
 import librehome.backend.sdl2.common;
+import librehome.ui;
 
 import bindbc.sdl;
 
@@ -32,6 +33,9 @@ class SDL2Input : InputBackend {
 		switch (event.type) {
 			case SDL_KEYDOWN:
 			case SDL_KEYUP:
+				if (imguiAteKeyboard()) {
+					break;
+				}
 				if (auto button = sdlKeyToKeyboardKey(event.key.keysym.scancode) in settings.keyboardMapping) {
 					handleButton(state, *button, event.type == SDL_KEYDOWN, 1);
 				}
