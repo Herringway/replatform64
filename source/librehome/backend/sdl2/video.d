@@ -72,6 +72,7 @@ class SDL2Video : VideoBackend {
 		IMGUI_CHECKVERSION();
 		context = ImGui.CreateContext();
 		ImGuiIO* io = &ImGui.GetIO();
+		io.IniFilename = "";
 
 		ImGui.StyleColorsDark();
 		ImGui.GetStyle().ScaleAllSizes(1.0 / settings.userSettings.zoom);
