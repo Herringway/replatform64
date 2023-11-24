@@ -50,12 +50,12 @@ struct SPCPlayer {
 }
 
 unittest {
-	import librehome.backend.sdl2;
-	auto newBackend = new SDL2Platform;
-	newBackend.initialize();
-	SPCPlayer player;
-	player.initialize(newBackend.audio);
-	player.load(0, (cast(immutable(ubyte)[])import("test.spc"))[0x100 .. 0x10100]);
-	player.start(0x500);
-	while(true) {}
+	//import librehome.backend.sdl2;
+	//auto newBackend = new SDL2Platform;
+	//newBackend.initialize();
+	//SPCPlayer player;
+	//player.initialize(newBackend.audio);
+	//player.load(0, (cast(immutable(ubyte)[])import("test.spc"))[0x100 .. 0x10100]);
+	//player.start(0x500);
+	//while(true) {}
 }

@@ -32,6 +32,64 @@ enum LCDYUpdateStrategy {
 	random,
 }
 
+enum GameBoyRegister : ushort {
+	JOYP = 0xFF00,
+	SB = 0xFF01,
+	SC = 0xFF02,
+	DIV = 0xFF04,
+	TIMA = 0xFF05,
+	TMA = 0xFF06,
+	TAC = 0xFF07,
+	IF = 0xFF0F,
+	NR10 = 0xFF10,
+	NR11 = 0xFF11,
+	NR12 = 0xFF12,
+	NR13 = 0xFF13,
+	NR14 = 0xFF14,
+	NR21 = 0xFF16,
+	NR22 = 0xFF17,
+	NR23 = 0xFF18,
+	NR24 = 0xFF19,
+	NR30 = 0xFF1A,
+	NR31 = 0xFF1B,
+	NR32 = 0xFF1C,
+	NR33 = 0xFF1D,
+	NR34 = 0xFF1E,
+	NR41 = 0xFF20,
+	NR42 = 0xFF21,
+	NR43 = 0xFF22,
+	NR44 = 0xFF23,
+	NR50 = 0xFF24,
+	NR51 = 0xFF25,
+	NR52 = 0xFF26,
+	LCDC = 0xFF40,
+	STAT = 0xFF41,
+	SCY = 0xFF42,
+	SCX = 0xFF43,
+	LY = 0xFF44,
+	LYC = 0xFF45,
+	DMA = 0xFF46,
+	BGP = 0xFF47,
+	OBP0 = 0xFF48,
+	OBP1 = 0xFF49,
+	WY = 0xFF4A,
+	WX = 0xFF4B,
+	KEY1 = 0xFF4D,
+	VBK = 0xFF4F,
+	HDMA1 = 0xFF51,
+	HDMA2 = 0xFF52,
+	HDMA3 = 0xFF53,
+	HDMA4 = 0xFF54,
+	HDMA5 = 0xFF55,
+	RP = 0xFF56,
+	BCPS = 0xFF68,
+	BCPD = 0xFF69,
+	OCPS = 0xFF6A,
+	OCPD = 0xFF6B,
+	SVBK = 0xFF70,
+	IE = 0xFFFF,
+}
+
 struct GameBoySimple {
 	void function() entryPoint;
 	void function() interruptHandler;
@@ -39,7 +97,6 @@ struct GameBoySimple {
 	string title;
 	string sourceFile;
 	string saveFile;
-	Registers registers;
 	ubyte lcdYUpdateValue = 1;
 	LCDYUpdateStrategy lcdYUpdateStrategy;
 	uint seed = 0x12345678;
@@ -91,7 +148,6 @@ struct GameBoySimple {
 				break;
 			}
 			interruptHandler();
-			copyRegisters();
 			renderer.draw();
 			if (input.pause) {
 				paused ^= true;
@@ -148,51 +204,14 @@ struct GameBoySimple {
 	void updateReadableRegisters() {
 		final switch (lcdYUpdateStrategy) {
 			case LCDYUpdateStrategy.constant:
-				registers.LY = lcdYUpdateValue;
+				//registers.LY = lcdYUpdateValue;
 				break;
 			case LCDYUpdateStrategy.increasing:
-				registers.LY = ++lcdYUpdateValue;
+				//registers.LY = ++lcdYUpdateValue;
 				break;
 			case LCDYUpdateStrategy.random:
-				registers.LY = uniform!ubyte(rng);
+				//registers.LY = uniform!ubyte(rng);
 				break;
-		}
-	}
-	void copyRegisters() {
-		renderer.ppu.registers.stat = registers.STAT;
-		renderer.ppu.registers.lcdc = registers.LCDC;
-		renderer.ppu.registers.scy = registers.SCY;
-		renderer.ppu.registers.scx = registers.SCX;
-		renderer.ppu.registers.ly = registers.LY;
-		renderer.ppu.registers.lyc = registers.LYC;
-		renderer.ppu.registers.bgp = registers.BGP;
-		renderer.ppu.registers.obp0 = registers.OBP0;
-		renderer.ppu.registers.obp1 = registers.OBP1;
-		renderer.ppu.registers.wy = registers.WY;
-		renderer.ppu.registers.wx = registers.WX;
-		apu.audio_write(0xFF10, registers.NR10);
-		apu.audio_write(0xFF11, registers.NR11);
-		apu.audio_write(0xFF12, registers.NR12);
-		apu.audio_write(0xFF13, registers.NR13);
-		apu.audio_write(0xFF14, registers.NR14);
-		apu.audio_write(0xFF16, registers.NR21);
-		apu.audio_write(0xFF17, registers.NR22);
-		apu.audio_write(0xFF18, registers.NR23);
-		apu.audio_write(0xFF19, registers.NR24);
-		apu.audio_write(0xFF1A, registers.NR30);
-		apu.audio_write(0xFF1B, registers.NR31);
-		apu.audio_write(0xFF1C, registers.NR32);
-		apu.audio_write(0xFF1D, registers.NR33);
-		apu.audio_write(0xFF1E, registers.NR34);
-		apu.audio_write(0xFF20, registers.NR41);
-		apu.audio_write(0xFF21, registers.NR42);
-		apu.audio_write(0xFF22, registers.NR43);
-		apu.audio_write(0xFF23, registers.NR44);
-		apu.audio_write(0xFF24, registers.NR50);
-		apu.audio_write(0xFF25, registers.NR51);
-		apu.audio_write(0xFF26, registers.NR52);
-		foreach (idx, w; registers.waveRAM) {
-			apu.audio_write(cast(ushort)(0xFF30 + idx), w);
 		}
 	}
 	ref ubyte[0x400] getBGTilemap() @safe {
@@ -260,7 +279,114 @@ struct GameBoySimple {
 		if (state.controllers[0] & ControllerMask.left) { pad |= Pad.left; }
 		if (state.controllers[0] & ControllerMask.right) { pad |= Pad.right; }
 	}
+	ref auto waveRAM() {
+		static struct WaveRAM {
+			APU* apu;
+			void opIndexAssign(ubyte val, size_t offset) {
+				infof("WRITE: %04X %02X", 0xFF30 + offset, val);
+				apu.audio_write(cast(ushort)(0xFF30 + offset), val);
+			}
+			ubyte opIndex(size_t offset) {
+				return apu.audio_read(cast(ushort)(0xFF30 + offset));
+			}
+		}
+		return WaveRAM(&apu);
+	}
+	template Register(alias gb, ushort addr) {
+		static if ((addr >= GameBoyRegister.NR10) && (addr <= GameBoyRegister.NR52)) {
+			static ubyte Register() {
+				return gb.apu.audio_read(addr);
+			}
+			static void Register(ubyte val, string file = __FILE__, ulong line = __LINE__) {
+				infof("%s:%s WRITE: %04X %02X", file, line, addr, val);
+				gb.apu.audio_write(addr, val);
+			}
+		} else static if (addr == GameBoyRegister.SCY) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.scy;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.scy = val;
+			}
+		} else static if (addr == GameBoyRegister.SCX) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.scx;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.scx = val;
+			}
+		} else static if (addr == GameBoyRegister.WY) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.wy;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.wy = val;
+			}
+		} else static if (addr == GameBoyRegister.WX) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.wx;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.wx = val;
+			}
+		} else static if (addr == GameBoyRegister.STAT) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.stat;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.stat = val;
+			}
+		} else static if (addr == GameBoyRegister.LCDC) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.lcdc;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.lcdc = val;
+			}
+		} else static if (addr == GameBoyRegister.OBP0) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.obp0;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.obp0 = val;
+			}
+		} else static if (addr == GameBoyRegister.OBP1) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.obp1;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.obp1 = val;
+			}
+		} else static if (addr == GameBoyRegister.BGP) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.bgp;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.bgp = val;
+			}
+		} else static if (addr == GameBoyRegister.LY) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.ly;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.ly = val;
+			}
+		} else static if (addr == GameBoyRegister.LYC) {
+			static ubyte Register() {
+				return gb.renderer.ppu.registers.lyc;
+			}
+			static void Register(ubyte val) {
+				gb.renderer.ppu.registers.lyc = val;
+			}
+		} else { //unimplemented
+			static ubyte Register() {
+				return 0;
+			}
+			static void Register(ubyte val) {}
+		}
+	}
 }
+
 
 enum Pad : ubyte {
 	a = 1 << 0,
@@ -283,89 +409,3 @@ enum Pad : ubyte {
 //	writeJoy(0x20);
 //	assert(readJoy() == 0xF);
 //}
-
-debug(loggableRegisters) {
-	import std.logger;
-	struct RegType(string name) {
-		private ubyte value;
-		alias this = get;
-		void opAssign(ubyte n) {
-			infof("%s: Writing %02X", name, n);
-			value = n;
-		}
-		ubyte get() {
-			infof("%s: Reading %02X", name, value);
-			return value;
-		}
-	}
-} else {
-	alias RegType(string _) = ubyte;
-}
-struct Registers {
-	RegType!"JOYP" JOYP; //FF00
-	RegType!"SB" SB; //FF01
-	RegType!"SC" SC; //FF02
-	RegType!"DIV" DIV; //FF04
-	RegType!"TIMA" TIMA; //FF05
-	RegType!"TMA" TMA; //FF06
-	RegType!"TAC" TAC; //FF07
-	RegType!"IF" IF; // FF0F
-	RegType!"LCDC" LCDC; //FF40
-	RegType!"STAT" STAT; //FF41
-	RegType!"SCY" SCY; //FF42
-	RegType!"SCX" SCX; //FF43
-	RegType!"LY" LY; //FF44
-	RegType!"LYC" LYC; //FF45
-	RegType!"BGP" BGP; //FF47
-	RegType!"OBP0" OBP0; //FF48
-	RegType!"OBP1" OBP1; //FF49
-	RegType!"WY" WY; //FF4A
-	RegType!"WX" WX; //FF4B
-	RegType!"IE" IE; //FFFF
-
-	RegType!"NR10" NR10; //FF10
-	alias AUD1SWEEP = NR10;
-	RegType!"NR11" NR11; //FF11
-	alias AUD1LEN = NR11;
-	RegType!"NR12" NR12; //FF12
-	alias AUD1ENV = NR12;
-	RegType!"NR13" NR13; //FF13
-	alias AUD1LOW = NR13;
-	RegType!"NR14" NR14; //FF14
-	alias AUD1HIGH = NR14;
-	RegType!"NR21" NR21; //FF16
-	alias AUD2LEN = NR21;
-	RegType!"NR22" NR22; //FF17
-	alias AUD2ENV = NR22;
-	RegType!"NR23" NR23; //FF18
-	alias AUD2LOW = NR23;
-	RegType!"NR24" NR24; //FF19
-	alias AUD2HIGH = NR24;
-	RegType!"NR30" NR30; //FF1A
-	alias AUD3ENA = NR30;
-	RegType!"NR31" NR31; //FF1B
-	alias AUD3LEN = NR31;
-	RegType!"NR32" NR32; //FF1C
-	alias AUD3LEVEL = NR32;
-	RegType!"NR33" NR33; //FF1D
-	alias AUD3LOW = NR33;
-	RegType!"NR34" NR34; //FF1E
-	alias AUD3HIGH = NR34;
-	RegType!"NR41" NR41; //FF20
-	alias AUD4LEN = NR41;
-	RegType!"NR42" NR42; //FF21
-	alias AUD4ENV = NR42;
-	RegType!"NR43" NR43; //FF22
-	alias AUD4POLY = NR43;
-	RegType!"NR44" NR44; //FF23
-	alias AUD4GO = NR44;
-	RegType!"NR50" NR50; //FF24
-	alias AUDVOL = NR50;
-	RegType!"NR51" NR51; //FF25
-	alias AUDTERM = NR51;
-	RegType!"NR52" NR52; //FF26
-	alias AUDENA = NR52;
-
-	ubyte[16] waveRAM; //FF30
-
-}
