@@ -481,92 +481,79 @@ struct APU {
 		i = cast(ubyte)((addr - AUDIO_ADDR_COMPENSATION) / 5);
 
 		switch (addr) {
-		case 0xFF12:
-		case 0xFF17:
-		case 0xFF21: {
-			chans[i].volume_init = val >> 4;
-			chans[i].powered     = (val >> 3) != 0;
+			case 0xFF12:
+			case 0xFF17:
+			case 0xFF21:
+				chans[i].volume_init = val >> 4;
+				chans[i].powered     = (val >> 3) != 0;
 
-			// "zombie mode" stuff, needed for Prehistorik Man and probably
-			// others
-			if (chans[i].powered && chans[i].enabled) {
-				if ((chans[i].env.step == 0 && chans[i].env.inc != 0)) {
-					if (val & 0x08) {
-						chans[i].volume++;
+				// "zombie mode" stuff, needed for Prehistorik Man and probably
+				// others
+				if (chans[i].powered && chans[i].enabled) {
+					if ((chans[i].env.step == 0 && chans[i].env.inc != 0)) {
+						if (val & 0x08) {
+							chans[i].volume++;
+						} else {
+							chans[i].volume += 2;
+						}
 					} else {
-						chans[i].volume += 2;
+						chans[i].volume = cast(ubyte)(16 - chans[i].volume);
 					}
-				} else {
-					chans[i].volume = cast(ubyte)(16 - chans[i].volume);
+
+					chans[i].volume &= 0x0F;
+					chans[i].env.step = val & 0x07;
 				}
-
-				chans[i].volume &= 0x0F;
-				chans[i].env.step = val & 0x07;
-			}
-		} break;
-
-		case 0xFF1C:
-			chans[i].volume = chans[i].volume_init = (val >> 5) & 0x03;
-			break;
-
-		case 0xFF11:
-		case 0xFF16:
-		case 0xFF20: {
-			static immutable uint8_t[] duty_lookup = [ 0x10, 0x30, 0x3C, 0xCF ];
-			chans[i].len.load = val & 0x3f;
-			chans[i].square.duty = duty_lookup[val >> 6];
-			break;
-		}
-
-		case 0xFF1B:
-			chans[i].len.load = val;
-			break;
-
-		case 0xFF13:
-		case 0xFF18:
-		case 0xFF1D:
-			chans[i].freq &= 0xFF00;
-			chans[i].freq |= val;
-			break;
-
-		case 0xFF1A:
-			chans[i].powered = (val & 0x80) != 0;
-			chan_enable(i, !!(val & 0x80));
-			break;
-
-		case 0xFF14:
-		case 0xFF19:
-		case 0xFF1E:
-			chans[i].freq &= 0x00FF;
-			chans[i].freq |= ((val & 0x07) << 8);
-			goto case;
-		case 0xFF23:
-			chans[i].len.enabled = val & 0x40 ? 1 : 0;
-			if (val & 0x80)
-				chan_trigger(i);
-
-			break;
-
-		case 0xFF22:
-			chans[3].freq = val >> 4;
-			chans[3].noise.lfsr_wide = !(val & 0x08);
-			chans[3].noise.lfsr_div = val & 0x07;
-			break;
-
-		case 0xFF24:
-		{
-			vol_l = ((val >> 4) & 0x07);
-			vol_r = (val & 0x07);
-			break;
-		}
-
-		case 0xFF25:
-			for (uint_fast8_t j = 0; j < 4; j++) {
-				chans[j].on_left  = (val >> (4 + j)) & 1;
-				chans[j].on_right = (val >> j) & 1;
-			}
-			break;
-		default: break;
+				break;
+			case 0xFF1C:
+				chans[i].volume = chans[i].volume_init = (val >> 5) & 0x03;
+				break;
+			case 0xFF11:
+			case 0xFF16:
+			case 0xFF20:
+				static immutable uint8_t[] duty_lookup = [ 0x10, 0x30, 0x3C, 0xCF ];
+				chans[i].len.load = val & 0x3f;
+				chans[i].square.duty = duty_lookup[val >> 6];
+				break;
+			case 0xFF1B:
+				chans[i].len.load = val;
+				break;
+			case 0xFF13:
+			case 0xFF18:
+			case 0xFF1D:
+				chans[i].freq &= 0xFF00;
+				chans[i].freq |= val;
+				break;
+			case 0xFF1A:
+				chans[i].powered = (val & 0x80) != 0;
+				chan_enable(i, !!(val & 0x80));
+				break;
+			case 0xFF14:
+			case 0xFF19:
+			case 0xFF1E:
+				chans[i].freq &= 0x00FF;
+				chans[i].freq |= ((val & 0x07) << 8);
+				goto case;
+			case 0xFF23:
+				chans[i].len.enabled = val & 0x40 ? 1 : 0;
+				if (val & 0x80)
+					chan_trigger(i);
+				break;
+			case 0xFF22:
+				chans[3].freq = val >> 4;
+				chans[3].noise.lfsr_wide = !(val & 0x08);
+				chans[3].noise.lfsr_div = val & 0x07;
+				break;
+			case 0xFF24:
+				vol_l = ((val >> 4) & 0x07);
+				vol_r = (val & 0x07);
+				break;
+			case 0xFF25:
+				for (uint_fast8_t j = 0; j < 4; j++) {
+					chans[j].on_left  = (val >> (4 + j)) & 1;
+					chans[j].on_right = (val >> j) & 1;
+				}
+				break;
+			default: break;
 		}
 	}
 
