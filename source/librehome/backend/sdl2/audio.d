@@ -56,6 +56,13 @@ class SDL2AudioMixer : AudioBackend {
 private __gshared AudioCallback callback;
 
 private extern(C) void callbackWrapper(void* extra, ubyte* buf, int length) nothrow {
-	assert(callback);
-	callback(extra, buf[0 .. length]);
+	import std.exception : assumeWontThrow;
+	import core.stdc.stdlib : exit;
+	try {
+		assert(callback);
+		callback(extra, buf[0 .. length]);
+	} catch (Throwable e) {
+		assumeWontThrow(criticalf("%s", e));
+		exit(1);
+	}
 }

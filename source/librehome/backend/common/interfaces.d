@@ -3,7 +3,7 @@ module librehome.backend.common.interfaces;
 public import librehome.backend.common.inputconstants;
 import librehome.ui;
 
-alias AudioCallback = void function(void*, ubyte[]) nothrow;
+alias AudioCallback = void function(void*, ubyte[]);
 alias DebugFunction = void function(const UIState);
 interface AudioBackend {
 	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels, uint samples) @safe;

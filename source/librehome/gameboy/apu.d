@@ -585,20 +585,13 @@ struct APU {
 /**
  * SDL2 style audio callback function.
  */
-void audioCallback(void *userdata, ubyte[] stream) nothrow {
-	import std.exception : assumeWontThrow;
-	import core.stdc.stdlib : exit;
+void audioCallback(void *userdata, ubyte[] stream) {
 	auto apu = cast(APU*)userdata;
 	short[] samples = cast(short[])stream;
 
 	stream[] = 0;
-	try {
-		apu.update_square(samples, 0);
-		apu.update_square(samples, 1);
-		apu.update_wave(samples);
-		apu.update_noise(samples);
-	} catch (Throwable e) {
-		assumeWontThrow(criticalf("%s", e));
-		exit(1);
-	}
+	apu.update_square(samples, 0);
+	apu.update_square(samples, 1);
+	apu.update_wave(samples);
+	apu.update_noise(samples);
 }
