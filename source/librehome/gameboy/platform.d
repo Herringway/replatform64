@@ -90,8 +90,15 @@ enum GameBoyRegister : ushort {
 	IE = 0xFFFF,
 }
 
+enum GameBoyModel : ushort {
+	dmg = 1, /// Original Game Boy
+	mgb = 0x00FF, /// Game Boy Pocket
+	cgb = 0x0011, /// Game Boy Color
+	gba = 0x0111, /// Game Boy Advance
+}
+
 struct GameBoySimple {
-	void function() entryPoint;
+	void function(ushort) entryPoint;
 	void function() interruptHandler;
 	DebugFunction debugMenuRenderer;
 	string title;
@@ -100,6 +107,7 @@ struct GameBoySimple {
 	ubyte lcdYUpdateValue = 1;
 	LCDYUpdateStrategy lcdYUpdateStrategy;
 	uint seed = 0x12345678;
+	GameBoyModel model;
 	private Random rng;
 	private Settings settings;
 	private Renderer renderer;
@@ -125,7 +133,7 @@ struct GameBoySimple {
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
-		auto game = new Fiber(entryPoint);
+		auto game = new Fiber({ entryPoint(model); });
 
 		bool paused;
 		apu.initialize();
