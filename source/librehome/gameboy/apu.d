@@ -28,8 +28,6 @@ SOFTWARE.
  */
 
 import std.algorithm.comparison : max, min;
-import core.stdc.stdint;
-import core.stdc.string;
 
 enum AUDIO_SAMPLE_RATE = 32768;
 
@@ -57,26 +55,26 @@ enum FREQ_INC_REF = AUDIO_SAMPLE_RATE * 16;
 enum MAX_CHAN_VOLUME = 15;
 
 struct chan_len_ctr {
-	uint8_t load;
+	ubyte load;
 	bool enabled;
-	uint32_t counter;
-	uint32_t inc;
+	uint counter;
+	uint inc;
 }
 
 struct chan_vol_env {
-	uint8_t step;
+	ubyte step;
 	bool up;
-	uint32_t counter;
-	uint32_t inc;
+	uint counter;
+	uint inc;
 }
 
 struct chan_freq_sweep {
-	uint16_t freq;
-	uint8_t rate;
-	uint8_t shift;
+	ushort freq;
+	ubyte rate;
+	ubyte shift;
 	bool up;
-	uint32_t counter;
-	uint32_t inc;
+	uint counter;
+	uint inc;
 }
 
 private struct Channel {
@@ -86,65 +84,58 @@ private struct Channel {
 	bool on_right;
 	bool muted;
 
-	uint8_t volume;
-	uint8_t volume_init;
+	ubyte volume;
+	ubyte volume_init;
 
-	uint16_t freq;
-	uint32_t freq_counter;
-	uint32_t freq_inc;
+	ushort freq;
+	uint freq_counter;
+	uint freq_inc;
 
-	int_fast16_t val;
+	short val;
 
-	chan_len_ctr    len;
-	chan_vol_env    env;
+	chan_len_ctr len;
+	chan_vol_env env;
 	chan_freq_sweep sweep;
 
 	static struct SquareChannel {
-		uint8_t duty;
-		uint8_t duty_counter;
+		ubyte duty;
+		ubyte duty_counter;
 	}
 	static struct NoiseChannel {
-		uint16_t lfsr_reg;
-		uint8_t  lfsr_wide;
-		uint8_t  lfsr_div;
+		ushort lfsr_reg;
+		ubyte lfsr_wide;
+		ubyte lfsr_div;
 	}
 	static struct WaveChannel {
-		uint8_t sample;
+		ubyte sample;
 	}
 	SquareChannel square;
 	NoiseChannel noise;
 	WaveChannel wave;
 }
 struct APU {
-	/**
-	 * Memory holding audio registers between 0xFF10 and 0xFF3F inclusive.
-	 */
-	private uint8_t[AUDIO_MEM_SIZE] audio_mem;
+	/// Memory holding audio registers between 0xFF10 and 0xFF3F inclusive.
+	private ubyte[AUDIO_MEM_SIZE] audio_mem;
 	Channel[4] chans;
 
-	private int32_t vol_l, vol_r;
+	private int vol_l, vol_r;
 
-	private void set_note_freq(ref Channel c, const uint32_t freq) nothrow @safe pure
-	{
+	private void set_note_freq(ref Channel c, const uint freq) nothrow @safe pure {
 		/* Lowest expected value of freq is 64. */
-		c.freq_inc = freq * (uint32_t)(FREQ_INC_REF / AUDIO_SAMPLE_RATE);
+		c.freq_inc = freq * (uint)(FREQ_INC_REF / AUDIO_SAMPLE_RATE);
 	}
 
-	private void chan_enable(const uint_fast8_t i, const bool enable) nothrow @safe pure
-	{
-		uint8_t val;
+	private void chan_enable(const ubyte i, const bool enable) nothrow @safe pure {
+		ubyte val;
 
 		chans[i].enabled = enable;
-		val = (audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] & 0x80) |
-			(chans[3].enabled << 3) | (chans[2].enabled << 2) |
-			(chans[1].enabled << 1) | (chans[0].enabled << 0);
+		val = (audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] & 0x80) | (chans[3].enabled << 3) | (chans[2].enabled << 2) | (chans[1].enabled << 1) | (chans[0].enabled << 0);
 
 		audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] = val;
-		//audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] |= 0x80 | ((uint8_t)enable) << i;
+		//audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] |= 0x80 | ((ubyte)enable) << i;
 	}
 
-	private void update_env(ref Channel c) nothrow @safe pure
-	{
+	private void update_env(ref Channel c) nothrow @safe pure {
 		c.env.counter += c.env.inc;
 
 		while (c.env.counter > FREQ_INC_REF) {
@@ -159,10 +150,10 @@ struct APU {
 		}
 	}
 
-	private void update_len(size_t channel) nothrow @safe pure
-	{
-		if (!chans[channel].len.enabled)
+	private void update_len(size_t channel) nothrow @safe pure {
+		if (!chans[channel].len.enabled) {
 			return;
+		}
 
 		chans[channel].len.counter += chans[channel].len.inc;
 		if (chans[channel].len.counter > FREQ_INC_REF) {
@@ -171,9 +162,8 @@ struct APU {
 		}
 	}
 
-	private bool update_freq(ref Channel c, ref uint32_t pos) nothrow @safe pure
-	{
-		uint32_t inc = c.freq_inc - pos;
+	private bool update_freq(ref Channel c, ref uint pos) nothrow @safe pure {
+		uint inc = c.freq_inc - pos;
 		c.freq_counter += inc;
 
 		if (c.freq_counter > FREQ_INC_REF) {
@@ -186,15 +176,15 @@ struct APU {
 		}
 	}
 
-	private void update_sweep(ref Channel c) nothrow @safe pure
-	{
+	private void update_sweep(ref Channel c) nothrow @safe pure {
 		c.sweep.counter += c.sweep.inc;
 
 		while (c.sweep.counter > FREQ_INC_REF) {
 			if (c.sweep.shift) {
-				uint16_t inc = (c.sweep.freq >> c.sweep.shift);
-				if (!c.sweep.up)
+				ushort inc = (c.sweep.freq >> c.sweep.shift);
+				if (!c.sweep.up) {
 					inc *= -1;
+				}
 
 				c.freq += inc;
 				if (c.freq > 2047) {
@@ -211,31 +201,33 @@ struct APU {
 		}
 	}
 
-	private void update_square(int16_t[] samples, const bool ch2) nothrow @safe pure
-	{
-		uint32_t freq;
+	private void update_square(short[] samples, const bool ch2) nothrow @safe pure {
+		uint freq;
 		Channel* c = &chans[ch2];
 
-		if (!c.powered || !c.enabled)
+		if (!c.powered || !c.enabled) {
 			return;
+		}
 
 		freq = DMG_CLOCK_FREQ_U / ((2048 - c.freq) << 5);
 		set_note_freq(*c, freq);
 		c.freq_inc *= 8;
 
-		for (uint_fast16_t i = 0; i < AUDIO_NSAMPLES; i += 2) {
+		for (ushort i = 0; i < samples.length; i += 2) {
 			update_len(ch2);
 
-			if (!c.enabled)
+			if (!c.enabled) {
 				continue;
+			}
 
 			update_env(*c);
-			if (!ch2)
+			if (!ch2) {
 				update_sweep(*c);
+			}
 
-			uint32_t pos = 0;
-			uint32_t prev_pos = 0;
-			int32_t sample = 0;
+			uint pos = 0;
+			uint prev_pos = 0;
+			int sample = 0;
 
 			while (update_freq(*c, pos)) {
 				c.square.duty_counter = (c.square.duty_counter + 1) & 7;
@@ -246,8 +238,9 @@ struct APU {
 				prev_pos = pos;
 			}
 
-			if (c.muted)
+			if (c.muted) {
 				continue;
+			}
 
 			sample += c.val;
 			sample *= c.volume;
@@ -258,11 +251,10 @@ struct APU {
 		}
 	}
 
-	private uint8_t wave_sample(const uint pos, const uint volume) nothrow @safe pure
-	{
-		uint8_t sample;
+	private ubyte wave_sample(const uint pos, const uint volume) nothrow @safe pure {
+		ubyte sample;
 
-		sample =  audio_mem[(0xFF30 + pos / 2) - AUDIO_ADDR_COMPENSATION];
+		sample = audio_mem[(0xFF30 + pos / 2) - AUDIO_ADDR_COMPENSATION];
 		if (pos & 1) {
 			sample &= 0xF;
 		} else {
@@ -271,52 +263,54 @@ struct APU {
 		return volume ? (sample >> (volume - 1)) : 0;
 	}
 
-	private void update_wave(int16_t[] samples) nothrow @safe pure
-	{
-		uint32_t freq;
+	private void update_wave(short[] samples) nothrow @safe pure {
+		uint freq;
 		Channel *c = &chans[2];
 
-		if (!c.powered || !c.enabled)
+		if (!c.powered || !c.enabled) {
 			return;
+		}
 
 		freq = (DMG_CLOCK_FREQ_U / 64) / (2048 - c.freq);
 		set_note_freq(*c, freq);
 
 		c.freq_inc *= 32;
 
-		for (uint_fast16_t i = 0; i < AUDIO_NSAMPLES; i += 2) {
+		for (ushort i = 0; i < samples.length; i += 2) {
 			update_len(2);
 
-			if (!c.enabled)
+			if (!c.enabled) {
 				continue;
+			}
 
-			uint32_t pos      = 0;
-			uint32_t prev_pos = 0;
-			int32_t sample   = 0;
+			uint pos = 0;
+			uint prev_pos = 0;
+			int sample = 0;
 
 			c.wave.sample = wave_sample(c.val, c.volume);
 
 			while (update_freq(*c, pos)) {
 				c.val = (c.val + 1) & 31;
-				sample += ((pos - prev_pos) / c.freq_inc) *
-					(cast(int)c.wave.sample - 8) * (INT16_MAX/64);
+				sample += ((pos - prev_pos) / c.freq_inc) * (cast(int)c.wave.sample - 8) * (short.max/64);
 				c.wave.sample = wave_sample(c.val, c.volume);
-				prev_pos  = pos;
+				prev_pos = pos;
 			}
 
-			sample += (cast(int)c.wave.sample - 8) * (int)(INT16_MAX/64);
+			sample += (cast(int)c.wave.sample - 8) * (int)(short.max/64);
 
-			if (c.volume == 0)
+			if (c.volume == 0) {
 				continue;
+			}
 
 			{
 				/* First element is unused. */
-				int16_t[] div = [ INT16_MAX, 1, 2, 4 ];
+				short[] div = [ short.max, 1, 2, 4 ];
 				sample = sample / (div[c.volume]);
 			}
 
-			if (c.muted)
+			if (c.muted) {
 				continue;
+			}
 
 			sample /= 4;
 
@@ -325,50 +319,49 @@ struct APU {
 		}
 	}
 
-	private void update_noise(int16_t[] samples) nothrow @safe pure
-	{
+	private void update_noise(short[] samples) nothrow @safe pure {
 		Channel *c = &chans[3];
 
-		if (!c.powered)
+		if (!c.powered) {
 			return;
+		}
 
 		{
-			const uint32_t[] lfsr_div_lut = [
+			const uint[] lfsr_div_lut = [
 				8, 16, 32, 48, 64, 80, 96, 112
 			];
-			uint32_t freq;
+			uint freq;
 
 			freq = DMG_CLOCK_FREQ_U / (lfsr_div_lut[c.noise.lfsr_div] << c.freq);
 			set_note_freq(*c, freq);
 		}
 
-		if (c.freq >= 14)
+		if (c.freq >= 14) {
 			c.enabled = 0;
+		}
 
-		for (uint_fast16_t i = 0; i < AUDIO_NSAMPLES; i += 2) {
+		for (ushort i = 0; i < samples.length; i += 2) {
 			update_len(3);
 
-			if (!c.enabled)
+			if (!c.enabled) {
 				continue;
+			}
 
 			update_env(*c);
 
-			uint32_t pos      = 0;
-			uint32_t prev_pos = 0;
-			int32_t sample    = 0;
+			uint pos = 0;
+			uint prev_pos = 0;
+			int sample = 0;
 
 			while (update_freq(*c, pos)) {
-				c.noise.lfsr_reg = cast(ushort)((c.noise.lfsr_reg << 1) |
-								(c.val >= VOL_INIT_MAX/MAX_CHAN_VOLUME));
+				c.noise.lfsr_reg = cast(ushort)((c.noise.lfsr_reg << 1) | (c.val >= VOL_INIT_MAX/MAX_CHAN_VOLUME));
 
 				if (c.noise.lfsr_wide) {
-					c.val = !(((c.noise.lfsr_reg >> 14) & 1) ^
-							((c.noise.lfsr_reg >> 13) & 1)) ?
+					c.val = !(((c.noise.lfsr_reg >> 14) & 1) ^ ((c.noise.lfsr_reg >> 13) & 1)) ?
 						VOL_INIT_MAX / MAX_CHAN_VOLUME :
 						VOL_INIT_MIN / MAX_CHAN_VOLUME;
 				} else {
-					c.val = !(((c.noise.lfsr_reg >> 6) & 1) ^
-							((c.noise.lfsr_reg >> 5) & 1)) ?
+					c.val = !(((c.noise.lfsr_reg >> 6) & 1) ^ ((c.noise.lfsr_reg >> 5) & 1)) ?
 						VOL_INIT_MAX / MAX_CHAN_VOLUME :
 						VOL_INIT_MIN / MAX_CHAN_VOLUME;
 				}
@@ -377,8 +370,9 @@ struct APU {
 				prev_pos = pos;
 			}
 
-			if (c.muted)
+			if (c.muted) {
 				continue;
+			}
 
 			sample += c.val;
 			sample *= c.volume;
@@ -389,8 +383,7 @@ struct APU {
 		}
 	}
 
-	private void chan_trigger(uint_fast8_t i) nothrow @safe pure
-	{
+	private void chan_trigger(ubyte i) nothrow @safe pure {
 		Channel *c = &chans[i];
 
 		chan_enable(i, 1);
@@ -398,27 +391,25 @@ struct APU {
 
 		// volume envelope
 		{
-			uint8_t val =
-				audio_mem[(0xFF12 + (i * 5)) - AUDIO_ADDR_COMPENSATION];
+			ubyte val = audio_mem[(0xFF12 + (i * 5)) - AUDIO_ADDR_COMPENSATION];
 
 			c.env.step = val & 0x07;
-			c.env.up   = val & 0x08 ? 1 : 0;
-			c.env.inc  = c.env.step ?
-				(FREQ_INC_REF * 64uL) / (cast(uint32_t)c.env.step * AUDIO_SAMPLE_RATE) :
+			c.env.up = val & 0x08 ? 1 : 0;
+			c.env.inc = c.env.step ?
+				(FREQ_INC_REF * 64uL) / (cast(uint)c.env.step * AUDIO_SAMPLE_RATE) :
 				(8uL * FREQ_INC_REF) / AUDIO_SAMPLE_RATE ;
 			c.env.counter = 0;
 		}
 
 		// freq sweep
 		if (i == 0) {
-			uint8_t val = audio_mem[0xFF10 - AUDIO_ADDR_COMPENSATION];
+			ubyte val = audio_mem[0xFF10 - AUDIO_ADDR_COMPENSATION];
 
-			c.sweep.freq  = c.freq;
-			c.sweep.rate  = (val >> 4) & 0x07;
-			c.sweep.up    = !(val & 0x08);
+			c.sweep.freq = c.freq;
+			c.sweep.rate = (val >> 4) & 0x07;
+			c.sweep.up = !(val & 0x08);
 			c.sweep.shift = (val & 0x07);
-			c.sweep.inc   = c.sweep.rate ?
-				((128 * FREQ_INC_REF) / (c.sweep.rate * AUDIO_SAMPLE_RATE)) : 0;
+			c.sweep.inc = c.sweep.rate ? ((128 * FREQ_INC_REF) / (c.sweep.rate * AUDIO_SAMPLE_RATE)) : 0;
 			c.sweep.counter = FREQ_INC_REF;
 		}
 
@@ -437,14 +428,13 @@ struct APU {
 	}
 
 	/**
-	 * Read audio register.
-	 * \param addr	Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F.
-	 *				This is not checked in this function.
-	 * \return	Byte at address.
+	* Read audio register.
+	 * Params:
+	 *  addr = Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F. This is not checked in this function.
+	 * Returns: Byte at address.
 	 */
-	uint8_t audio_read(const uint16_t addr) nothrow @safe pure
-	{
-		static immutable uint8_t[] ortab = [
+	ubyte audio_read(const ushort addr) nothrow @safe pure {
+		static immutable ubyte[] ortab = [
 			0x80, 0x3f, 0x00, 0xff, 0xbf,
 			0xff, 0x3f, 0x00, 0xff, 0xbf,
 			0x7f, 0xff, 0x9f, 0xff, 0xbf,
@@ -455,28 +445,23 @@ struct APU {
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 		];
 
-		return audio_mem[addr - AUDIO_ADDR_COMPENSATION] |
-			ortab[addr - AUDIO_ADDR_COMPENSATION];
+		return audio_mem[addr - AUDIO_ADDR_COMPENSATION] | ortab[addr - AUDIO_ADDR_COMPENSATION];
 	}
 
 	/**
 	 * Write audio register.
-	 * \param addr	Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F.
-	 *				This is not checked in this function.
-	 * \param val	Byte to write at address.
+	 * Params:
+	 *  addr = Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F. This is not checked in this function.
+	 *  val = Byte to write at address.
 	 */
-	void audio_write(const uint16_t addr, const uint8_t val) nothrow @safe pure
-	{
+	void audio_write(const ushort addr, const ubyte val) nothrow @safe pure {
 		/* Find sound channel corresponding to register address. */
-		uint_fast8_t i;
+		ubyte i;
 
-		if(addr == 0xFF26)
-		{
+		if (addr == 0xFF26) {
 			audio_mem[addr - AUDIO_ADDR_COMPENSATION] = val & 0x80;
-			/* On APU power off, clear all registers apart from wave
-			 * RAM. */
-			if((val & 0x80) == 0)
-			{
+			// On APU power off, clear all registers apart from wave RAM.
+			if ((val & 0x80) == 0) {
 				audio_mem[0 .. 0xFF26 - AUDIO_ADDR_COMPENSATION] = 0;
 				chans[0].enabled = false;
 				chans[1].enabled = false;
@@ -488,8 +473,9 @@ struct APU {
 		}
 
 		/* Ignore register writes if APU powered off. */
-		if(audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] == 0x00)
+		if (audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] == 0x00) {
 			return;
+		}
 
 		audio_mem[addr - AUDIO_ADDR_COMPENSATION] = val;
 		i = cast(ubyte)((addr - AUDIO_ADDR_COMPENSATION) / 5);
@@ -499,7 +485,7 @@ struct APU {
 			case 0xFF17:
 			case 0xFF21:
 				chans[i].volume_init = val >> 4;
-				chans[i].powered     = (val >> 3) != 0;
+				chans[i].powered = (val >> 3) != 0;
 
 				// "zombie mode" stuff, needed for Prehistorik Man and probably
 				// others
@@ -524,7 +510,7 @@ struct APU {
 			case 0xFF11:
 			case 0xFF16:
 			case 0xFF20:
-				static immutable uint8_t[] duty_lookup = [ 0x10, 0x30, 0x3C, 0xCF ];
+				static immutable ubyte[] duty_lookup = [ 0x10, 0x30, 0x3C, 0xCF ];
 				chans[i].len.load = val & 0x3f;
 				chans[i].square.duty = duty_lookup[val >> 6];
 				break;
@@ -562,8 +548,8 @@ struct APU {
 				vol_r = (val & 0x07);
 				break;
 			case 0xFF25:
-				for (uint_fast8_t j = 0; j < 4; j++) {
-					chans[j].on_left  = (val >> (4 + j)) & 1;
+				for (ubyte j = 0; j < 4; j++) {
+					chans[j].on_left = (val >> (4 + j)) & 1;
 					chans[j].on_right = (val >> j) & 1;
 				}
 				break;
@@ -571,33 +557,27 @@ struct APU {
 		}
 	}
 
-	void initialize() @safe pure
-	{
+	void initialize() @safe pure {
 		/* Initialise channels and samples. */
 		chans = chans.init;
 		chans[0].val = chans[1].val = -1;
 
 		/* Initialise IO registers. */
 		{
-			const uint8_t[] regs_init = [ 0x80, 0xBF, 0xF3, 0xFF, 0x3F,
-						      0xFF, 0x3F, 0x00, 0xFF, 0x3F,
-						      0x7F, 0xFF, 0x9F, 0xFF, 0x3F,
-						      0xFF, 0xFF, 0x00, 0x00, 0x3F,
-						      0x77, 0xF3, 0xF1 ];
+			static immutable ubyte[] regs_init = [ 0x80, 0xBF, 0xF3, 0xFF, 0x3F, 0xFF, 0x3F, 0x00, 0xFF, 0x3F, 0x7F, 0xFF, 0x9F, 0xFF, 0x3F, 0xFF, 0xFF, 0x00, 0x00, 0x3F, 0x77, 0xF3, 0xF1 ];
 
-			for(uint_fast8_t i = 0; i < regs_init.sizeof; ++i)
-				audio_write(cast(ushort)(0xFF10 + i), regs_init[i]);
+			foreach(i, val; regs_init) {
+				audio_write(cast(ushort)(0xFF10 + i), val);
+			}
 		}
 
 		/* Initialise Wave Pattern RAM. */
 		{
-			const uint8_t[] wave_init = [ 0xac, 0xdd, 0xda, 0x48,
-						      0x36, 0x02, 0xcf, 0x16,
-						      0x2c, 0x04, 0xe5, 0x2c,
-						      0xac, 0xdd, 0xda, 0x48 ];
+			static immutable ubyte[] wave_init = [ 0xac, 0xdd, 0xda, 0x48, 0x36, 0x02, 0xcf, 0x16, 0x2c, 0x04, 0xe5, 0x2c, 0xac, 0xdd, 0xda, 0x48 ];
 
-			for(uint_fast8_t i = 0; i < wave_init.sizeof; ++i)
-				audio_write(cast(ushort)(0xFF30 + i), wave_init[i]);
+			foreach (i, val; wave_init) {
+				audio_write(cast(ushort)(0xFF30 + i), val);
+			}
 		}
 	}
 }
@@ -605,14 +585,20 @@ struct APU {
 /**
  * SDL2 style audio callback function.
  */
-void audioCallback(void *userdata, uint8_t[] stream) nothrow {
+void audioCallback(void *userdata, ubyte[] stream) nothrow {
+	import std.exception : assumeWontThrow;
+	import core.stdc.stdlib : exit;
 	auto apu = cast(APU*)userdata;
-	int16_t[] samples = cast(int16_t[])stream;
+	short[] samples = cast(short[])stream;
 
 	stream[] = 0;
-
-	apu.update_square(samples, 0);
-	apu.update_square(samples, 1);
-	apu.update_wave(samples);
-	apu.update_noise(samples);
+	try {
+		apu.update_square(samples, 0);
+		apu.update_square(samples, 1);
+		apu.update_wave(samples);
+		apu.update_noise(samples);
+	} catch (Throwable e) {
+		assumeWontThrow(criticalf("%s", e));
+		exit(1);
+	}
 }
