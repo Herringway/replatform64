@@ -124,13 +124,13 @@ struct APU {
 
 	private int32_t vol_l, vol_r;
 
-	private void set_note_freq(Channel *c, const uint32_t freq) nothrow
+	private void set_note_freq(ref Channel c, const uint32_t freq) nothrow @safe pure
 	{
 		/* Lowest expected value of freq is 64. */
 		c.freq_inc = freq * (uint32_t)(FREQ_INC_REF / AUDIO_SAMPLE_RATE);
 	}
 
-	private void chan_enable(const uint_fast8_t i, const bool enable) nothrow
+	private void chan_enable(const uint_fast8_t i, const bool enable) nothrow @safe pure
 	{
 		uint8_t val;
 
@@ -143,7 +143,7 @@ struct APU {
 		//audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] |= 0x80 | ((uint8_t)enable) << i;
 	}
 
-	private void update_env(Channel *c) nothrow
+	private void update_env(ref Channel c) nothrow @safe pure
 	{
 		c.env.counter += c.env.inc;
 
@@ -159,34 +159,34 @@ struct APU {
 		}
 	}
 
-	private void update_len(Channel *c) nothrow
+	private void update_len(size_t channel) nothrow @safe pure
 	{
-		if (!c.len.enabled)
+		if (!chans[channel].len.enabled)
 			return;
 
-		c.len.counter += c.len.inc;
-		if (c.len.counter > FREQ_INC_REF) {
-			chan_enable(cast(ubyte)(c - &chans[0]), 0);
-			c.len.counter = 0;
+		chans[channel].len.counter += chans[channel].len.inc;
+		if (chans[channel].len.counter > FREQ_INC_REF) {
+			chan_enable(cast(ubyte)channel, 0);
+			chans[channel].len.counter = 0;
 		}
 	}
 
-	private bool update_freq(Channel *c, uint32_t *pos) nothrow
+	private bool update_freq(ref Channel c, ref uint32_t pos) nothrow @safe pure
 	{
-		uint32_t inc = c.freq_inc - *pos;
+		uint32_t inc = c.freq_inc - pos;
 		c.freq_counter += inc;
 
 		if (c.freq_counter > FREQ_INC_REF) {
-			*pos		= c.freq_inc - (c.freq_counter - FREQ_INC_REF);
+			pos = c.freq_inc - (c.freq_counter - FREQ_INC_REF);
 			c.freq_counter = 0;
 			return true;
 		} else {
-			*pos = c.freq_inc;
+			pos = c.freq_inc;
 			return false;
 		}
 	}
 
-	private void update_sweep(Channel *c) nothrow
+	private void update_sweep(ref Channel c) nothrow @safe pure
 	{
 		c.sweep.counter += c.sweep.inc;
 
@@ -211,7 +211,7 @@ struct APU {
 		}
 	}
 
-	private void update_square(int16_t* samples, const bool ch2) nothrow
+	private void update_square(int16_t[] samples, const bool ch2) nothrow @safe pure
 	{
 		uint32_t freq;
 		Channel* c = &chans[ch2];
@@ -220,24 +220,24 @@ struct APU {
 			return;
 
 		freq = DMG_CLOCK_FREQ_U / ((2048 - c.freq) << 5);
-		set_note_freq(c, freq);
+		set_note_freq(*c, freq);
 		c.freq_inc *= 8;
 
 		for (uint_fast16_t i = 0; i < AUDIO_NSAMPLES; i += 2) {
-			update_len(c);
+			update_len(ch2);
 
 			if (!c.enabled)
 				continue;
 
-			update_env(c);
+			update_env(*c);
 			if (!ch2)
-				update_sweep(c);
+				update_sweep(*c);
 
 			uint32_t pos = 0;
 			uint32_t prev_pos = 0;
 			int32_t sample = 0;
 
-			while (update_freq(c, &pos)) {
+			while (update_freq(*c, pos)) {
 				c.square.duty_counter = (c.square.duty_counter + 1) & 7;
 				sample += ((pos - prev_pos) / c.freq_inc) * c.val;
 				c.val = (c.square.duty & (1 << c.square.duty_counter)) ?
@@ -258,7 +258,7 @@ struct APU {
 		}
 	}
 
-	private uint8_t wave_sample(const uint pos, const uint volume) nothrow
+	private uint8_t wave_sample(const uint pos, const uint volume) nothrow @safe pure
 	{
 		uint8_t sample;
 
@@ -271,7 +271,7 @@ struct APU {
 		return volume ? (sample >> (volume - 1)) : 0;
 	}
 
-	private void update_wave(int16_t *samples) nothrow
+	private void update_wave(int16_t[] samples) nothrow @safe pure
 	{
 		uint32_t freq;
 		Channel *c = &chans[2];
@@ -280,12 +280,12 @@ struct APU {
 			return;
 
 		freq = (DMG_CLOCK_FREQ_U / 64) / (2048 - c.freq);
-		set_note_freq(c, freq);
+		set_note_freq(*c, freq);
 
 		c.freq_inc *= 32;
 
 		for (uint_fast16_t i = 0; i < AUDIO_NSAMPLES; i += 2) {
-			update_len(c);
+			update_len(2);
 
 			if (!c.enabled)
 				continue;
@@ -296,7 +296,7 @@ struct APU {
 
 			c.wave.sample = wave_sample(c.val, c.volume);
 
-			while (update_freq(c, &pos)) {
+			while (update_freq(*c, pos)) {
 				c.val = (c.val + 1) & 31;
 				sample += ((pos - prev_pos) / c.freq_inc) *
 					(cast(int)c.wave.sample - 8) * (INT16_MAX/64);
@@ -325,7 +325,7 @@ struct APU {
 		}
 	}
 
-	private void update_noise(int16_t *samples) nothrow
+	private void update_noise(int16_t[] samples) nothrow @safe pure
 	{
 		Channel *c = &chans[3];
 
@@ -339,25 +339,25 @@ struct APU {
 			uint32_t freq;
 
 			freq = DMG_CLOCK_FREQ_U / (lfsr_div_lut[c.noise.lfsr_div] << c.freq);
-			set_note_freq(c, freq);
+			set_note_freq(*c, freq);
 		}
 
 		if (c.freq >= 14)
 			c.enabled = 0;
 
 		for (uint_fast16_t i = 0; i < AUDIO_NSAMPLES; i += 2) {
-			update_len(c);
+			update_len(3);
 
 			if (!c.enabled)
 				continue;
 
-			update_env(c);
+			update_env(*c);
 
 			uint32_t pos      = 0;
 			uint32_t prev_pos = 0;
 			int32_t sample    = 0;
 
-			while (update_freq(c, &pos)) {
+			while (update_freq(*c, pos)) {
 				c.noise.lfsr_reg = cast(ushort)((c.noise.lfsr_reg << 1) |
 								(c.val >= VOL_INIT_MAX/MAX_CHAN_VOLUME));
 
@@ -389,7 +389,7 @@ struct APU {
 		}
 	}
 
-	private void chan_trigger(uint_fast8_t i) nothrow
+	private void chan_trigger(uint_fast8_t i) nothrow @safe pure
 	{
 		Channel *c = &chans[i];
 
@@ -442,7 +442,7 @@ struct APU {
 	 *				This is not checked in this function.
 	 * \return	Byte at address.
 	 */
-	uint8_t audio_read(const uint16_t addr) nothrow
+	uint8_t audio_read(const uint16_t addr) nothrow @safe pure
 	{
 		static immutable uint8_t[] ortab = [
 			0x80, 0x3f, 0x00, 0xff, 0xbf,
@@ -465,7 +465,7 @@ struct APU {
 	 *				This is not checked in this function.
 	 * \param val	Byte to write at address.
 	 */
-	void audio_write(const uint16_t addr, const uint8_t val) nothrow
+	void audio_write(const uint16_t addr, const uint8_t val) nothrow @safe pure
 	{
 		/* Find sound channel corresponding to register address. */
 		uint_fast8_t i;
@@ -477,7 +477,7 @@ struct APU {
 			 * RAM. */
 			if((val & 0x80) == 0)
 			{
-				memset(&audio_mem[0], 0x00, 0xFF26 - AUDIO_ADDR_COMPENSATION);
+				audio_mem[0 .. 0xFF26 - AUDIO_ADDR_COMPENSATION] = 0;
 				chans[0].enabled = false;
 				chans[1].enabled = false;
 				chans[2].enabled = false;
@@ -571,10 +571,10 @@ struct APU {
 		}
 	}
 
-	void initialize()
+	void initialize() @safe pure
 	{
 		/* Initialise channels and samples. */
-		memset(&chans[0], 0, chans.sizeof);
+		chans = chans.init;
 		chans[0].val = chans[1].val = -1;
 
 		/* Initialise IO registers. */
@@ -607,9 +607,9 @@ struct APU {
  */
 void audioCallback(void *userdata, uint8_t[] stream) nothrow {
 	auto apu = cast(APU*)userdata;
-	int16_t *samples = cast(int16_t *)&stream[0];
+	int16_t[] samples = cast(int16_t[])stream;
 
-	memset(&stream[0], 0, stream.length);
+	stream[] = 0;
 
 	apu.update_square(samples, 0);
 	apu.update_square(samples, 1);
