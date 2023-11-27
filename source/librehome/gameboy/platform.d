@@ -129,6 +129,13 @@ struct GameBoySimple {
 		settings = allSettings.system;
 		return allSettings.game;
 	}
+	void saveSettings(T)(T gameSettings) {
+		static struct FullSettings {
+			Settings system;
+			T game;
+		}
+		FullSettings(settings, gameSettings).toFile!YAML(settingsFile);
+	}
 	void run() {
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
