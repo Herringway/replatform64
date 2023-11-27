@@ -146,7 +146,7 @@ struct GameBoySimple {
 		apu.initialize();
 		backend = new SDL2Platform;
 		backend.initialize();
-		backend.audio.initialize(&apu, &audioCallback, AUDIO_SAMPLE_RATE, 2);
+		backend.audio.initialize(&apu, &audioCallback, AUDIO_SAMPLE_RATE, 2, AUDIO_NSAMPLES);
 		backend.input.initialize(settings.input);
 		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer);
 

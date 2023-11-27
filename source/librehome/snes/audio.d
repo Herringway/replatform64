@@ -28,7 +28,7 @@ struct SPCPlayer {
 		this.backend = backend;
 		spc.snes_spc.initialize();
 		spc.filter = SPC_Filter();
-		this.backend.initialize(&spc, &output, 32000, 2);
+		this.backend.initialize(&spc, &output, 32000, 2, 512);
 	}
 	void load(ushort addr, scope const(ubyte)[] data) {
 		wrappedLoad(spcBuffer[], data, addr);

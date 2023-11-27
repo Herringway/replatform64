@@ -6,7 +6,7 @@ import librehome.ui;
 alias AudioCallback = void function(void*, ubyte[]) nothrow;
 alias DebugFunction = void function(const UIState);
 interface AudioBackend {
-	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels) @safe;
+	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels, uint samples) @safe;
 	void deinitialize() @safe;
 }
 
