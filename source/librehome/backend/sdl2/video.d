@@ -12,6 +12,7 @@ import ImGui = d_imgui;
 
 import bindbc.sdl;
 
+import std.algorithm.comparison;
 import std.logger;
 import std.string;
 
@@ -23,7 +24,6 @@ class SDL2Video : VideoBackend {
 	private WindowSettings settings;
 	private int lastTime;
 	private ImGui.ImGuiContext* context;
-	private enum debugWindowWidth = 150;
 	void initialize(typeof(debugging) debugFunc) @trusted {
 		enforceSDL(SDL_Init(SDL_INIT_VIDEO) == 0, "Error initializing SDL");
 		infof("SDL video subsystem initialized (%s)", SDL_GetCurrentVideoDriver().fromStringz);
@@ -33,15 +33,14 @@ class SDL2Video : VideoBackend {
 		in(settings.width > 0, "Zero width is invalid")
 		in(settings.height > 0, "Zero height is invalid")
 	{
-		settings.leftPadding += debugWindowWidth * settings.debugging;
 		enum windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
 		this.settings = settings;
 		window = SDL_CreateWindow(
 			title.toStringz,
 			SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED,
-			(settings.width + settings.leftPadding + settings.rightPadding) * settings.userSettings.zoom,
-			(settings.height + settings.topPadding + settings.bottomPadding) * settings.userSettings.zoom,
+			(settings.width + (250 * settings.debugging)) * max(settings.userSettings.uiZoom, settings.userSettings.zoom),
+			(settings.height + (150 * settings.debugging)) * max(settings.userSettings.uiZoom, settings.userSettings.zoom),
 			windowFlags
 		);
 		final switch (settings.userSettings.mode) {
@@ -60,9 +59,6 @@ class SDL2Video : VideoBackend {
 			window, -1, rendererFlags
 		);
 		enforceSDL(renderer !is null, "Error creating SDL renderer");
-		if (settings.userSettings.keepAspectRatio) {
-			SDL_RenderSetLogicalSize(renderer, settings.width + settings.leftPadding + settings.rightPadding, settings.height + settings.topPadding + settings.bottomPadding);
-		}
 		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 		SDL_RendererInfo renderInfo;
 		SDL_GetRendererInfo(renderer, &renderInfo);
@@ -75,8 +71,8 @@ class SDL2Video : VideoBackend {
 		io.IniFilename = "";
 
 		ImGui.StyleColorsDark();
-		ImGui.GetStyle().ScaleAllSizes(1.0 / settings.userSettings.zoom);
-		io.FontGlobalScale = 1.0 / settings.userSettings.zoom;
+		ImGui.GetStyle().ScaleAllSizes(settings.userSettings.uiZoom);
+		io.FontGlobalScale = settings.userSettings.uiZoom;
 
 		ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
 		ImGui_ImplSDLRenderer_Init(renderer);
@@ -110,21 +106,34 @@ class SDL2Video : VideoBackend {
 		ImGui.NewFrame();
 	}
 	void finishFrame() @trusted {
-
-		int width, height;
-		SDL_GL_GetDrawableSize(window, &width, &height);
-		if (debugging) {
-			debugging(UIState(debugWindowWidth, height));
+		UIState state;
+		const gameWidth = settings.width * settings.userSettings.zoom;
+		const gameHeight = settings.height * settings.userSettings.zoom;
+		state.scaleFactor = settings.userSettings.uiZoom;
+		SDL_GetWindowSize(window, &state.width, &state.height);
+		if (settings.debugging) {
+			ImGui.SetNextWindowSize(ImGui.ImVec2(gameWidth, gameHeight), ImGuiCond.FirstUseEver);
+			ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
+			ImGui.Image(cast(void*)drawTexture, ImGui.GetContentRegionAvail());
+			ImGui.End();
+			debugging(state);
+		} else {
+			ImGui.GetStyle().WindowPadding = ImVec2(0, 0);
+			ImGui.GetStyle().WindowBorderSize = 0;
+			ImGui.SetNextWindowSize(ImGui.ImVec2(state.width, state.height));
+			ImGui.SetNextWindowPos(ImGui.ImVec2(0, 0));
+			ImGui.Begin("Game", null, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoSavedSettings);
+			auto drawSize = ImGui.GetContentRegionAvail();
+			if (settings.userSettings.keepAspectRatio) {
+				const scaleFactor = min(state.width / cast(float)gameWidth, state.height / cast(float)gameHeight);
+				drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
+			}
+			ImGui.Image(cast(void*)drawTexture, drawSize);
+			ImGui.End();
 		}
 		ImGui.Render();
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui.GetDrawData());
 
-		SDL_Rect screen;
-		screen.x = settings.leftPadding;
-		screen.y = settings.rightPadding;
-		screen.w = settings.width;
-		screen.h = settings.height;
-		SDL_RenderCopy(renderer, drawTexture, null, &screen);
 		SDL_RenderPresent(renderer);
 	}
 	void createTexture(uint width, uint height, PixelFormat format) @trusted {

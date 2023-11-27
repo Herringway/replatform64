@@ -38,16 +38,13 @@ struct VideoSettings {
 	WindowMode mode;
 	bool keepAspectRatio = true;
 	uint zoom = 1;
+	uint uiZoom = 1;
 }
 
 struct WindowSettings {
 	VideoSettings userSettings;
 	uint width;
 	uint height;
-	uint leftPadding;
-	uint rightPadding;
-	uint topPadding;
-	uint bottomPadding;
 	bool debugging;
 }
 
