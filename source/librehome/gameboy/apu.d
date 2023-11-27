@@ -45,9 +45,6 @@ enum AUDIO_NSAMPLES = AUDIO_SAMPLES * 2;
 enum AUDIO_MEM_SIZE= 0xFF3F - 0xFF10 + 1;
 enum AUDIO_ADDR_COMPENSATION= 0xFF10;
 
-//#define MAX(a, b)		( a > b ? a : b )
-//#define MIN(a, b)		( a <= b ? a : b )
-
 enum VOL_INIT_MAX = short.max / 8;
 enum VOL_INIT_MIN = short.min / 8;
 
@@ -64,14 +61,14 @@ struct chan_len_ctr {
 	bool enabled;
 	uint32_t counter;
 	uint32_t inc;
-};
+}
 
 struct chan_vol_env {
 	uint8_t step;
 	bool up;
 	uint32_t counter;
 	uint32_t inc;
-};
+}
 
 struct chan_freq_sweep {
 	uint16_t freq;
@@ -80,7 +77,7 @@ struct chan_freq_sweep {
 	bool up;
 	uint32_t counter;
 	uint32_t inc;
-};
+}
 
 private struct Channel {
 	bool enabled;
