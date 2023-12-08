@@ -256,6 +256,9 @@ struct GameBoySimple {
 	void wait() {
 		Fiber.yield();
 	}
+	void waitHBlank() {
+		// do nothing, we don't enforce the read/writeability of the different PPU modes
+	}
 	ubyte[] vram() {
 		return renderer.ppu.vram;
 	}
