@@ -433,7 +433,7 @@ struct APU {
 	 *  addr = Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F. This is not checked in this function.
 	 * Returns: Byte at address.
 	 */
-	ubyte audio_read(const ushort addr) nothrow @safe pure {
+	ubyte read(const ushort addr) nothrow @safe pure {
 		static immutable ubyte[] ortab = [
 			0x80, 0x3f, 0x00, 0xff, 0xbf,
 			0xff, 0x3f, 0x00, 0xff, 0xbf,
@@ -454,7 +454,7 @@ struct APU {
 	 *  addr = Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F. This is not checked in this function.
 	 *  val = Byte to write at address.
 	 */
-	void audio_write(const ushort addr, const ubyte val) nothrow @safe pure {
+	void write(const ushort addr, const ubyte val) nothrow @safe pure {
 		/* Find sound channel corresponding to register address. */
 		ubyte i;
 
@@ -567,7 +567,7 @@ struct APU {
 			static immutable ubyte[] regs_init = [ 0x80, 0xBF, 0xF3, 0xFF, 0x3F, 0xFF, 0x3F, 0x00, 0xFF, 0x3F, 0x7F, 0xFF, 0x9F, 0xFF, 0x3F, 0xFF, 0xFF, 0x00, 0x00, 0x3F, 0x77, 0xF3, 0xF1 ];
 
 			foreach(i, val; regs_init) {
-				audio_write(cast(ushort)(0xFF10 + i), val);
+				write(cast(ushort)(0xFF10 + i), val);
 			}
 		}
 
@@ -576,7 +576,7 @@ struct APU {
 			static immutable ubyte[] wave_init = [ 0xac, 0xdd, 0xda, 0x48, 0x36, 0x02, 0xcf, 0x16, 0x2c, 0x04, 0xe5, 0x2c, 0xac, 0xdd, 0xda, 0x48 ];
 
 			foreach (i, val; wave_init) {
-				audio_write(cast(ushort)(0xFF30 + i), val);
+				write(cast(ushort)(0xFF30 + i), val);
 			}
 		}
 	}

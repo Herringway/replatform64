@@ -7,6 +7,7 @@ import librehome.gameboy.renderer;
 import librehome.backend.common;
 import librehome.backend.sdl2;
 
+import librehome.registers;
 import librehome.ui;
 
 import core.thread;
@@ -299,107 +300,73 @@ struct GameBoySimple {
 			APU* apu;
 			void opIndexAssign(ubyte val, size_t offset) {
 				infof("WRITE: %04X %02X", 0xFF30 + offset, val);
-				apu.audio_write(cast(ushort)(0xFF30 + offset), val);
+				apu.write(cast(ushort)(0xFF30 + offset), val);
 			}
 			ubyte opIndex(size_t offset) {
-				return apu.audio_read(cast(ushort)(0xFF30 + offset));
+				return apu.read(cast(ushort)(0xFF30 + offset));
 			}
 		}
 		return WaveRAM(&apu);
 	}
-	template Register(alias gb, ushort addr) {
-		static if ((addr >= GameBoyRegister.NR10) && (addr <= GameBoyRegister.NR52)) {
-			static ubyte Register() {
-				return gb.apu.audio_read(addr);
-			}
-			static void Register(ubyte val, string file = __FILE__, ulong line = __LINE__) {
-				infof("%s:%s WRITE: %04X %02X", file, line, addr, val);
-				gb.apu.audio_write(addr, val);
-			}
-		} else static if (addr == GameBoyRegister.SCY) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.scy;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.scy = val;
-			}
-		} else static if (addr == GameBoyRegister.SCX) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.scx;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.scx = val;
-			}
-		} else static if (addr == GameBoyRegister.WY) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.wy;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.wy = val;
-			}
-		} else static if (addr == GameBoyRegister.WX) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.wx;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.wx = val;
-			}
-		} else static if (addr == GameBoyRegister.STAT) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.stat;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.stat = val;
-			}
-		} else static if (addr == GameBoyRegister.LCDC) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.lcdc;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.lcdc = val;
-			}
-		} else static if (addr == GameBoyRegister.OBP0) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.obp0;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.obp0 = val;
-			}
-		} else static if (addr == GameBoyRegister.OBP1) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.obp1;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.obp1 = val;
-			}
-		} else static if (addr == GameBoyRegister.BGP) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.bgp;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.bgp = val;
-			}
-		} else static if (addr == GameBoyRegister.LY) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.ly;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.ly = val;
-			}
-		} else static if (addr == GameBoyRegister.LYC) {
-			static ubyte Register() {
-				return gb.renderer.ppu.registers.lyc;
-			}
-			static void Register(ubyte val) {
-				gb.renderer.ppu.registers.lyc = val;
-			}
-		} else { //unimplemented
-			static ubyte Register() {
-				return 0;
-			}
-			static void Register(ubyte val) {}
-		}
-	}
+	mixin RegisterRedirect!("SCX", "renderer.ppu.registers.scx");
+	mixin RegisterRedirect!("SCY", "renderer.ppu.registers.scy");
+	mixin RegisterRedirect!("WX", "renderer.ppu.registers.wx");
+	mixin RegisterRedirect!("WY", "renderer.ppu.registers.wy");
+	mixin RegisterRedirect!("LY", "renderer.ppu.registers.ly");
+	mixin RegisterRedirect!("LYC", "renderer.ppu.registers.lyc");
+	mixin RegisterRedirect!("LCDC", "renderer.ppu.registers.lcdc");
+	mixin RegisterRedirect!("STAT", "renderer.ppu.registers.stat");
+	mixin RegisterRedirect!("BGP", "renderer.ppu.registers.bgp");
+	mixin RegisterRedirect!("OBP0", "renderer.ppu.registers.obp0");
+	mixin RegisterRedirect!("OBP1", "renderer.ppu.registers.obp1");
+	mixin RegisterRedirect!("NR10", "apu", GameBoyRegister.NR10);
+	mixin RegisterRedirect!("NR11", "apu", GameBoyRegister.NR11);
+	mixin RegisterRedirect!("NR12", "apu", GameBoyRegister.NR12);
+	mixin RegisterRedirect!("NR13", "apu", GameBoyRegister.NR13);
+	mixin RegisterRedirect!("NR14", "apu", GameBoyRegister.NR14);
+	mixin RegisterRedirect!("NR21", "apu", GameBoyRegister.NR21);
+	mixin RegisterRedirect!("NR22", "apu", GameBoyRegister.NR22);
+	mixin RegisterRedirect!("NR23", "apu", GameBoyRegister.NR23);
+	mixin RegisterRedirect!("NR24", "apu", GameBoyRegister.NR24);
+	mixin RegisterRedirect!("NR30", "apu", GameBoyRegister.NR30);
+	mixin RegisterRedirect!("NR31", "apu", GameBoyRegister.NR31);
+	mixin RegisterRedirect!("NR32", "apu", GameBoyRegister.NR32);
+	mixin RegisterRedirect!("NR33", "apu", GameBoyRegister.NR33);
+	mixin RegisterRedirect!("NR34", "apu", GameBoyRegister.NR34);
+	mixin RegisterRedirect!("NR41", "apu", GameBoyRegister.NR41);
+	mixin RegisterRedirect!("NR42", "apu", GameBoyRegister.NR42);
+	mixin RegisterRedirect!("NR43", "apu", GameBoyRegister.NR43);
+	mixin RegisterRedirect!("NR44", "apu", GameBoyRegister.NR44);
+	mixin RegisterRedirect!("NR50", "apu", GameBoyRegister.NR50);
+	mixin RegisterRedirect!("NR51", "apu", GameBoyRegister.NR51);
+	mixin RegisterRedirect!("NR52", "apu", GameBoyRegister.NR52);
+	alias AUD1SWEEP = NR10;
+	alias AUD1LEN = NR11;
+	alias AUD1ENV = NR12;
+	alias AUD1LOW = NR13;
+	alias AUD1HIGH = NR14;
+	alias AUD2LEN = NR21;
+	alias AUD2ENV = NR22;
+	alias AUD2LOW = NR23;
+	alias AUD2HIGH = NR24;
+	alias AUD3ENA = NR30;
+	alias AUD3LEN = NR31;
+	alias AUD3LEVEL = NR32;
+	alias AUD3LOW = NR33;
+	alias AUD3HIGH = NR34;
+	alias AUD4LEN = NR41;
+	alias AUD4ENV = NR42;
+	alias AUD4POLY = NR43;
+	alias AUD4GO = NR44;
+	alias AUDVOL = NR50;
+	alias AUDTERM = NR51;
+	alias AUDENA = NR52;
+	ubyte IF; /// NYI
+	ubyte IE; /// NYI
+	ubyte SB; /// NYI
+	ubyte SC; /// NYI
+	ubyte TMA; /// NYI
+	ubyte DIV; /// NYI
 }
 
 
