@@ -1,4 +1,4 @@
-module librehome.snes.common;
+module librehome.common;
 
 import std.algorithm.comparison;
 

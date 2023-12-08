@@ -1,7 +1,7 @@
 module librehome.snes.audio;
 
 import librehome.backend.common;
-import librehome.snes.common;
+import librehome.common;
 
 import spc700;
 
