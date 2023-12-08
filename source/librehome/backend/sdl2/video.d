@@ -169,4 +169,7 @@ class SDL2Video : VideoBackend {
 	void handleUIEvent(SDL_Event* event) {
 		ImGui_ImplSDL2_ProcessEvent(event);
 	}
+	void setTitle(scope const char[] title) @trusted {
+		SDL_SetWindowTitle(window, title.toStringz);
+	}
 }

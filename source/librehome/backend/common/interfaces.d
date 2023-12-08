@@ -19,6 +19,7 @@ interface VideoBackend {
 	void startFrame() @safe;
 	void finishFrame() @safe;
 	void waitNextFrame() @safe;
+	void setTitle(scope const char[] title) @safe;
 }
 interface InputBackend {
 	void initialize(InputSettings) @safe;
