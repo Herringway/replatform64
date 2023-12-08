@@ -113,6 +113,7 @@ struct GameBoySimple {
 	LCDYUpdateStrategy lcdYUpdateStrategy;
 	uint seed = 0x12345678;
 	GameBoyModel model;
+	uint saveSize;
 	private Random rng;
 	private Settings settings;
 	private Renderer renderer;
@@ -264,12 +265,18 @@ struct GameBoySimple {
 		}
 		return originalData;
 	}
+	void enableSRAM(T)() {
+		enableSRAM!T(saveSize);
+	}
 	void enableSRAM(T)(size_t size) {
 		if (settings.yamlSave) {
 			loadSRAMSerialized!T();
 		} else {
 			loadSRAM(size);
 		}
+	}
+	void disableSRAM(T)() {
+		disableSRAM!T(saveSize);
 	}
 	void disableSRAM(T)(size_t size) {
 		if (settings.yamlSave) {
