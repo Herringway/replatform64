@@ -10,6 +10,10 @@ import librehome.backend.sdl2;
 import librehome.registers;
 import librehome.ui;
 
+import d_imgui.imgui_h;
+import ImGui = d_imgui;
+import imgui.hexeditor;
+
 import core.thread;
 import std.file;
 import std.logger;
@@ -116,6 +120,10 @@ struct GameBoySimple {
 	private PlatformBackend backend;
 	private const(ubyte)[] originalData;
 	private ubyte[] sramBuffer;
+	private bool vramEditorActive;
+	private MemoryEditor memoryEditorVRAM;
+	private bool oamEditorActive;
+	private MemoryEditor memoryEditorOAM;
 	T loadSettings(T)() {
 		static struct FullSettings {
 			Settings system;
@@ -138,6 +146,14 @@ struct GameBoySimple {
 		FullSettings(settings, gameSettings).toFile!YAML(settingsFile);
 	}
 	void run() {
+		static void initMemoryEditor(ref MemoryEditor editor) {
+			editor.Cols = 8;
+			editor.OptShowOptions = false;
+			editor.OptShowDataPreview = false;
+			editor.OptShowAscii = false;
+		}
+		initMemoryEditor(memoryEditorVRAM);
+		initMemoryEditor(memoryEditorOAM);
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
@@ -149,7 +165,7 @@ struct GameBoySimple {
 		backend.initialize();
 		backend.audio.initialize(&apu, &audioCallback, AUDIO_SAMPLE_RATE, 2, AUDIO_NSAMPLES);
 		backend.input.initialize(settings.input);
-		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer);
+		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer, &commonGBDebugging);
 
 		while (true) {
 			if (backend.processEvents()) {
@@ -294,6 +310,22 @@ struct GameBoySimple {
 		if (state.controllers[0] & ControllerMask.down) { pad |= Pad.down; }
 		if (state.controllers[0] & ControllerMask.left) { pad |= Pad.left; }
 		if (state.controllers[0] & ControllerMask.right) { pad |= Pad.right; }
+	}
+	private void commonGBDebugging(const UIState state) {
+		if (ImGui.BeginMainMenuBar()) {
+			if (ImGui.BeginMenu("RAM")) {
+				ImGui.MenuItem("VRAM", null, &vramEditorActive);
+				ImGui.MenuItem("OAM", null, &oamEditorActive);
+				ImGui.EndMenu();
+			}
+			ImGui.EndMainMenuBar();
+		}
+		if (vramEditorActive) {
+			vramEditorActive = memoryEditorVRAM.DrawWindow("VRAM", vram[0x8000 .. 0xA000]);
+		}
+		if (oamEditorActive) {
+			oamEditorActive = memoryEditorOAM.DrawWindow("OAM", vram[0xFE00 .. 0xFEA0]);
+		}
 	}
 	ref auto waveRAM() {
 		static struct WaveRAM {

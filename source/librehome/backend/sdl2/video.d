@@ -18,16 +18,18 @@ import std.string;
 
 class SDL2Video : VideoBackend {
 	private DebugFunction debugging;
+	private DebugFunction platformDebugging;
 	private SDL_Window* window;
 	private SDL_Renderer* renderer;
 	private SDL_Texture* drawTexture;
 	private WindowSettings settings;
 	private int lastTime;
 	private ImGui.ImGuiContext* context;
-	void initialize(typeof(debugging) debugFunc) @trusted {
+	void initialize(DebugFunction debugFunc, DebugFunction platformDebugFunc) @trusted {
 		enforceSDL(SDL_Init(SDL_INIT_VIDEO) == 0, "Error initializing SDL");
 		infof("SDL video subsystem initialized (%s)", SDL_GetCurrentVideoDriver().fromStringz);
 		debugging = debugFunc;
+		platformDebugging = platformDebugFunc;
 	}
 	void createWindow(string title, WindowSettings settings) @trusted
 		in(settings.width > 0, "Zero width is invalid")
@@ -116,6 +118,10 @@ class SDL2Video : VideoBackend {
 			ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
 			ImGui.Image(cast(void*)drawTexture, ImGui.GetContentRegionAvail());
 			ImGui.End();
+			if (ImGui.BeginMainMenuBar()) {
+				ImGui.EndMainMenuBar();
+			}
+			platformDebugging(state);
 			debugging(state);
 		} else {
 			ImGui.GetStyle().WindowPadding = ImVec2(0, 0);

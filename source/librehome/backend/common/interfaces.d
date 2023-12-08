@@ -4,14 +4,14 @@ public import librehome.backend.common.inputconstants;
 import librehome.ui;
 
 alias AudioCallback = void function(void*, ubyte[]);
-alias DebugFunction = void function(const UIState);
+alias DebugFunction = void delegate(const UIState);
 interface AudioBackend {
 	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels, uint samples) @safe;
 	void deinitialize() @safe;
 }
 
 interface VideoBackend {
-	void initialize(DebugFunction) @safe;
+	void initialize(DebugFunction, DebugFunction) @safe;
 	void deinitialize() @safe;
 	void getDrawingTexture(out Texture texture) @safe;
 	void createWindow(string title, WindowSettings settings) @safe;

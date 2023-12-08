@@ -13,14 +13,14 @@ struct Renderer {
 	enum width = PPU.width;
 	enum height = PPU.height;
 	private VideoBackend backend;
-	void initialize(string title, VideoSettings settings, VideoBackend newBackend, bool debugging, DebugFunction debugFunc) {
+	void initialize(string title, VideoSettings settings, VideoBackend newBackend, bool debugging, DebugFunction debugFunc, DebugFunction platformDebugFunc) {
 		WindowSettings window;
 		window.width = width;
 		window.height = height;
 		window.userSettings = settings;
 		window.debugging = debugging;
 		backend = newBackend;
-		backend.initialize(debugFunc);
+		backend.initialize(debugFunc, platformDebugFunc);
 		backend.createWindow(title, window);
 		backend.createTexture(width, height, PixelFormat.rgb555);
 	}

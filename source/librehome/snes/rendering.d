@@ -53,7 +53,7 @@ struct SNESRenderer {
 		settings.width = width;
 		settings.height = height;
 		backend = newBackend;
-		backend.initialize(null);
+		backend.initialize(null, null);
 		backend.createWindow(title, settings);
 		backend.createTexture(width, height, textureType);
 	}
