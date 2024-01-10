@@ -19,21 +19,29 @@ import std.string;
 class SDL2Video : VideoBackend {
 	private DebugFunction debugging;
 	private DebugFunction platformDebugging;
+	private DebugFunction gameStateDebugging;
+	private DebugFunction platformStateDebugging;
 	private SDL_Window* window;
 	private SDL_Renderer* renderer;
 	private SDL_Texture* drawTexture;
 	private WindowSettings settings;
 	private int lastTime;
 	private ImGui.ImGuiContext* context;
-	void initialize(DebugFunction debugFunc, DebugFunction platformDebugFunc) @trusted {
+	private bool renderUI = true;
+	void initialize() @trusted {
 		enforceSDL(SDL_Init(SDL_INIT_VIDEO) == 0, "Error initializing SDL");
 		infof("SDL video subsystem initialized (%s)", SDL_GetCurrentVideoDriver().fromStringz);
+	}
+	void setDebuggingFunctions(DebugFunction debugFunc, DebugFunction platformDebugFunc, DebugFunction gameStateMenu, DebugFunction platformStateMenu) @safe {
 		debugging = debugFunc;
 		platformDebugging = platformDebugFunc;
+		this.gameStateDebugging = gameStateMenu;
+		this.platformStateDebugging = platformStateMenu;
 	}
 	void createWindow(string title, WindowSettings settings) @trusted
 		in(settings.width > 0, "Zero width is invalid")
 		in(settings.height > 0, "Zero height is invalid")
+		in(settings.userSettings.uiZoom > 0, "Zoom is invalid")
 	{
 		enum windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
 		this.settings = settings;
@@ -41,8 +49,8 @@ class SDL2Video : VideoBackend {
 			title.toStringz,
 			SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED,
-			(settings.width + (250 * settings.debugging)) * max(settings.userSettings.uiZoom, settings.userSettings.zoom),
-			(settings.height + (150 * settings.debugging)) * max(settings.userSettings.uiZoom, settings.userSettings.zoom),
+			(settings.width + (250 * settings.debugging)) * max(1, settings.userSettings.uiZoom, settings.userSettings.zoom),
+			(settings.height + (150 * settings.debugging)) * max(1, settings.userSettings.uiZoom, settings.userSettings.zoom),
 			windowFlags
 		);
 		final switch (settings.userSettings.mode) {
@@ -113,29 +121,50 @@ class SDL2Video : VideoBackend {
 		const gameHeight = settings.height * settings.userSettings.zoom;
 		state.scaleFactor = settings.userSettings.uiZoom;
 		SDL_GetWindowSize(window, &state.width, &state.height);
-		if (settings.debugging) {
-			ImGui.SetNextWindowSize(ImGui.ImVec2(gameWidth, gameHeight), ImGuiCond.FirstUseEver);
-			ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
-			ImGui.Image(cast(void*)drawTexture, ImGui.GetContentRegionAvail());
-			ImGui.End();
-			if (ImGui.BeginMainMenuBar()) {
-				ImGui.EndMainMenuBar();
+		if (renderUI) {
+			if (settings.debugging) {
+				ImGui.SetNextWindowSize(ImGui.ImVec2(gameWidth, gameHeight), ImGuiCond.FirstUseEver);
+				ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
+				ImGui.Image(cast(void*)drawTexture, ImGui.GetContentRegionAvail());
+				ImGui.End();
+				int areaHeight;
+				if (ImGui.BeginMainMenuBar()) {
+					areaHeight = cast(int)ImGui.GetWindowSize().y;
+					ImGui.EndMainMenuBar();
+				}
+				if (platformDebugging) {
+					platformDebugging(state);
+				}
+				if (debugging) {
+					debugging(state);
+				}
+				if (platformStateDebugging) {
+					ImGui.Begin("Platform", null, ImGuiWindowFlags.None);
+					platformStateDebugging(state);
+					ImGui.End();
+				}
+				if (gameStateDebugging) {
+					enum debugWidth = 500;
+					ImGui.SetNextWindowSize(ImGui.ImVec2(debugWidth, state.height - (areaHeight - 1)));
+					ImGui.SetNextWindowPos(ImGui.ImVec2(0, areaHeight - 1));
+					ImGui.Begin("Debugging", null, ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoBringToFrontOnFocus);
+					gameStateDebugging(UIState(debugWidth, state.height - areaHeight - 1, state.scaleFactor));
+					ImGui.End();
+				}
+			} else {
+				ImGui.GetStyle().WindowPadding = ImVec2(0, 0);
+				ImGui.GetStyle().WindowBorderSize = 0;
+				ImGui.SetNextWindowSize(ImGui.ImVec2(state.width, state.height));
+				ImGui.SetNextWindowPos(ImGui.ImVec2(0, 0));
+				ImGui.Begin("Game", null, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoSavedSettings);
+				auto drawSize = ImGui.GetContentRegionAvail();
+				if (settings.userSettings.keepAspectRatio) {
+					const scaleFactor = min(state.width / cast(float)gameWidth, state.height / cast(float)gameHeight);
+					drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
+				}
+				ImGui.Image(cast(void*)drawTexture, drawSize);
+				ImGui.End();
 			}
-			platformDebugging(state);
-			debugging(state);
-		} else {
-			ImGui.GetStyle().WindowPadding = ImVec2(0, 0);
-			ImGui.GetStyle().WindowBorderSize = 0;
-			ImGui.SetNextWindowSize(ImGui.ImVec2(state.width, state.height));
-			ImGui.SetNextWindowPos(ImGui.ImVec2(0, 0));
-			ImGui.Begin("Game", null, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoSavedSettings);
-			auto drawSize = ImGui.GetContentRegionAvail();
-			if (settings.userSettings.keepAspectRatio) {
-				const scaleFactor = min(state.width / cast(float)gameWidth, state.height / cast(float)gameHeight);
-				drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
-			}
-			ImGui.Image(cast(void*)drawTexture, drawSize);
-			ImGui.End();
 		}
 		ImGui.Render();
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui.GetDrawData());
@@ -158,6 +187,8 @@ class SDL2Video : VideoBackend {
 		int pitch;
 		SDL_LockTexture(drawTexture, null, cast(void**)&drawBuffer, &pitch);
 		result.pitch = pitch;
+		result.width = settings.width;
+		result.height = settings.height;
 		result.buffer = drawBuffer[0 .. settings.height * result.pitch];
 		result.cleanup = &freeTexture;
 	}
@@ -177,5 +208,11 @@ class SDL2Video : VideoBackend {
 	}
 	void setTitle(scope const char[] title) @trusted {
 		SDL_SetWindowTitle(window, title.toStringz);
+	}
+	void showUI() @safe {
+		renderUI = true;
+	}
+	void hideUI() @safe {
+		renderUI = false;
 	}
 }

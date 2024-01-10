@@ -20,7 +20,8 @@ struct Renderer {
 		window.userSettings = settings;
 		window.debugging = debugging;
 		backend = newBackend;
-		backend.initialize(debugFunc, platformDebugFunc);
+		backend.initialize();
+		backend.setDebuggingFunctions(debugFunc, platformDebugFunc, null, null);
 		backend.createWindow(title, window);
 		backend.createTexture(width, height, PixelFormat.rgb555);
 	}

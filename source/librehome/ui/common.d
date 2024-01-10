@@ -1,5 +1,9 @@
 module librehome.ui.common;
 
+import std.traits;
+
+import librehome.common;
+
 import d_imgui.imgui_h;
 import ImGui = d_imgui;
 
@@ -7,6 +11,13 @@ struct UIState {
 	int width;
 	int height;
 	float scaleFactor;
+}
+
+void InputEditable(alias var, ImGuiInputTextFlags flags = ImGuiInputTextFlags.None)() {
+	static if (hasUDA!(var, DebugState)) {
+		enum label = getUDAs!(var, DebugState)[0].label;
+	}
+	InputEditable!flags(label, var);
 }
 
 void InputEditable(E, ImGuiInputTextFlags flags = ImGuiInputTextFlags.None, T)(string label, ref T value) {

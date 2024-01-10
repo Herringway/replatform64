@@ -82,6 +82,8 @@ struct MemoryEditor {
     int             OptAddrDigitsCount = 0;                         // = 0      // number of addr digits to display (default calculated based on maximum displayed addr).
     float           OptFooterExtraHeight = 0.0f;                       // = 0      // space to reserve at the bottom of the widget to add custom widgets
     ImU32           HighlightColor = IM_COL32(255, 255, 255, 50);                             //          // background color of highlighted bytes.
+    bool            Dumpable = true;
+    string            DumpFile;
     ImU8            function(const ImU8* data, size_t off) ReadFn;    // = 0      // optional handler to read bytes.
     void            function(ImU8* data, size_t off, ImU8 d) WriteFn; // = 0      // optional handler to write bytes.
     bool            function(const ImU8* data, size_t off) HighlightFn;//= 0      // optional handler to return Highlight property (to support non-contiguous highlighting).
@@ -185,6 +187,8 @@ struct MemoryEditor {
         const float height_separator = style.ItemSpacing.y;
         float footer_height = OptFooterExtraHeight;
         if (OptShowOptions)
+            footer_height += height_separator + ImGui.GetFrameHeightWithSpacing() * 1;
+        if (Dumpable)
             footer_height += height_separator + ImGui.GetFrameHeightWithSpacing() * 1;
         if (OptShowDataPreview)
             footer_height += height_separator + ImGui.GetFrameHeightWithSpacing() * 1 + ImGui.GetTextLineHeightWithSpacing() * 3;
@@ -402,6 +406,16 @@ struct MemoryEditor {
         {
             Separator();
             DrawOptionsLine(s, mem_data, base_display_addr);
+        }
+        if (Dumpable)
+        {
+            Separator();
+            if (Button("Dump")) {
+                import librehome.dumping : prepareDumpBase;
+                import std.path : buildPath;
+                import std.stdio : File;
+                File(buildPath(prepareDumpBase(), DumpFile), "wb").rawWrite(mem_data_void);
+            }
         }
 
         if (lock_show_data_preview)

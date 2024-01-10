@@ -2,12 +2,14 @@ module librehome.backend.sdl2.audio;
 
 import librehome.backend.common;
 import librehome.backend.sdl2.common;
+import librehome.watchdog;
 
 import std.logger;
 import std.string;
 
 import bindbc.sdl;
 import sdl_mixer;
+
 
 version(Windows) {
 	enum libName = "SDL2_mixer.dll";
@@ -34,9 +36,16 @@ class SDL2Audio : AudioBackend {
 		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
 	}
 	void deinitialize() @safe {}
+	void loadWAV(const ubyte[] data) @trusted {
+		tracef("No WAV support");
+	}
+	void playWAV(size_t id) @trusted {
+		tracef("No WAV support");
+	}
 }
 
 class SDL2AudioMixer : AudioBackend {
+	Mix_Chunk*[] loadedWAVs;
 	void initialize(void* user, AudioCallback fun, uint sampleRate, uint channels, uint samples) @trusted {
 		assert(SDL_GetError !is null, "SDL is not loaded!");
 		enforceSDLLoaded!("SDL_Mixer", Mix_Linked_Version, libName)(loadSDLMixer());
@@ -51,6 +60,21 @@ class SDL2AudioMixer : AudioBackend {
 		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
 	}
 	void deinitialize() @safe {}
+	void loadWAV(const ubyte[] data) @trusted {
+		loadedWAVs ~= Mix_LoadWAV_RW(SDL_RWFromMem(cast(void*)&data[0], cast(int)data.length), 0);
+	}
+	void playWAV(size_t id) @trusted {
+		const channel = 0;
+		if (id == 0) {
+			if(Mix_FadeOutChannel(0, 0) == -1) {
+				SDLError("Could not fade out");
+			}
+		} else {
+			if(Mix_PlayChannel(channel, loadedWAVs[id], 0) == -1) {
+				SDLError("Could not play sound effect");
+			}
+		}
+	}
 }
 
 private __gshared AudioCallback callback;
@@ -62,7 +86,6 @@ private extern(C) void callbackWrapper(void* extra, ubyte* buf, int length) noth
 		assert(callback);
 		callback(extra, buf[0 .. length]);
 	} catch (Throwable e) {
-		assumeWontThrow(criticalf("%s", e));
-		exit(1);
+		writeDebugDumpOtherThread(e.msg, e.info);
 	}
 }

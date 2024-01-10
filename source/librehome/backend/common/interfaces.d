@@ -8,10 +8,13 @@ alias DebugFunction = void delegate(const UIState);
 interface AudioBackend {
 	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels, uint samples) @safe;
 	void deinitialize() @safe;
+	void loadWAV(const ubyte[] data) @safe;
+	void playWAV(size_t id) @safe;
 }
 
 interface VideoBackend {
-	void initialize(DebugFunction, DebugFunction) @safe;
+	void initialize() @safe;
+	void setDebuggingFunctions(DebugFunction, DebugFunction, DebugFunction, DebugFunction) @safe;
 	void deinitialize() @safe;
 	void getDrawingTexture(out Texture texture) @safe;
 	void createWindow(string title, WindowSettings settings) @safe;
@@ -20,6 +23,8 @@ interface VideoBackend {
 	void finishFrame() @safe;
 	void waitNextFrame() @safe;
 	void setTitle(scope const char[] title) @safe;
+	void hideUI() @safe;
+	void showUI() @safe;
 }
 interface InputBackend {
 	void initialize(InputSettings) @safe;
@@ -58,6 +63,8 @@ struct InputSettings {
 struct Texture {
 	ubyte[] buffer;
 	uint pitch;
+	uint width;
+	uint height;
 	void delegate() @safe nothrow @nogc cleanup;
 	~this() {
 		cleanup();

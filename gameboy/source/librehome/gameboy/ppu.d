@@ -48,6 +48,8 @@ struct PPU {
 		ubyte wy;
 		ubyte wx;
 	}
+	enum fullTileWidth = 32;
+	enum fullTileHeight = 32;
 	enum width = 160;
 	enum height = 144;
 	Registers registers;
@@ -57,17 +59,17 @@ struct PPU {
 	private ubyte scanline;
 	private ubyte[] pixels;
 	private size_t stride;
-	private OAMEntry[] oam;
+	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
 		const baseX = registers.scx;
 		const baseY = registers.scy + scanline;
 		auto pixelRow = cast(ushort[])(pixels[scanline * stride .. (scanline + 1) * stride]);
-		const tilemapBase = ((baseY / 8) % 32) * 32;
-		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + 32];
+		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
+		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
 		lineLoop: foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
-			foreach (idx, sprite; oam) {
+			foreach (idx, sprite; oamSorted) {
 				if (scanline.inRange(sprite.y - 16, sprite.y - ((registers.lcdc & LCDCFlags.tallSprites) ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
 					auto xpos = x - (sprite.x - 8);
 					auto ypos = (scanline - (sprite.y - 16));
@@ -91,7 +93,7 @@ struct PPU {
 				}
 			}
 			if (highestMatchingSprite != size_t.max) {
-				const sprite = oam[highestMatchingSprite];
+				const sprite = oamSorted[highestMatchingSprite];
 				auto xpos = x - (sprite.x - 8);
 				auto ypos = (scanline - (sprite.y - 16));
 				if (sprite.flags & OAMFlags.xFlip) {
@@ -109,8 +111,8 @@ struct PPU {
 			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (scanline >= registers.wy)) {
 				const finalX = x - (registers.wx - 7);
 				const finalY = scanline - registers.wy;
-				const windowTilemapBase = ((registers.lcdc & LCDCFlags.windowTilemap) ? 0x9C00 : 0x9800) + (finalY / 8) * 32;
-				const windowTilemapRow = vram[windowTilemapBase .. windowTilemapBase + 32];
+				const windowTilemapBase = (finalY / 8) * 32;
+				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
 				pixelRow[x] = getColour(getPixel(getTile(windowTilemapRow[finalX / 8], true)[finalY % 8], finalX % 8));
 			} else {
 				const finalX = baseX + x;
@@ -122,28 +124,42 @@ struct PPU {
 	ubyte[] bgScreen() @safe pure {
 		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
 	}
+	ubyte[] tileBlockA() @safe pure {
+		return vram[0x8000 .. 0x8800];
+	}
+	ubyte[] tileBlockB() @safe pure {
+		return vram[0x8800 .. 0x9000];
+	}
+	ubyte[] tileBlockC() @safe pure {
+		return vram[0x9000 .. 0x9800];
+	}
 	ubyte[] screenA() @safe pure {
 		return vram[0x9800 .. 0x9C00];
 	}
 	ubyte[] screenB() @safe pure {
 		return vram[0x9C00 .. 0xA000];
 	}
+	ubyte[] oam() @safe pure {
+		return vram[0xFE00 .. 0xFE00 + 40 * OAMEntry.sizeof];
+	}
+	ubyte[] windowScreen() @safe pure {
+		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenB : screenA;
+	}
 	ushort getColour(int b) @safe pure {
 		const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
 		return gbPalette[paletteMap];
 	}
 	ushort[8] getTile(short id, bool useLCDC) @safe pure {
-		const useAlternate = useLCDC && !(registers.lcdc & LCDCFlags.useAltBG);
-		ushort base = useAlternate ? cast(ushort)(0x9000 + (cast(byte)id) * 16) : cast(ushort)(0x8000 + id*16);
-		return (cast(ushort[8][])(vram[base .. base + 16]))[0];
+		const tileBlock = (id > 127) ? tileBlockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? tileBlockC : tileBlockA));
+		return (cast(const(ushort[8])[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
-		oam = cast(OAMEntry[])(vram[0xFE00 .. 0xFE00 + 40 * OAMEntry.sizeof]);
+		oamSorted = cast(OAMEntry[])oam;
 		// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
 		// allows priority to be determined just by picking the first matching entry instead of iterating the entire array
 		version(assumeOAMImmutableDiscarded) {
 			import std.algorithm.sorting : sort;
-			sort!((a, b) => a.x < b.x)(oam);
+			sort!((a, b) => a.x < b.x)(oamSorted);
 		}
 		scanline = 0;
 		this.pixels = pixels;

@@ -1,8 +1,15 @@
-module librehome.snes.watchdog;
+module librehome.watchdog;
+
+import librehome.backend.common;
+
+import arsd.png;
 
 import core.stdc.stdlib;
 import core.thread;
 import core.time;
+import std.format;
+import std.logger;
+import std.path;
 
 version(Windows) {
 	import core.sys.windows.stacktrace;
@@ -16,6 +23,14 @@ private Thread watchThread;
 ///
 shared SimpleWatchDog watchDog;
 
+private shared string otherThreadCrashMsg;
+private shared Throwable.TraceInfo otherThreadCrashTrace;
+private shared bool otherThreadCrashed;
+
+alias CrashHandler = void delegate(string);
+
+CrashHandler crashHandler;
+
 ///
 struct SimpleWatchDog {
 	private MonoTime lastPetting;
@@ -23,7 +38,11 @@ struct SimpleWatchDog {
 		private DWORD watchThread;
 	}
 	/// Pet the watchdog, so it knows that the thread is okay
-	void pet() shared @safe {
+	void pet() shared @trusted {
+		if (otherThreadCrashed) {
+			writeDebugDump(cast()otherThreadCrashMsg, cast()otherThreadCrashTrace);
+			exit(1);
+		}
 		lastPetting = MonoTime.currTime();
 	}
 	/// Whether or not the watchdog is alarmed by a lack of pets in the last few seconds.
@@ -43,7 +62,7 @@ struct SimpleWatchDog {
 			// get thread context and create stack trace from it
 			GetThreadContext(thread, &context);
 			scope stackTrace = new StackTrace(0, &context);
-			//writeDebugDump("Hang detected", stackTrace);
+			writeDebugDump("Hang detected", stackTrace);
 		}
 	}
 }
@@ -66,4 +85,27 @@ void startWatchDog() {
 	}
 	watchThread = new Thread(&watchGameLogic).start;
 	watchThread.isDaemon = true;
+}
+
+noreturn writeDebugDumpOtherThread(string msg, Throwable.TraceInfo traceInfo) nothrow {
+	otherThreadCrashMsg = msg;
+	otherThreadCrashTrace = cast(shared)traceInfo;
+	otherThreadCrashed = true;
+	while(true) {}
+}
+void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
+	import std.datetime : Clock;
+	import std.file : mkdirRecurse;
+	import std.path : absolutePath, buildNormalizedPath, buildPath;
+	import std.stdio : File, writeln;
+	auto crashDir = buildNormalizedPath("dump", format!"crash %s"(Clock.currTime.toISOString)).absolutePath;
+	mkdirRecurse(crashDir);
+	File(buildPath(crashDir, "trace.txt"), "w").write(msg, "\n", traceInfo);
+	crashHandler(crashDir);
+	infof("Game crashed! Details written to '%s', please report this bug at https://github.com/Herringway/earthbound/issues with as many details as you can include.", crashDir);
+	debug writeln(msg, "\n", traceInfo);
+}
+
+void dumpScreen(const ubyte[] screen, string path, int width, int height) {
+	writePng(buildPath(path, "screen.png"), screen, width, height, PngType.truecolor_with_alpha);
 }

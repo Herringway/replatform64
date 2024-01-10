@@ -4,7 +4,9 @@ import librehome.backend.common;
 import librehome.snes.bsnes.renderer;
 import librehome.snes.hardware;
 import librehome.snes.ppu;
+import librehome.ui;
 
+import std.bitmanip;
 import std.exception;
 import std.logger;
 import std.range;
@@ -19,6 +21,10 @@ enum Renderer {
 
 SNESRenderer renderer;
 
+struct RendererSettings {
+	Renderer engine = Renderer.bsnes;
+}
+
 struct SNESRenderer {
 	private enum defaultWidth = 256;
 	private enum defaultHeight = 224;
@@ -31,14 +37,16 @@ struct SNESRenderer {
 	private Renderer renderer;
 	private VideoBackend backend;
 
-	void initialize(string title, WindowSettings settings, VideoBackend newBackend, Renderer renderer) {
-		this.renderer = renderer;
+	//void initialize(string title, WindowSettings settings, VideoBackend newBackend, Renderer renderer) {
+	void initialize(string title, VideoSettings settings, VideoBackend newBackend, RendererSettings rendererSettings, bool debugging) {
+		this.renderer = rendererSettings.engine;
 		PixelFormat textureType;
-		final switch (renderer) {
+		final switch (rendererSettings.engine) {
 			case Renderer.bsnes:
 				textureType = PixelFormat.rgb555;
 				width = defaultWidth * 2;
 				height = defaultHeight * 2;
+				settings.uiZoom /= 2;
 				enforce(loadSnesDrawFrame(), "Could not load SnesDrawFrame");
 				enforce(initSnesDrawFrame(), "Could not initialize SnesDrawFrame");
 				info("SnesDrawFrame initialized");
@@ -50,18 +58,31 @@ struct SNESRenderer {
 				info("Neo initialized");
 				break;
 		}
-		settings.width = width;
-		settings.height = height;
+		WindowSettings window;
+		window.width = width;
+		window.height = height;
+		window.userSettings = settings;
+		window.debugging = debugging;
 		backend = newBackend;
-		backend.initialize(null, null);
-		backend.createWindow(title, settings);
+		backend.initialize();
+		backend.createWindow(title, window);
 		backend.createTexture(width, height, textureType);
 	}
+	void platformDebugFunc(const UIState) {
+		//if (ImGui.BeginMainMenuBar()) {
+		//	ImGui.Text("What?");
+		//	ImGui.EndMainMenuBar();
+		//}
+	}
 	void draw() {
-		Texture texture;
-		backend.getDrawingTexture(texture);
-		assert(texture.buffer.length > 0, "No buffer");
-		draw(texture.buffer, texture.pitch);
+		backend.startFrame();
+		{
+			Texture texture;
+			backend.getDrawingTexture(texture);
+			assert(texture.buffer.length > 0, "No buffer");
+			draw(texture.buffer, texture.pitch);
+		}
+		backend.finishFrame();
 	}
 	private void draw(ubyte[] texture, int pitch) {
 		final switch (renderer) {
@@ -81,9 +102,40 @@ struct SNESRenderer {
 				break;
 		}
 	}
+	void waitNextFrame() {
+		backend.waitNextFrame();
+	}
 	ushort[] getFrameData() {
 		uint _;
 		return getFrameData(_);
+	}
+	const(ubyte)[] getRGBA8888() {
+		static union PixelConverter {
+			ushort data;
+			struct {
+				mixin(bitfields!(
+					ubyte, "r", 5,
+					ubyte, "g", 5,
+					ubyte, "b", 5,
+					bool, "", 1,
+				));
+			}
+		}
+		uint stride;
+		const source = cast(ubyte[])getFrameData(stride);
+		if (renderer == Renderer.bsnes) {
+			const(uint)[] result;
+			result.reserve(width * height);
+			foreach (rowRaw; source.chunks(stride)) {
+				foreach (pixel; cast(const ushort[])rowRaw) {
+					const pixelParsed = PixelConverter(pixel);
+					result ~= 0xFF000000 | (pixelParsed.r << 19) | (pixelParsed.g << 11) | (pixelParsed.b << 3);
+				}
+			}
+			return cast(const(ubyte)[])result;
+		} else {
+			return source;
+		}
 	}
 	ushort[] getFrameData(out uint pitch) {
 		final switch (renderer) {

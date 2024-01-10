@@ -15,6 +15,6 @@
 		"gameboy",
 		"snes"
 	],
-	"versions": ["sdl", "SDL_2018", "SDL_Mixer_200"],
+	"versions": ["SDL_2018", "SDL_Mixer_200"],
 	"name": "librehome"
 }

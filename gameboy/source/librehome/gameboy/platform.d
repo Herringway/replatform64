@@ -125,8 +125,8 @@ struct GameBoySimple {
 	private MemoryEditor memoryEditorVRAM;
 	private bool oamEditorActive;
 	private MemoryEditor memoryEditorOAM;
-	enum width = renderer.width;
-	enum height = renderer.height;
+	alias width = renderer.ppu.width;
+	alias height = renderer.ppu.height;
 	T loadSettings(T)() {
 		static struct FullSettings {
 			Settings system;
@@ -170,6 +170,7 @@ struct GameBoySimple {
 		backend.input.initialize(settings.input);
 		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer, &commonGBDebugging);
 
+		bool pauseWasPressed;
 		while (true) {
 			if (backend.processEvents()) {
 				break;
@@ -184,13 +185,13 @@ struct GameBoySimple {
 			}
 			interruptHandler();
 			renderer.draw();
-			if (input.pause) {
+			if (input.pause && !pauseWasPressed) {
 				paused ^= true;
-				input.pause = false;
 			}
 			if (!input.fastForward) {
 				renderer.waitNextFrame();
 			}
+			pauseWasPressed = input.pause;
 		}
 	}
 	private void prepareSRAM(size_t size) {
@@ -264,12 +265,6 @@ struct GameBoySimple {
 	ubyte[] vram() {
 		return renderer.ppu.vram;
 	}
-	ubyte[] oam() {
-		return cast(ubyte[])renderer.ppu.vram[0xFE00 .. 0xFE00 + 40 * OAMEntry.sizeof];
-	}
-	ubyte[] bgScreen() {
-		return renderer.ppu.bgScreen;
-	}
 	const(ubyte)[] romData() {
 		if (!originalData) {
 			originalData = cast(ubyte[])read(sourceFile);
@@ -330,8 +325,10 @@ struct GameBoySimple {
 		if (state.controllers[0] & ControllerMask.right) { pad |= Pad.right; }
 	}
 	private void commonGBDebugging(const UIState state) {
+		bool dumpVRAM;
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("RAM")) {
+				ImGui.MenuItem("Dump VRAM", null, &dumpVRAM);
 				ImGui.MenuItem("VRAM", null, &vramEditorActive);
 				ImGui.MenuItem("OAM", null, &oamEditorActive);
 				ImGui.EndMenu();
@@ -344,12 +341,15 @@ struct GameBoySimple {
 		if (oamEditorActive) {
 			oamEditorActive = memoryEditorOAM.DrawWindow("OAM", vram[0xFE00 .. 0xFEA0]);
 		}
+		if (dumpVRAM) {
+			File("vram.bin", "w").rawWrite(renderer.ppu.vram);
+			dumpVRAM = false;
+		}
 	}
 	ref auto waveRAM() {
 		static struct WaveRAM {
 			APU* apu;
 			void opIndexAssign(ubyte val, size_t offset) {
-				infof("WRITE: %04X %02X", 0xFF30 + offset, val);
 				apu.write(cast(ushort)(0xFF30 + offset), val);
 			}
 			ubyte opIndex(size_t offset) {
@@ -417,6 +417,30 @@ struct GameBoySimple {
 	ubyte SC; /// NYI
 	ubyte TMA; /// NYI
 	ubyte DIV; /// NYI
+	ubyte[] tileBlockA() @safe pure {
+		return renderer.ppu.tileBlockA;
+	}
+	ubyte[] tileBlockB() @safe pure {
+		return renderer.ppu.tileBlockB;
+	}
+	ubyte[] tileBlockC() @safe pure {
+		return renderer.ppu.tileBlockC;
+	}
+	ubyte[] screenA() @safe pure {
+		return renderer.ppu.screenA;
+	}
+	ubyte[] screenB() @safe pure {
+		return renderer.ppu.screenB;
+	}
+	ubyte[] oam() @safe pure {
+		return renderer.ppu.oam;
+	}
+	ubyte[] bgScreen() @safe pure {
+		return renderer.ppu.bgScreen;
+	}
+	ubyte[] windowScreen() @safe pure {
+		return renderer.ppu.windowScreen;
+	}
 }
 
 

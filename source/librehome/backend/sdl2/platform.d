@@ -20,7 +20,7 @@ class SDL2Platform : PlatformBackend {
 	override void initialize() @trusted {
 		enforceSDLLoaded!("SDL", SDL_GetVersion, libName)(loadSDL());
 		video = new SDL2Video;
-		audio = new SDL2Audio;
+		audio = new SDL2AudioMixer;
 		input = new SDL2Input;
 	}
 	override void deinitialize() @trusted {

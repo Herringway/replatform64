@@ -37,3 +37,8 @@ void wrappedLoad(scope ubyte[] dest, scope const(ubyte)[] source, size_t start) 
 		assert(buf == []);
 	}
 }
+
+struct DebugState {
+	string group;
+	string label;
+}
