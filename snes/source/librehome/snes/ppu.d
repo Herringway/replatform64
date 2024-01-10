@@ -1905,7 +1905,7 @@ unittest {
 		ubyte[] buffer = new ubyte[](width * height * 4);
 		enum pitch = width * 4;
 		ppu.beginDrawing(buffer, pitch, 0);
-		foreach (i; 0 .. height) {
+		foreach (i; 0 .. height + 1) {
 			ppu.runLine(i);
 		}
 		auto pixels = cast(uint[])buffer;
@@ -1928,5 +1928,21 @@ unittest {
 		ppu.cgram[0 .. 2] = [0x0000, 0x7FFF];
 		ppu.vram[] = cast(immutable(ushort)[])import("snes/helloworld.bin");
 		comparePNG(draw(ppu), "helloworld.png");
+	}
+	{
+		PPU ppu;
+		ppu.INIDISP = 0b00001111;
+		ppu.BGMODE = 0b00001011;
+		ppu.BG1SC = 0b11111100;
+		ppu.MOSAIC = 0b01010001;
+		ppu.BG12NBA = 0b00000000;
+		ppu.TM = 0b00000001;
+		ppu.BG1HOFS = 0;
+		ppu.BG1VOFS = 0;
+		ppu.CGWSEL = 0x30;
+		ppu.CGADSUB = 0x30;
+		ppu.cgram[] = cast(immutable(ushort)[])import("snes/mosaicm3.cgram.bin");
+		ppu.vram[] = cast(immutable(ushort)[])import("snes/mosaicm3.bin");
+		comparePNG(draw(ppu), "mosaicm3.png");
 	}
 }
