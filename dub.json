@@ -2,7 +2,7 @@
 	"authors": [
 		"Herringway"
 	],
-	"copyright": "Copyright © 2023, Herringway",
+	"copyright": "Copyright © 2024, Herringway",
 	"description": "Console port helper library",
 	"license": "BSL-1.0",
 	"dependencies": {
