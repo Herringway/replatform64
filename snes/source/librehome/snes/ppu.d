@@ -1882,3 +1882,51 @@ struct PpuWindows {
 	ubyte nr;
 	ubyte bits;
 }
+
+unittest {
+	enum width = 256;
+	enum height = 224;
+	static void comparePNG(const ubyte[] frame, string comparePath) {
+		import std.format : format;
+		import std.path : buildPath;
+		import arsd.png : PngType, readPng, writePng;
+		auto reference = readPng(buildPath("testdata/snes", comparePath));
+		const pixels = cast(const(uint[width])[])frame;
+		foreach (x; 0 .. width) {
+			foreach (y; 0 .. height) {
+				if (reference.getPixel(x, y).asUint != pixels[y][x]) {
+					writePng(comparePath, frame, width, height, PngType.truecolor_with_alpha);
+					assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(x, y, comparePath, pixels[y][x], reference.getPixel(x, y).asUint));
+				}
+			}
+		}
+	}
+	static ubyte[] draw(ref PPU ppu) {
+		ubyte[] buffer = new ubyte[](width * height * 4);
+		enum pitch = width * 4;
+		ppu.beginDrawing(buffer, pitch, 0);
+		foreach (i; 0 .. height) {
+			ppu.runLine(i);
+		}
+		auto pixels = cast(uint[])buffer;
+		foreach (ref pixel; pixels) { //swap red and blue, remove transparency
+			pixel = 0xFF000000 | ((pixel & 0xFF) << 16) | (pixel & 0xFF00) | ((pixel & 0xFF0000) >> 16);
+		}
+		return buffer;
+	}
+	{
+		PPU ppu;
+		ppu.INIDISP = 0b00001111;
+		ppu.BGMODE = 0b00001000;
+		ppu.BG1SC = 0b11111100;
+		ppu.BG12NBA = 0b00000000;
+		ppu.TM = 0b00000001;
+		ppu.BG1HOFS = 0;
+		ppu.BG1VOFS = 0;
+		ppu.CGWSEL = 0x30;
+		ppu.CGADSUB = 0x30;
+		ppu.cgram[0 .. 2] = [0x0000, 0x7FFF];
+		ppu.vram[] = cast(immutable(ushort)[])import("snes/helloworld.bin");
+		comparePNG(draw(ppu), "helloworld.png");
+	}
+}
