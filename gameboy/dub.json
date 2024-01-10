@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"Herringway"
+	],
+	"copyright": "Copyright © 2024, Herringway",
+	"description": "Console port helper library - Gameboy support",
+	"license": "BSL-1.0",
+	"dependencies": {
+		"librehome": "*"
+	},
+	"name": "gameboy"
+}

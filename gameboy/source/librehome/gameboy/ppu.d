@@ -61,7 +61,6 @@ struct PPU {
 	void runLine() @safe pure {
 		const baseX = registers.scx;
 		const baseY = registers.scy + scanline;
-		auto bgScreen = (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
 		auto pixelRow = cast(ushort[])(pixels[scanline * stride .. (scanline + 1) * stride]);
 		const tilemapBase = ((baseY / 8) % 32) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + 32];
@@ -119,6 +118,9 @@ struct PPU {
 			}
 		}
 		scanline++;
+	}
+	ubyte[] bgScreen() @safe pure {
+		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
 	}
 	ubyte[] screenA() @safe pure {
 		return vram[0x9800 .. 0x9C00];

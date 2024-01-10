@@ -125,6 +125,8 @@ struct GameBoySimple {
 	private MemoryEditor memoryEditorVRAM;
 	private bool oamEditorActive;
 	private MemoryEditor memoryEditorOAM;
+	enum width = renderer.width;
+	enum height = renderer.height;
 	T loadSettings(T)() {
 		static struct FullSettings {
 			Settings system;
@@ -261,6 +263,12 @@ struct GameBoySimple {
 	}
 	ubyte[] vram() {
 		return renderer.ppu.vram;
+	}
+	ubyte[] oam() {
+		return cast(ubyte[])renderer.ppu.vram[0xFE00 .. 0xFE00 + 40 * OAMEntry.sizeof];
+	}
+	ubyte[] bgScreen() {
+		return renderer.ppu.bgScreen;
 	}
 	const(ubyte)[] romData() {
 		if (!originalData) {
