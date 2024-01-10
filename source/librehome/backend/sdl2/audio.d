@@ -39,7 +39,7 @@ class SDL2Audio : AudioBackend {
 class SDL2AudioMixer : AudioBackend {
 	void initialize(void* user, AudioCallback fun, uint sampleRate, uint channels, uint samples) @trusted {
 		assert(SDL_GetError !is null, "SDL is not loaded!");
-	    enforceSDLLoaded!("SDL_Mixer", Mix_Linked_Version, libName)(loadSDLMixer());
+		enforceSDLLoaded!("SDL_Mixer", Mix_Linked_Version, libName)(loadSDLMixer());
 		enforceSDL(Mix_OpenAudio(sampleRate, AUDIO_S16, channels, samples) != -1, "Could not open audio");
 		callback = fun;
 		Mix_HookMusic(&callbackWrapper, user);

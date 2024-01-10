@@ -23,10 +23,10 @@ void enforceSDLLoaded(string what, alias versionFunction, string libName, T)(T g
 	enforce(got != T.noLibrary, "Could not load "~what~": No library found - "~libName~" is missing or has incorrect architecture");
 	enforce(got != T.badLibrary, "Could not load "~what~": Bad library found - "~libName~" is incompatible");
 	static if (is(ReturnType!versionFunction == void)) {
-	    SDL_version ver;
-	    versionFunction(&ver);
+		SDL_version ver;
+		versionFunction(&ver);
 	} else {
-	    SDL_version ver = *versionFunction();
+		SDL_version ver = *versionFunction();
 	}
-    infof("Loaded "~what~": %s.%s.%s", ver.major, ver.minor, ver.patch);
+	infof("Loaded "~what~": %s.%s.%s", ver.major, ver.minor, ver.patch);
 }

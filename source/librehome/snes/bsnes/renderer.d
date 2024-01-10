@@ -64,7 +64,7 @@ align:
 	HDMAWrite[4*8*240] hdmaData;
 	const(ubyte[]) getRegistersConst() const {
 		const ubyte* first = cast(const ubyte*)(&INIDISP);
-		const ubyte* last  = cast(const ubyte*)(&SETINI);
+		const ubyte* last = cast(const ubyte*)(&SETINI);
 		return first[0..(last-first+1)];
 	}
 }

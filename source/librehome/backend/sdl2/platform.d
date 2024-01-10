@@ -18,10 +18,10 @@ version(Windows) {
 
 class SDL2Platform : PlatformBackend {
 	override void initialize() @trusted {
-    	enforceSDLLoaded!("SDL", SDL_GetVersion, libName)(loadSDL());
-    	video = new SDL2Video;
-    	audio = new SDL2Audio;
-    	input = new SDL2Input;
+		enforceSDLLoaded!("SDL", SDL_GetVersion, libName)(loadSDL());
+		video = new SDL2Video;
+		audio = new SDL2Audio;
+		input = new SDL2Input;
 	}
 	override void deinitialize() @trusted {
 		SDL_Quit();

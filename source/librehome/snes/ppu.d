@@ -449,7 +449,7 @@ struct PPU {
 			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
 		}
 		const ushort[] tps(uint i) {
-			return  [
+			return [
 				vram[sc_offs & 0x7fff .. $],
 				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];

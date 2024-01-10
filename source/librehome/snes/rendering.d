@@ -156,7 +156,7 @@ struct SNESRenderer {
 	const(HDMAWrite[]) allHDMAData() const {
 		return hdmaData[0 .. numHDMA];
 	}
-	private  template Register(ubyte addr, string Reg) {
+	private template Register(ubyte addr, string Reg) {
 		alias T = typeof(__traits(getMember, bsnesFrame, Reg));
 		static T remembered;
 		T Register() {
