@@ -13,7 +13,8 @@
 	},
 	"subPackages": [
 		"gameboy",
-		"snes"
+		"snes",
+		"nes"
 	],
 	"versions": ["SDL_2018", "SDL_Mixer_200"],
 	"name": "librehome"
