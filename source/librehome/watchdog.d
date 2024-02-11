@@ -101,7 +101,9 @@ void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
 	auto crashDir = buildNormalizedPath("dump", format!"crash %s"(Clock.currTime.toISOString)).absolutePath;
 	mkdirRecurse(crashDir);
 	File(buildPath(crashDir, "trace.txt"), "w").write(msg, "\n", traceInfo);
-	crashHandler(crashDir);
+	if (crashHandler) {
+		crashHandler(crashDir);
+	}
 	infof("Game crashed! Details written to '%s', please report this bug at https://github.com/Herringway/earthbound/issues with as many details as you can include.", crashDir);
 	debug writeln(msg, "\n", traceInfo);
 }
