@@ -1856,6 +1856,9 @@ struct PPU {
 	void CGADSUB(ubyte val) @safe pure {
 		write(0x31, val);
 	}
+	void SETINI(ubyte val) @safe pure {
+		write(0x33, val);
+	}
 	bool IS_SCREEN_ENABLED(uint sub, uint layer) @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
 	bool IS_SCREEN_WINDOWED(uint sub, uint layer) @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
 	bool IS_MOSAIC_ENABLED(uint layer) @safe pure { return !!(mosaicEnabled & (1 << layer)); }
