@@ -29,6 +29,7 @@ import siryul;
 struct Settings {
 	static struct PlatformSettings {
 		RendererSettings renderer;
+		bool emulatedSPC700;
 	}
 	PlatformSettings snes;
 	VideoSettings video;
@@ -49,9 +50,11 @@ struct SNES {
 	DebugFunction gameStateMenu;
 	CrashHandler gameStateDumper;
 	string matchingInternalID;
+	void delegate(ubyte port, ubyte value, AudioBackend backend) spc700HLEWrite;
+	ubyte delegate(ubyte port) spc700HLERead;
 	private Settings settings;
 	private immutable(ubyte)[] originalData;
-	private AllSPC spc700;
+	private SPC700Emulated spc700;
 	private ubyte[][uint] sramSlotBuffer;
 	T loadSettings(T)() {
 		static struct FullSettings {
@@ -77,11 +80,23 @@ struct SNES {
 	void initialize() {
 		backend = new SDL2Platform;
 		backend.initialize();
-		backend.audio.initialize(&spc700, &audioCallback, 32000, 2, 512);
+		auto callback = &spc700Callback;
 		backend.input.initialize(settings.input);
 		renderer.initialize(title, settings.video, backend.video, settings.snes.renderer, settings.debugging);
 		backend.video.hideUI();
 		crashHandler = &dumpSNESDebugData;
+	}
+	void initializeAudio(T)(T* user, void function(T* user, ubyte[] buffer) callback) {
+		if (settings.snes.emulatedSPC700) {
+			initializeAudio();
+		} else {
+			backend.audio.initialize(user, cast(void function(void*, ubyte[]))callback, 32000, 2, 512);
+		}
+	}
+	void initializeAudio() {
+		if (settings.snes.emulatedSPC700) {
+			backend.audio.initialize(&spc700, &spc700Callback, 32000, 2, 512);
+		}
 	}
 	int run() {
 		auto game = new Fiber(entryPoint);
@@ -582,23 +597,33 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
-	void loadNSPC(const(ubyte)[] data) {
-		spc700.loadSong(data);
-	}
-	void loadSFXWav(const(ubyte)[] data) {
-		backend.audio.loadWAV(data);
-	}
-	void APUIO0(ubyte val) {
-		if (val == 0) {
-			spc700.stop();
-		} else {
-			spc700.changeSong(cast(ubyte)(val - 1));
+	void APUIO(ubyte port, ubyte val) {
+		if (settings.snes.emulatedSPC700) {
+			spc700.writePort(port, val);
+		} else if (spc700HLEWrite && !settings.snes.emulatedSPC700) {
+			spc700HLEWrite(port, val, backend.audio);
 		}
 	}
-	void APUIO1(ubyte val) {	}
-	void APUIO2(ubyte val) {}
+	ubyte APUIO(ubyte port) {
+		if (settings.snes.emulatedSPC700) {
+			return spc700.readPort(port);
+		} else if (spc700HLERead && !settings.snes.emulatedSPC700) {
+			return spc700HLERead(port);
+		} else {
+			return 0;
+		}
+	}
+	void APUIO0(ubyte val) {
+		APUIO(0, val);
+	}
+	void APUIO1(ubyte val) {
+		APUIO(1, val);
+	}
+	void APUIO2(ubyte val) {
+		APUIO(2, val);
+	}
 	void APUIO3(ubyte val) {
-		backend.audio.playWAV(val);
+		APUIO(3, val);
 	}
 	void extractAssets(ExtractFunction func) {
 		.extractAssets(func, backend, romData, ".");
@@ -691,8 +716,6 @@ struct DummySNES {
 	void runHook(string) {}
 	void registerHook(string id, void function() hook, HookSettings settings = HookSettings.init) {}
 	void registerHook(string id, void delegate() hook, HookSettings settings = HookSettings.init) {}
-	void loadSFXWav(const ubyte[]) {}
-	void loadNSPC(const ubyte[]) {}
 	void saveAssets(PlanetArchive) {}
 	ushort getControllerState(ubyte) @safe pure { return 0; }
 	void setBGOffsetX(ubyte, ushort) {}

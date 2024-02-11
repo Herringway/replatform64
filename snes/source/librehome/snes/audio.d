@@ -23,13 +23,12 @@ struct SPC700Emulated {
 			}
 		}
 	}
-	void playSong(ubyte[] buffer, ubyte track) {
+	void load(ubyte[] buffer, ushort start) {
 		initialized = false;
-		snes_spc.load_buffer(buffer, 0x500);
+		snes_spc.load_buffer(buffer, start);
 		snes_spc.clear_echo();
 		filter.clear();
 		waitUntilReady();
-		writePort(0, track);
 		initialized = true;
 	}
 	void writePort(uint id, ubyte value) {
@@ -39,6 +38,9 @@ struct SPC700Emulated {
 		return cast(ubyte)snes_spc.read_port_now(id);
 	}
 	void fillBuffer(short[] buffer) {
+		if (!initialized) {
+			return;
+		}
 		// Play into buffer
 		snes_spc.play(buffer);
 
@@ -47,31 +49,31 @@ struct SPC700Emulated {
 	}
 }
 
-struct AllSPC {
-	NSPCPlayer nspcPlayer;
+struct NSPC {
+	NSPCPlayer player;
 	Song[] loadedSongs;
 	bool initialized;
 	void changeSong(ubyte track) {
 		initialized = false;
-		nspcPlayer.loadSong(loadedSongs[track]);
-		nspcPlayer.initialize();
-		nspcPlayer.play();
+		player.loadSong(loadedSongs[track]);
+		player.initialize();
+		player.play();
 		initialized = true;
 	}
 	void stop() {
-		nspcPlayer.stop();
+		player.stop();
 	}
 	void loadSong(const(ubyte)[] data) {
 		loadedSongs ~= loadNSPCFile(data);
 	}
-}
-void audioCallback(void* user, ubyte[] stream) {
-	audioCallback(*cast(AllSPC*)user, stream);
-}
-void audioCallback(ref AllSPC spc700, ubyte[] stream) {
-	if (spc700.initialized) {
-		spc700.nspcPlayer.fillBuffer(cast(short[2][])stream);
+	void callback(ubyte[] stream) {
+		if (initialized) {
+			player.fillBuffer(cast(short[2][])stream);
+		}
 	}
+}
+void spc700Callback(void* user, ubyte[] stream) {
+	(*cast(SPC700Emulated*)user).fillBuffer(cast(short[])stream);
 }
 
 ubyte[65536] loadNSPCBuffer(scope const ubyte[] file) @safe {

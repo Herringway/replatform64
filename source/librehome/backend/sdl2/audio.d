@@ -36,12 +36,8 @@ class SDL2Audio : AudioBackend {
 		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
 	}
 	void deinitialize() @safe {}
-	void loadWAV(const ubyte[] data) @trusted {
-		tracef("No WAV support");
-	}
-	void playWAV(size_t id) @trusted {
-		tracef("No WAV support");
-	}
+	void loadWAV(const ubyte[] data) @safe {}
+	void playWAV(size_t id, int channel) @safe {}
 }
 
 class SDL2AudioMixer : AudioBackend {
@@ -63,10 +59,9 @@ class SDL2AudioMixer : AudioBackend {
 	void loadWAV(const ubyte[] data) @trusted {
 		loadedWAVs ~= Mix_LoadWAV_RW(SDL_RWFromMem(cast(void*)&data[0], cast(int)data.length), 0);
 	}
-	void playWAV(size_t id) @trusted {
-		const channel = 0;
+	void playWAV(size_t id, int channel) @trusted {
 		if (id == 0) {
-			if(Mix_FadeOutChannel(0, 0) == -1) {
+			if(Mix_FadeOutChannel(channel, 0) == -1) {
 				SDLError("Could not fade out");
 			}
 		} else {
