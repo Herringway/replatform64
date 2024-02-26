@@ -1919,7 +1919,7 @@ unittest {
 	import librehome.snes.hardware : HDMAWrite;
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;
-	import std.file : read, readText;
+	import std.file : exists, read, readText;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	enum width = 256;
@@ -2371,8 +2371,16 @@ unittest {
 		ppu.SETINI = SETINI;
 		return draw(ppu, hdma);
 	}
-	comparePNG(renderMesen2State("helloworld.mss"), "helloworld.png", width, height);
-	comparePNG(renderMesen2State("mosaicm3.mss"), "mosaicm3.png", width, height);
-	//comparePNG(renderMesen2State("mosaicm5.mss"), "mosaicm5.png", width, height);
-	//comparePNG(renderMesen2State("ebswirl.mss", parseHDMAWrites("ebswirl.hdma")), "ebswirl.png", width, height);
+	static void runTest(string name) {
+		HDMAWrite[] writes;
+		if (buildPath("testdata/snes", name~".hdma").exists) {
+			writes = parseHDMAWrites(name~".hdma");
+		}
+		comparePNG(renderMesen2State(name~".mss", writes), name~".png", width, height);
+
+	}
+	runTest("helloworld");
+	runTest("mosaicm3");
+	//runTest("mosaicm5");
+	//runTest("ebswirl");
 }
