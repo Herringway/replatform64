@@ -1945,7 +1945,7 @@ unittest {
 		ppu.beginDrawing(buffer, pitch, 0);
 		foreach (i; 0 .. height + 1) {
 			foreach (write; hdmaWrites) {
-				if (write.vcounter == i) {
+				if (write.vcounter + 1 == i) {
 					ppu.write(write.addr, write.value);
 				}
 			}
