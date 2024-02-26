@@ -2383,4 +2383,5 @@ unittest {
 	runTest("mosaicm3");
 	//runTest("mosaicm5");
 	//runTest("ebswirl");
+	runTest("ebbattle");
 }
