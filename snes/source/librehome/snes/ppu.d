@@ -2384,4 +2384,22 @@ unittest {
 	//runTest("mosaicm5");
 	//runTest("ebswirl");
 	runTest("ebbattle");
+	runTest("8x8BG1Map2BPP32x328PAL");
+	runTest("8x8BG2Map2BPP32x328PAL");
+	runTest("8x8BG3Map2BPP32x328PAL");
+	runTest("8x8BG4Map2BPP32x328PAL");
+	runTest("8x8BGMap4BPP32x328PAL");
+	runTest("8x8BGMap8BPP32x32");
+	runTest("8x8BGMap8BPP32x64");
+	runTest("8x8BGMap8BPP64x32");
+	runTest("8x8BGMap8BPP64x64");
+	runTest("8x8BGMapTileFlip");
+	runTest("HiColor575Myst");
+	runTest("HiColor1241DLair");
+	runTest("HiColor3840");
+	//runTest("InterlaceFont");
+	//runTest("InterlaceMystHDMA");
+	//runTest("Perspective");
+	runTest("Rings");
+	//runTest("RotZoom");
 }
