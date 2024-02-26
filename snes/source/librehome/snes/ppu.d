@@ -1939,20 +1939,6 @@ unittest {
 		}
 		return result;
 	}
-	static void comparePNG(const ubyte[] frame, string comparePath) {
-		import std.format : format;
-		import arsd.png : PngType, readPng, writePng;
-		auto reference = readPng(buildPath("testdata/snes", comparePath));
-		const pixels = cast(const(uint[width])[])frame;
-		foreach (x; 0 .. width) {
-			foreach (y; 0 .. height) {
-				if (reference.getPixel(x, y).asUint != pixels[y][x]) {
-					writePng(comparePath, frame, width, height, PngType.truecolor_with_alpha);
-					assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(x, y, comparePath, pixels[y][x], reference.getPixel(x, y).asUint));
-				}
-			}
-		}
-	}
 	static ubyte[] draw(ref PPU ppu, HDMAWrite[] hdmaWrites = []) {
 		ubyte[] buffer = new ubyte[](width * height * 4);
 		enum pitch = width * 4;
@@ -2385,8 +2371,8 @@ unittest {
 		ppu.SETINI = SETINI;
 		return draw(ppu, []);
 	}
-	comparePNG(renderMesen2State("helloworld.mss"), "helloworld.png");
-	comparePNG(renderMesen2State("mosaicm3.mss"), "mosaicm3.png");
-	//comparePNG(renderMesen2State("mosaicm5.mss"), "mosaicm5.png");
-	//comparePNG(renderMesen2State("ebswirl.mss", parseHDMAWrites("ebswirl.hdma")), "ebswirl.png");
+	comparePNG(renderMesen2State("helloworld.mss"), "helloworld.png", width, height);
+	comparePNG(renderMesen2State("mosaicm3.mss"), "mosaicm3.png", width, height);
+	//comparePNG(renderMesen2State("mosaicm5.mss"), "mosaicm5.png", width, height);
+	//comparePNG(renderMesen2State("ebswirl.mss", parseHDMAWrites("ebswirl.hdma")), "ebswirl.png", width, height);
 }
