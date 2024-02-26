@@ -2369,7 +2369,7 @@ unittest {
 		ppu.write(0x32, COLDATAG | 0x40);
 		ppu.write(0x32, COLDATAR | 0x20);
 		ppu.SETINI = SETINI;
-		return draw(ppu, []);
+		return draw(ppu, hdma);
 	}
 	comparePNG(renderMesen2State("helloworld.mss"), "helloworld.png", width, height);
 	comparePNG(renderMesen2State("mosaicm3.mss"), "mosaicm3.png", width, height);
