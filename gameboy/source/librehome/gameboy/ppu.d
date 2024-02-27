@@ -96,6 +96,18 @@ struct PPU {
 					}
 				}
 			}
+			ushort prospectivePixel;
+			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (scanline >= registers.wy)) {
+				const finalX = x - (registers.wx - 7);
+				const finalY = scanline - registers.wy;
+				const windowTilemapBase = (finalY / 8) * 32;
+				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+				prospectivePixel = getPixel(getTile(windowTilemapRow[finalX / 8], true)[finalY % 8], finalX % 8);
+			} else {
+				const finalX = baseX + x;
+				prospectivePixel = getPixel(getTile(tilemapRow[(finalX / 8) % 32], true)[baseY % 8], finalX % 8);
+			}
+
 			if (highestMatchingSprite != size_t.max) {
 				const sprite = oamSorted[highestMatchingSprite];
 				auto xpos = x - (sprite.x - 8);
@@ -106,22 +118,14 @@ struct PPU {
 				if (sprite.flags & OAMFlags.yFlip) {
 					ypos = 7 - ypos;
 				}
-				const pixel = getPixel(getTile(cast(short)(sprite.tile + ypos / 8), false)[ypos % 8], xpos);
-				if (pixel != 0) {
-					pixelRow[x] = getColour(pixel);
-					continue;
+				if (!(sprite.flags & OAMFlags.priority) || (prospectivePixel == 0)) {
+					const pixel = getPixel(getTile(cast(short)(sprite.tile + ypos / 8), false)[ypos % 8], xpos);
+					if (pixel != 0) {
+						prospectivePixel = pixel;
+					}
 				}
 			}
-			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (scanline >= registers.wy)) {
-				const finalX = x - (registers.wx - 7);
-				const finalY = scanline - registers.wy;
-				const windowTilemapBase = (finalY / 8) * 32;
-				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-				pixelRow[x] = getColour(getPixel(getTile(windowTilemapRow[finalX / 8], true)[finalY % 8], finalX % 8));
-			} else {
-				const finalX = baseX + x;
-				pixelRow[x] = getColour(getPixel(getTile(tilemapRow[(finalX / 8) % 32], true)[baseY % 8], finalX % 8));
-			}
+			pixelRow[x] = getColour(prospectivePixel);
 		}
 		scanline++;
 	}
@@ -304,6 +308,7 @@ unittest {
 
 	}
 	runTest("everythingok");
+	runTest("ffl2");
 }
 
 immutable ushort[] pixelBitmasks = [
@@ -335,7 +340,7 @@ ushort tileAddr(ushort num, bool alt) {
 	return alt ? cast(ushort)(0x9000 + cast(byte)num) : cast(ushort)(0x8000 + num);
 }
 
-auto getPixel(ushort tile, int subX) @safe pure {
+ushort getPixel(ushort tile, int subX) @safe pure {
 	const ushort mask = tile & pixelBitmasks[7 - (subX % 8)];
 	const l1 = ((mask & 0xFF) >> (7 - (subX % 8)));
 	const l2 = ((mask & 0xFF00) >> (7 + (7 - (subX % 8))));
