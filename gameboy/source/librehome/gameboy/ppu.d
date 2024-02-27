@@ -295,7 +295,6 @@ unittest {
 					ppu.oam[] = data;
 					break;
 				default:
-					import std.logger; debug infof("%s (%s bytes)", key, data.length);
 					break;
 			}
 		});
