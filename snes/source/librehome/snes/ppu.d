@@ -299,7 +299,7 @@ struct PPU {
 		win.bits = w1_bits | w2_bits;
 	}
 	// Draw a whole line of a 4bpp background layer into bgBuffers
-	private void drawBackground4BPP(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
+	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
 		enum kPaletteShift = 6;
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
@@ -323,170 +323,50 @@ struct PPU {
 		int tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
 		uint READ_BITS(int ta, uint tile) {
-			addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
-			return addr[0] | addr[8] << 16;
-		}
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			uint x = win.edges[windex] + bglayer.hScroll;
-			uint w = win.edges[windex + 1] - win.edges[windex];
-			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
-			const(ushort)[] tp_start = tps(x >> 8 & 1);
-			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
-			const(ushort)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
-			uint bits;
-			PpuZbufType z;
-			void DO_PIXEL(int i)() {
-				pixel = (bits >> i) & 1 | (bits >> (7 + i)) & 2 | (bits >> (14 + i)) & 4 | (bits >> (21 + i)) & 8;
-				if ((bits & (0x01010101 << i)) && z > dstz[i]) {
-					dstz[i] = cast(ushort)(z + pixel);
-				}
-			}
-			void DO_PIXEL_HFLIP(int i)() {
-				pixel = (bits >> (7 - i)) & 1 | (bits >> (14 - i)) & 2 | (bits >> (21 - i)) & 4 | (bits >> (28 - i)) & 8;
-				if ((bits & (0x80808080 >> i)) && z > dstz[i]) {
-					dstz[i] = cast(ushort)(z + pixel);
-				}
-			}
-			// Handle clipped pixels on left side
-			if (x & 7) {
-				int curw = IntMin(8 - (x & 7), w);
-				w -= curw;
-				uint tile = tp[0];
-				if (tp.length > 1) {
-					tp = tp[1 .. $];
-				} else {
-					tp = tp_next[0 .. 32];
-					swap(tp_next, tp_start);
-				}
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
-				if (bits) {
-					z += ((tile & 0x1c00) >> kPaletteShift);
-					if (tile & 0x4000) {
-						bits >>= (x & 7), x += curw;
-						do {
-							DO_PIXEL!(0);
-							bits >>= 1;
-							dstz = dstz[1 .. $];
-						} while (--curw);
-					} else {
-						bits <<= (x & 7), x += curw;
-						do {
-							DO_PIXEL_HFLIP!(0);
-							bits <<= 1;
-							dstz = dstz[1 .. $];
-						} while (--curw);
-					}
-				} else {
-					dstz = dstz[curw .. $];
-				}
-			}
-			// Handle full tiles in the middle
-			while (w >= 8) {
-				uint tile = tp[0];
-				if (tp.length > 1) {
-					tp = tp[1 .. $];
-				} else {
-					tp = tp_next[0 .. 32];
-					swap(tp_next, tp_start);
-				}
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
-				if (bits) {
-					z += ((tile & 0x1c00) >> kPaletteShift);
-					if (tile & 0x4000) {
-						DO_PIXEL!(0); DO_PIXEL!(1); DO_PIXEL!(2); DO_PIXEL!(3);
-						DO_PIXEL!(4); DO_PIXEL!(5); DO_PIXEL!(6); DO_PIXEL!(7);
-					} else {
-						DO_PIXEL_HFLIP!(0); DO_PIXEL_HFLIP!(1); DO_PIXEL_HFLIP!(2); DO_PIXEL_HFLIP!(3);
-						DO_PIXEL_HFLIP!(4); DO_PIXEL_HFLIP!(5); DO_PIXEL_HFLIP!(6); DO_PIXEL_HFLIP!(7);
-					}
-				}
-				dstz = dstz[8 .. $];
-				w -= 8;
-			}
-			// Handle remaining clipped part
-			if (w) {
-				uint tile = tp[0];
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
-				if (bits) {
-					z += ((tile & 0x1c00) >> kPaletteShift);
-					if (tile & 0x4000) {
-						do {
-							DO_PIXEL!(0);
-							bits >>= 1;
-							dstz = dstz[1 .. $];
-						} while (--w);
-					} else {
-						do {
-							DO_PIXEL_HFLIP!(0);
-							bits <<= 1;
-							dstz = dstz[1 .. $];
-						} while (--w);
-					}
-				}
-			}
-		}
-	}
-
-	// Draw a whole line of a 2bpp background layer into bgBuffers
-	private void drawBackground2BPP(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
-		enum kPaletteShift = 8;
-		if (!IS_SCREEN_ENABLED(sub, layer)) {
-			return; // layer is completely hidden
-		}
-		PpuWindows win;
-		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
-		BGLayer *bglayer = &bgLayer[layer];
-		y += bglayer.vScroll;
-		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
-		if ((y & 0x100) && bglayer.tilemapHigher) {
-			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
-		}
-		const ushort[] tps(uint i) {
-			return [
-				vram[sc_offs & 0x7fff .. $],
-				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
-			][i];
-		}
-		int tileadr = bgLayer[layer].tileAdr, pixel;
-		int tileadr1 = tileadr + 7 - (y & 0x7), tileadr0 = tileadr + (y & 0x7);
-
-		const(ushort)[] addr;
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			uint x = win.edges[windex] + bglayer.hScroll;
-			uint w = win.edges[windex + 1] - win.edges[windex];
-			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
-			const(ushort)[] tp_start = tps(x >> 8 & 1);
-			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
-			const(ushort)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
-
-			uint READ_BITS(int ta, uint tile) {
+			static if (bpp == 4) {
+				addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
+				return addr[0] | addr[8] << 16;
+			} else static if (bpp == 2) {
 				addr = vram[(ta) + (tile) * 8 & 0x7fff .. $];
 				return addr[0];
 			}
-			PpuZbufType z;
+		}
+		for (size_t windex = 0; windex < win.nr; windex++) {
+			if (win.bits & (1 << windex)) {
+				continue; // layer is disabled for this window part
+			}
+			uint x = win.edges[windex] + bglayer.hScroll;
+			uint w = win.edges[windex + 1] - win.edges[windex];
+			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
+			const(ushort)[] tp_start = tps(x >> 8 & 1);
+			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
+			const(ushort)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
 			uint bits;
+			PpuZbufType z;
 			void DO_PIXEL(int i)() {
-				pixel = (bits >> i) & 1 | (bits >> (7 + i)) & 2;
-				if (pixel && z > dstz[i]) {
-					dstz[i] = cast(ushort)(z + pixel);
+				static if (bpp == 4) {
+					pixel = (bits >> i) & 1 | (bits >> (7 + i)) & 2 | (bits >> (14 + i)) & 4 | (bits >> (21 + i)) & 8;
+					if ((bits & (0x01010101 << i)) && z > dstz[i]) {
+						dstz[i] = cast(ushort)(z + pixel);
+					}
+				} else static if (bpp == 2) {
+					pixel = (bits >> i) & 1 | (bits >> (7 + i)) & 2;
+					if (pixel && z > dstz[i]) {
+						dstz[i] = cast(ushort)(z + pixel);
+					}
 				}
 			}
 			void DO_PIXEL_HFLIP(int i)() {
-				pixel = (bits >> (7 - i)) & 1 | (bits >> (14 - i)) & 2;
-				if (pixel && z > dstz[i]) {
-					dstz[i] = cast(ushort)(z + pixel);
+				static if (bpp == 4) {
+					pixel = (bits >> (7 - i)) & 1 | (bits >> (14 - i)) & 2 | (bits >> (21 - i)) & 4 | (bits >> (28 - i)) & 8;
+					if ((bits & (0x80808080 >> i)) && z > dstz[i]) {
+						dstz[i] = cast(ushort)(z + pixel);
+					}
+				} else static if (bpp == 2) {
+					pixel = (bits >> (7 - i)) & 1 | (bits >> (14 - i)) & 2;
+					if (pixel && z > dstz[i]) {
+						dstz[i] = cast(ushort)(z + pixel);
+					}
 				}
 			}
 			// Handle clipped pixels on left side
@@ -576,7 +456,7 @@ struct PPU {
 	}
 
 	// Draw a whole line of a 4bpp background layer into bgBuffers, with mosaic applied
-	private void drawBackground4BPPMosaic(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
+	private void drawBackgroundMosaic(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
 		enum kPaletteShift = 6;
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
@@ -601,14 +481,27 @@ struct PPU {
 		int tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
 		void GET_PIXEL() {
-			pixel = (bits) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
+			static if (bpp == 4) {
+				pixel = (bits) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
+			} else static if (bpp == 2) {
+				pixel = (bits) & 1 | (bits >> 7) & 2;
+			}
 		}
 		void GET_PIXEL_HFLIP() {
-			pixel = (bits >> 7) & 1 | (bits >> 14) & 2 | (bits >> 21) & 4 | (bits >> 28) & 8;
+			static if (bpp == 4) {
+				pixel = (bits >> 7) & 1 | (bits >> 14) & 2 | (bits >> 21) & 4 | (bits >> 28) & 8;
+			} else static if (bpp == 2) {
+				pixel = (bits >> 7) & 1 | (bits >> 14) & 2;
+			}
 		}
 		uint READ_BITS(uint ta, uint tile) {
-			addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
-			return addr[0] | addr[8] << 16;
+			static if (bpp == 4) {
+				addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
+				return addr[0] | addr[8] << 16;
+			} else static if (bpp == 2) {
+				addr = vram[((ta) + (tile) * 8) & 0x7fff .. $];
+				return addr[0];
+			}
 		}
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
@@ -628,9 +521,11 @@ struct PPU {
 				PpuZbufType z = (tile & 0x2000) ? zhi : zlo;
 				bits = READ_BITS(ta, tile & 0x3ff);
 				if (tile & 0x4000) {
-					bits >>= x, GET_PIXEL();
+					bits >>= x;
+					GET_PIXEL();
 				} else {
-					bits <<= x, GET_PIXEL_HFLIP();
+					bits <<= x;
+					GET_PIXEL_HFLIP();
 				}
 				if (pixel) {
 					pixel += (tile & 0x1c00) >> kPaletteShift;
@@ -650,83 +545,6 @@ struct PPU {
 			} while (dstz.length != 0);
 		}
 	}
-
-	// Draw a whole line of a 2bpp background layer into bgBuffers, with mosaic applied
-	private void drawBackground2BPPMosaic(int y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
-		enum kPaletteShift = 8;
-		if (!IS_SCREEN_ENABLED(sub, layer)) {
-			return; // layer is completely hidden
-		}
-		PpuWindows win;
-		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
-		BGLayer *bglayer = &bgLayer[layer];
-		y = mosaicModulo[y] + bglayer.vScroll;
-		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
-		if ((y & 0x100) && bglayer.tilemapHigher) {
-			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
-		}
-		const(ushort)[] tps(uint i){
-			return [
-				vram[sc_offs & 0x7fff .. $],
-				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
-			][i];
-		}
-		int tileadr = bgLayer[layer].tileAdr, pixel;
-		int tileadr1 = tileadr + 7 - (y & 0x7);
-		int tileadr0 = tileadr + (y & 0x7);
-		const(ushort)[] addr;
-		uint bits;
-		void GET_PIXEL() {
-			pixel = (bits) & 1 | (bits >> 7) & 2;
-		}
-		void GET_PIXEL_HFLIP() {
-			pixel = (bits >> 7) & 1 | (bits >> 14) & 2;
-		}
-		uint READ_BITS(uint ta, uint tile) {
-			addr = vram[((ta) + (tile) * 8) & 0x7fff .. $];
-			return addr[0];
-		}
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			int sx = win.edges[windex];
-			PpuZbufType[] dstz = bgBuffers[sub].data[sx + kPpuExtraLeftRight .. win.edges[windex + 1] + kPpuExtraLeftRight];
-			uint x = sx + bglayer.hScroll;
-			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
-			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
-			x &= 7;
-			int w = mosaicSize - (sx - mosaicModulo[sx]);
-			do {
-				w = IntMin(w, cast(int)dstz.length);
-				uint tile = tp[0];
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				PpuZbufType z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
-				if (tile & 0x4000) {
-					bits >>= x, GET_PIXEL();
-				} else {
-					bits <<= x, GET_PIXEL_HFLIP();
-				}
-				if (pixel) {
-					pixel += (tile & 0x1c00) >> kPaletteShift;
-					uint i = 0;
-					do {
-						if (z > dstz[i]) {
-							dstz[i] = cast(ushort)(pixel + z);
-						}
-					} while (++i != w);
-				}
-				dstz = dstz[w .. $];
-				x += w;
-				for (; x >= 8; x -= 8) {
-					tp = (tp.length > 1) ? tp[1 .. $] : tp_next;
-				}
-				w = mosaicSize;
-			} while (dstz.length != 0);
-		}
-	}
-
 
 	// level6 should be set if it's from palette 0xc0 which means color math is not applied
 	uint SPRITE_PRIO_TO_PRIO(uint prio, bool level6) @safe pure {
@@ -991,21 +809,21 @@ struct PPU {
 			}
 
 			if (IS_MOSAIC_ENABLED(0)) {
-				drawBackground4BPPMosaic(y, sub, 0, 0xc000, 0x8000);
+				drawBackgroundMosaic!4(y, sub, 0, 0xc000, 0x8000);
 			} else {
-				drawBackground4BPP(y, sub, 0, 0xc000, 0x8000);
+				drawBackground!4(y, sub, 0, 0xc000, 0x8000);
 			}
 
 			if (IS_MOSAIC_ENABLED(1)) {
-				drawBackground4BPPMosaic(y, sub, 1, 0xb100, 0x7100);
+				drawBackgroundMosaic!4(y, sub, 1, 0xb100, 0x7100);
 			} else {
-				drawBackground4BPP(y, sub, 1, 0xb100, 0x7100);
+				drawBackground!4(y, sub, 1, 0xb100, 0x7100);
 			}
 
 			if (IS_MOSAIC_ENABLED(2)) {
-				drawBackground2BPPMosaic(y, sub, 2, 0xf200, 0x1200);
+				drawBackgroundMosaic!2(y, sub, 2, 0xf200, 0x1200);
 			} else {
-				drawBackground2BPP(y, sub, 2, 0xf200, 0x1200);
+				drawBackground!2(y, sub, 2, 0xf200, 0x1200);
 			}
 		} else {
 			// mode 7
