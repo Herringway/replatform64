@@ -1,5 +1,4 @@
 module librehome.snes.ppu;
-import librehome.testhelpers;
 
 /**
  * MIT License
@@ -27,8 +26,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 */
 
+import librehome.testhelpers;
+
 import std.algorithm.comparison;
 import std.algorithm.mutation;
+import std.bitmanip;
 
 struct BGLayer {
 	ushort hScroll = 0;
@@ -1778,24 +1780,24 @@ unittest {
 	static ubyte[] renderMesen2State(string filename, HDMAWrite[] hdma = []) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/snes", filename));
-		ubyte INIDISP;
-		ubyte OBSEL;
-		ubyte BGMODE;
-		ubyte MOSAIC;
-		ubyte BG1SC, BG2SC, BG3SC, BG4SC;
-		ubyte BG12NBA, BG34NBA;
+		INIDISPValue INIDISP;
+		OBSELValue OBSEL;
+		BGMODEValue BGMODE;
+		MOSAICValue MOSAIC;
+		BGxSCValue BG1SC, BG2SC, BG3SC, BG4SC;
+		BGxxNBAValue BG12NBA, BG34NBA;
 		ushort BG1HOFS, BG1VOFS, BG2HOFS, BG2VOFS, BG3HOFS, BG3VOFS, BG4HOFS, BG4VOFS;
-		ubyte M7SEL;
+		M7SELValue M7SEL;
 		ushort M7A, M7B, M7C, M7D, M7X, M7Y;
 		ubyte W12SEL, W34SEL, WOBJSEL;
 		ubyte WH0, WH1, WH2, WH3;
 		ubyte WBGLOG, WOBJLOG;
-		ubyte TM, TS;
-		ubyte TMW, TSW;
-		ubyte CGWSEL;
-		ubyte CGADSUB;
+		ScreenWindowEnableValue TM, TS;
+		ScreenWindowEnableValue TMW, TSW;
+		CGWSELValue CGWSEL;
+		CGADSUBValue CGADSUB;
 		ubyte COLDATAB, COLDATAG, COLDATAR;
-		ubyte SETINI;
+		SETINIValue SETINI;
 		loadMesen2SaveState(file, (key, data) @safe pure {
 			ubyte byteData() {
 				assert(data.length == 1);
@@ -1811,83 +1813,94 @@ unittest {
 			}
 			switch (key) {
 				case "ppu.forcedBlank":
-					INIDISP |= (byteData & 1) << 7;
+					INIDISP.forcedBlank = byteData & 1;
 					break;
 				case "ppu.screenBrightness":
-					INIDISP |= (byteData & 0b00001111);
+					INIDISP.screenBrightness = byteData & 0b00001111;
 					break;
 				case "ppu.bgMode":
-					BGMODE |= (byteData & 0b00000111);
+					BGMODE.mode = byteData & 0b00000111;
 					break;
 				case "ppu.oamMode":
-					OBSEL |= (byteData & 0b00000111) << 5;
+					OBSEL.size = byteData & 0b00000111;
 					break;
 				case "ppu.oamBaseAddress":
-					OBSEL |= (shortData & 0xE000) >> 13;
+					OBSEL.tileBase = (shortData & 0xE000) >> 13;
 					break;
 				case "ppu.oamAddressOffset":
-					OBSEL |= (shortData & 0xC000) >> 11;
+					OBSEL.hiOffset = (shortData & 0xC000) >> 14;
 					break;
 				case "ppu.mode1Bg3Priority":
-					BGMODE |= (byteData & 1) << 3;
+					BGMODE.bg3Priority = byteData & 1;
 					break;
 				case "ppu.mosaicEnabled":
-					MOSAIC |= byteData & 0b00001111;
+					MOSAIC.enabledBG1 = !!(byteData & 0b00000001);
+					MOSAIC.enabledBG2 = !!(byteData & 0b00000010);
+					MOSAIC.enabledBG3 = !!(byteData & 0b00000100);
+					MOSAIC.enabledBG4 = !!(byteData & 0b00001000);
 					break;
 				case "ppu.mosaicSize":
 					// saved +1, for some reason.
-					MOSAIC |= ((byteData - 1) & 0b00001111) << 4;
+					MOSAIC.size = (byteData - 1) & 0b00001111;
 					break;
 				case "ppu.mainScreenLayers":
-					TM |= byteData & 0b00011111;
+					TM.bg1 = !!(byteData & 0b00000001);
+					TM.bg2 = !!(byteData & 0b00000010);
+					TM.bg3 = !!(byteData & 0b00000100);
+					TM.bg4 = !!(byteData & 0b00001000);
+					TM.obj = !!(byteData & 0b00010000);
 					break;
 				case "ppu.subScreenLayers":
-					TS |= byteData & 0b00011111;
+					TS.bg1 = !!(byteData & 0b00000001);
+					TS.bg2 = !!(byteData & 0b00000010);
+					TS.bg3 = !!(byteData & 0b00000100);
+					TS.bg4 = !!(byteData & 0b00001000);
+					TS.obj = !!(byteData & 0b00010000);
 					break;
 				case "ppu.windowMaskMain[0]":
-					TMW |= byteData & 1;
+					TMW.bg1 = byteData & 1;
 					break;
 				case "ppu.windowMaskMain[1]":
-					TMW |= (byteData & 1) << 1;
+					TMW.bg2 = byteData & 1;
 					break;
 				case "ppu.windowMaskMain[2]":
-					TMW |= (byteData & 1) << 2;
+					TMW.bg3 = byteData & 1;
 					break;
 				case "ppu.windowMaskMain[3]":
-					TMW |= (byteData & 1) << 3;
+					TMW.bg4 = byteData & 1;
 					break;
 				case "ppu.windowMaskMain[4]":
-					TMW |= (byteData & 1) << 4;
+					TMW.obj = byteData & 1;
 					break;
 				case "ppu.windowMaskSub[0]":
-					TSW |= byteData & 1;
+					TSW.bg1 = byteData & 1;
 					break;
 				case "ppu.windowMaskSub[1]":
-					TSW |= (byteData & 1) << 1;
+					TSW.bg2 = byteData & 1;
 					break;
 				case "ppu.windowMaskSub[2]":
-					TSW |= (byteData & 1) << 2;
+					TSW.bg3 = byteData & 1;
 					break;
 				case "ppu.windowMaskSub[3]":
-					TSW |= (byteData & 1) << 3;
+					TSW.bg4 = byteData & 1;
 					break;
 				case "ppu.windowMaskSub[4]":
-					TSW |= (byteData & 1) << 4;
+					TSW.obj = byteData & 1;
 					break;
 				case "ppu.layers[0].chrAddress":
-					BG12NBA |= (shortData & 0xF000) >> 12;
+					BG12NBA.bg1 = (shortData & 0xF000) >> 12;
 					break;
 				case "ppu.layers[0].largeTiles":
-					BGMODE |= (byteData & 1) << 4;
+					BGMODE.largeBG1Tiles = byteData & 1;
 					break;
 				case "ppu.layers[0].tilemapAddress":
-					BG1SC |= (shortData & 0xFC00) >> 8;
+					BG1SC.baseAddress = (shortData & 0xFC00) >> 10;
 					break;
 				case "ppu.layers[0].doubleHeight":
-					BG1SC |= (byteData & 1) << 1;
+					BG1SC.doubleHeight = byteData & 1;
 					break;
 				case "ppu.layers[0].doubleWidth":
-					BG1SC |= byteData & 1;
+					BG1SC.doubleWidth = byteData & 1;
 					break;
 				case "ppu.layers[0].hscroll":
 					BG1HOFS |= shortData;
@@ -1896,19 +1909,19 @@ unittest {
 					BG1VOFS |= shortData;
 					break;
 				case "ppu.layers[1].chrAddress":
-					BG12NBA |= (shortData & 0xF000) >> 8;
+					BG12NBA.bg2 = (shortData & 0xF000) >> 12;
 					break;
 				case "ppu.layers[1].largeTiles":
-					BGMODE |= (byteData & 1) << 5;
+					BGMODE.largeBG2Tiles = byteData & 1;
 					break;
 				case "ppu.layers[1].tilemapAddress":
-					BG2SC |= (shortData & 0xFC00) >> 8;
+					BG2SC.baseAddress = (shortData & 0xFC00) >> 10;
 					break;
 				case "ppu.layers[1].doubleHeight":
-					BG2SC |= (byteData & 1) << 1;
+					BG2SC.doubleHeight = byteData & 1;
 					break;
 				case "ppu.layers[1].doubleWidth":
-					BG2SC |= byteData & 1;
+					BG2SC.doubleWidth = byteData & 1;
 					break;
 				case "ppu.layers[1].hscroll":
 					BG2HOFS |= shortData;
@@ -1917,19 +1930,19 @@ unittest {
 					BG2VOFS |= shortData;
 					break;
 				case "ppu.layers[2].chrAddress":
-					BG34NBA |= (shortData & 0xF000) >> 12;
+					BG34NBA.bg3 = (shortData & 0xF000) >> 12;
 					break;
 				case "ppu.layers[2].largeTiles":
-					BGMODE |= (byteData & 1) << 6;
+					BGMODE.largeBG3Tiles = byteData & 1;
 					break;
 				case "ppu.layers[2].tilemapAddress":
-					BG3SC |= (shortData & 0xFC00) >> 8;
+					BG3SC.baseAddress = (shortData & 0xFC00) >> 10;
 					break;
 				case "ppu.layers[2].doubleHeight":
-					BG3SC |= (byteData & 1) << 1;
+					BG3SC.doubleHeight = byteData & 1;
 					break;
 				case "ppu.layers[2].doubleWidth":
-					BG3SC |= byteData & 1;
+					BG3SC.doubleWidth = byteData & 1;
 					break;
 				case "ppu.layers[2].hscroll":
 					BG3HOFS |= shortData;
@@ -1938,19 +1951,19 @@ unittest {
 					BG3VOFS |= shortData;
 					break;
 				case "ppu.layers[3].chrAddress":
-					BG34NBA |= (shortData & 0xF000) >> 8;
+					BG34NBA.bg4 = (shortData & 0xF000) >> 12;
 					break;
 				case "ppu.layers[3].largeTiles":
-					BGMODE |= (byteData & 1) << 7;
+					BGMODE.largeBG4Tiles = byteData & 1;
 					break;
 				case "ppu.layers[3].tilemapAddress":
-					BG4SC |= (shortData & 0xFC00) >> 8;
+					BG4SC.baseAddress = (shortData & 0xFC00) >> 10;
 					break;
 				case "ppu.layers[3].doubleHeight":
-					BG4SC |= (byteData & 1) << 1;
+					BG4SC.doubleHeight = byteData & 1;
 					break;
 				case "ppu.layers[3].doubleWidth":
-					BG4SC |= byteData & 1;
+					BG4SC.doubleWidth = byteData & 1;
 					break;
 				case "ppu.layers[3].hscroll":
 					BG4HOFS |= shortData;
@@ -1959,37 +1972,42 @@ unittest {
 					BG4VOFS |= shortData;
 					break;
 				case "ppu.directColorMode":
-					CGWSEL |= byteData & 1;
+					CGWSEL.directColour = byteData & 1;
 					break;
 				case "ppu.colorMathAddSubscreen":
-					CGWSEL |= (byteData & 1) << 1;
+					CGWSEL.subscreenEnable = byteData & 1;
 					break;
 				case "ppu.colorMathPreventMode":
-					CGWSEL |= (intData & 0b00000011) << 4;
+					CGWSEL.mathPreventMode = intData & 0b00000011;
 					break;
 				case "ppu.colorMathClipMode":
-					CGWSEL |= (intData & 0b00000011) << 6;
+					CGWSEL.mathClipMode = intData & 0b00000011;
 					break;
 				case "ppu.colorMathEnabled":
-					CGADSUB |= byteData & 0b00111111;
+					CGADSUB.enableBG1 = !!(byteData & 0b00000001);
+					CGADSUB.enableBG2 = !!(byteData & 0b00000010);
+					CGADSUB.enableBG3 = !!(byteData & 0b00000100);
+					CGADSUB.enableBG4 = !!(byteData & 0b00001000);
+					CGADSUB.enableOBJ = !!(byteData & 0b00010000);
+					CGADSUB.enableBackdrop = !!(byteData & 0b00100000);
 					break;
 				case "ppu.colorMathHalveResult":
-					CGADSUB |= (byteData & 1) << 6;
+					CGADSUB.enableHalf = byteData & 1;
 					break;
 				case "ppu.colorMathSubtractMode":
-					CGADSUB |= (byteData & 1) << 7;
+					CGADSUB.enableSubtract = byteData & 1;
 					break;
 				case "ppu.mode7.horizontalMirroring":
-					M7SEL |= byteData & 1;
+					M7SEL.screenHFlip = byteData & 1;
 					break;
 				case "ppu.mode7.verticalMirroring":
-					M7SEL |= (byteData & 1) << 1;
+					M7SEL.screenVFlip = byteData & 1;
 					break;
 				case "ppu.mode7.fillWithTile0":
-					M7SEL |= (byteData & 1) << 6;
+					M7SEL.tile0Fill = byteData & 1;
 					break;
 				case "ppu.mode7.largeMap":
-					M7SEL |= (byteData & 1) << 7;
+					M7SEL.largeMap = byteData & 1;
 					break;
 				case "ppu.mode7.matrix[0]":
 					M7A |= shortData;
@@ -2010,19 +2028,19 @@ unittest {
 					M7Y |= shortData;
 					break;
 				case "ppu.screenInterlace":
-					SETINI |= byteData & 1;
+					SETINI.screenInterlace = byteData & 1;
 					break;
 				case "ppu.objInterlace":
-					SETINI |= (byteData & 1) << 1;
+					SETINI.objInterlace = byteData & 1;
 					break;
 				case "ppu.overscanMode":
-					SETINI |= (byteData & 1) << 2;
+					SETINI.overscan = byteData & 1;
 					break;
 				case "ppu.hiResMode":
-					SETINI |= (byteData & 1) << 3;
+					SETINI.hiRes = byteData & 1;
 					break;
 				case "ppu.extBgEnabled":
-					SETINI |= (byteData & 1) << 6;
+					SETINI.extbg = byteData & 1;
 					break;
 				case "ppu.window[0].invertedLayers[0]":
 					W12SEL |= byteData & 1;
@@ -2143,16 +2161,16 @@ unittest {
 				default: break;
 			}
 		});
-		ppu.INIDISP = INIDISP;
-		ppu.OBSEL = OBSEL;
-		ppu.BGMODE = BGMODE;
-		ppu.MOSAIC = MOSAIC;
-		ppu.BG1SC = BG1SC;
-		ppu.BG2SC = BG2SC;
-		ppu.BG3SC = BG3SC;
-		ppu.BG4SC = BG4SC;
-		ppu.BG12NBA = BG12NBA;
-		ppu.BG34NBA = BG34NBA;
+		ppu.INIDISP = INIDISP.raw;
+		ppu.OBSEL = OBSEL.raw;
+		ppu.BGMODE = BGMODE.raw;
+		ppu.MOSAIC = MOSAIC.raw;
+		ppu.BG1SC = BG1SC.raw;
+		ppu.BG2SC = BG2SC.raw;
+		ppu.BG3SC = BG3SC.raw;
+		ppu.BG4SC = BG4SC.raw;
+		ppu.BG12NBA = BG12NBA.raw;
+		ppu.BG34NBA = BG34NBA.raw;
 		ppu.BG1HOFS = BG1HOFS;
 		ppu.BG1VOFS = BG1VOFS;
 		ppu.BG2HOFS = BG2HOFS;
@@ -2161,7 +2179,7 @@ unittest {
 		ppu.BG3VOFS = BG3VOFS;
 		ppu.BG4HOFS = BG4HOFS;
 		ppu.BG4VOFS = BG4VOFS;
-		ppu.M7SEL = M7SEL;
+		ppu.M7SEL = M7SEL.raw;
 		ppu.M7A = M7A;
 		ppu.M7B = M7B;
 		ppu.M7C = M7C;
@@ -2177,16 +2195,16 @@ unittest {
 		ppu.WH3 = WH3;
 		ppu.WBGLOG = WBGLOG;
 		ppu.WOBJLOG = WOBJLOG;
-		ppu.TM = TM;
-		ppu.TS = TS;
-		ppu.TMW = TMW;
-		ppu.TSW = TSW;
-		ppu.CGWSEL = CGWSEL;
-		ppu.CGADSUB = CGADSUB;
+		ppu.TM = TM.raw;
+		ppu.TS = TS.raw;
+		ppu.TMW = TMW.raw;
+		ppu.TSW = TSW.raw;
+		ppu.CGWSEL = CGWSEL.raw;
+		ppu.CGADSUB = CGADSUB.raw;
 		ppu.write(0x32, COLDATAB | 0x80);
 		ppu.write(0x32, COLDATAG | 0x40);
 		ppu.write(0x32, COLDATAR | 0x20);
-		ppu.SETINI = SETINI;
+		ppu.SETINI = SETINI.raw;
 		return draw(ppu, hdma);
 	}
 	static void runTest(string name) {
@@ -2220,4 +2238,151 @@ unittest {
 	//runTest("Perspective");
 	runTest("Rings");
 	//runTest("RotZoom");
+}
+
+union INIDISPValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			uint, "screenBrightness", 4,
+			uint, "", 3,
+			bool, "forcedBlank", 1,
+		));
+	}
+}
+
+union OBSELValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			uint, "tileBase", 3,
+			uint, "hiOffset", 2,
+			uint, "size", 3,
+		));
+	}
+}
+
+union BGMODEValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			uint, "mode", 3,
+			bool, "bg3Priority", 1,
+			bool, "largeBG1Tiles", 1,
+			bool, "largeBG2Tiles", 1,
+			bool, "largeBG3Tiles", 1,
+			bool, "largeBG4Tiles", 1,
+		));
+	}
+}
+
+union MOSAICValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "enabledBG1", 1,
+			bool, "enabledBG2", 1,
+			bool, "enabledBG3", 1,
+			bool, "enabledBG4", 1,
+			uint, "size", 4,
+		));
+	}
+}
+
+union BGxSCValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "doubleWidth", 1,
+			bool, "doubleHeight", 1,
+			uint, "baseAddress", 6,
+		));
+	}
+}
+
+union BGxxNBAValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			uint, "bg1", 4,
+			uint, "bg2", 4,
+		));
+	}
+	struct {
+		mixin(bitfields!(
+			uint, "bg3", 4,
+			uint, "bg4", 4,
+		));
+	}
+}
+
+union M7SELValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "screenHFlip", 1,
+			bool, "screenVFlip", 1,
+			uint, "", 4,
+			bool, "tile0Fill", 1,
+			bool, "largeMap", 1,
+		));
+	}
+}
+
+union ScreenWindowEnableValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "bg1", 1,
+			bool, "bg2", 1,
+			bool, "bg3", 1,
+			bool, "bg4", 1,
+			bool, "obj", 1,
+			uint, "", 3,
+		));
+	}
+}
+
+union CGWSELValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "directColour", 1,
+			bool, "subscreenEnable", 1,
+			uint, "", 2,
+			uint, "mathPreventMode", 2,
+			uint, "mathClipMode", 2,
+		));
+	}
+}
+
+union CGADSUBValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "enableBG1", 1,
+			bool, "enableBG2", 1,
+			bool, "enableBG3", 1,
+			bool, "enableBG4", 1,
+			bool, "enableOBJ", 1,
+			bool, "enableBackdrop", 1,
+			bool, "enableHalf", 1,
+			bool, "enableSubtract", 1,
+		));
+	}
+}
+
+union SETINIValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "screenInterlace", 1,
+			bool, "objInterlace", 1,
+			bool, "overscan", 1,
+			bool, "hiRes", 1,
+			uint, "", 2,
+			bool, "extbg", 1,
+			bool, "", 1,
+		));
+	}
 }
