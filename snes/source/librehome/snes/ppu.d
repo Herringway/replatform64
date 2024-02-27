@@ -1798,7 +1798,7 @@ unittest {
 		CGADSUBValue CGADSUB;
 		ubyte COLDATAB, COLDATAG, COLDATAR;
 		SETINIValue SETINI;
-		loadMesen2SaveState(file, (key, data) @safe pure {
+		loadMesen2SaveState(file, 0, (key, data) @safe pure {
 			ubyte byteData() {
 				assert(data.length == 1);
 				return data[0];
@@ -2212,7 +2212,7 @@ unittest {
 		if (buildPath("testdata/snes", name~".hdma").exists) {
 			writes = parseHDMAWrites(name~".hdma");
 		}
-		comparePNG(renderMesen2State(name~".mss", writes), name~".png", width, height);
+		comparePNG(renderMesen2State(name~".mss", writes), "testdata/snes", name~".png", width, height);
 
 	}
 	runTest("helloworld");

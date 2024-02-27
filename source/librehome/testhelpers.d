@@ -2,11 +2,11 @@ module librehome.testhelpers;
 
 package:
 
-static void comparePNG(const ubyte[] frame, string comparePath, uint width, uint height) {
+static void comparePNG(const ubyte[] frame, string baseDir, string comparePath, uint width, uint height) {
 	import std.format : format;
 	import std.path : buildPath;
 	import arsd.png : PngType, readPng, writePng;
-	auto reference = readPng(buildPath("testdata/snes", comparePath));
+	auto reference = readPng(buildPath(baseDir, comparePath));
 	const pixels = Array2D!(const(uint))(width, height, cast(const(uint)[])frame);
 	foreach (x; 0 .. width) {
 		foreach (y; 0 .. height) {
@@ -18,7 +18,7 @@ static void comparePNG(const ubyte[] frame, string comparePath, uint width, uint
 	}
 }
 
-void loadMesen2SaveState(const(ubyte)[] file, scope void delegate(const char[] key, const ubyte[] data) @safe pure dg) @safe pure {
+void loadMesen2SaveState(const(ubyte)[] file, uint system, scope void delegate(const char[] key, const ubyte[] data) @safe pure dg) @safe pure {
 	import std.algorithm.searching : countUntil;
 	import std.zlib : uncompress;
 	static struct MSSHeader {
@@ -42,7 +42,7 @@ void loadMesen2SaveState(const(ubyte)[] file, scope void delegate(const char[] k
 	}
 	const header = (cast(const(MSSHeader)[])(popBytes(file, MSSHeader.sizeof)))[0];
 	assert(header.magic == "MSS", "Not a save state");
-	assert(header.console == 0, "Not SNES");
+	assert(header.console == system, "Savestate is for wrong system");
 	assert(header.formatVersion == 4, "Not a compatible format");
 	const fbHeader = (cast(const(MSSFBHeader)[])(popBytes(file, MSSFBHeader.sizeof)))[0];
 	auto fb = popBytes(file, fbHeader.compressedSize);

@@ -1,5 +1,9 @@
 module librehome.gameboy.ppu;
 
+import librehome.testhelpers;
+
+import std.bitmanip : bitfields;
+
 enum LCDCFlags {
 	bgEnabled = 1 << 0,
 	spritesEnabled = 1 << 1,
@@ -173,6 +177,135 @@ struct PPU {
 	}
 }
 
+unittest {
+	import std.algorithm.iteration : splitter;
+	import std.conv : to;
+	import std.file : exists, read, readText;
+	import std.path : buildPath;
+	import std.string : lineSplitter;
+	enum width = 160;
+	enum height = 144;
+	static ubyte[] draw(ref PPU ppu) {
+		auto buffer = new ushort[](width * height);
+		enum pitch = width * 2;
+		ppu.drawFullFrame(cast(ubyte[])buffer, pitch);
+		auto result = new uint[](width * height);
+		immutable colourMap = [
+			0x0000: 0xFF000000,
+			0x35AD: 0xFF6B6B6B,
+			0x5AD6: 0xFFB5B5B5,
+			0x7FFF: 0xFFFFFFFF,
+		];
+		foreach (i, ref pixel; result) { //RGB555 -> ARGB8888
+			if (buffer[i] !in colourMap) {
+				import std.logger; infof("%04X", buffer[i]);
+			}
+			pixel = colourMap[buffer[i]];
+		}
+		return cast(ubyte[])result;
+	}
+	static ubyte[] renderMesen2State(string filename) {
+		PPU ppu;
+		ppu.vram = new ubyte[](0x10000);
+		auto file = cast(ubyte[])read(buildPath("testdata/gameboy", filename));
+		LCDCValue lcdc;
+		STATValue stat;
+		loadMesen2SaveState(file, 1, (key, data) @safe pure {
+			ubyte byteData() {
+				assert(data.length == 1);
+				return data[0];
+			}
+			ushort shortData() {
+				assert(data.length == 2);
+				return (cast(const(ushort)[])data)[0];
+			}
+			uint intData() {
+				assert(data.length == 4);
+				return (cast(const(uint)[])data)[0];
+			}
+			switch (key) {
+				case "ppu.scrollY":
+					ppu.registers.scy = byteData;
+					break;
+				case "ppu.scrollX":
+					ppu.registers.scx = byteData;
+					break;
+				case "ppu.windowY":
+					ppu.registers.wy = byteData;
+					break;
+				case "ppu.windowX":
+					ppu.registers.wx = byteData;
+					break;
+				case "ppu.objPalette0":
+					ppu.registers.obp0 = byteData;
+					break;
+				case "ppu.objPalette1":
+					ppu.registers.obp1 = byteData;
+					break;
+				case "ppu.bgPalette":
+					ppu.registers.bgp = byteData;
+					break;
+				case "ppu.ly":
+					ppu.registers.ly = byteData;
+					break;
+				case "ppu.bgEnabled":
+					lcdc.bgEnabled = byteData & 1;
+					break;
+				case "ppu.spritesEnabled":
+					lcdc.spritesEnabled = byteData & 1;
+					break;
+				case "ppu.largeSprites":
+					lcdc.largeSprites = byteData & 1;
+					break;
+				case "ppu.bgTilemapSelect":
+					lcdc.bgScreenB = byteData & 1;
+					break;
+				case "ppu.windowEnabled":
+					lcdc.windowEnabled = byteData & 1;
+					break;
+				case "ppu.windowTilemapSelect":
+					lcdc.windowScreenB = byteData & 1;
+					break;
+				case "ppu.lcdEnabled":
+					lcdc.lcdEnabled = byteData & 1;
+					break;
+				case "ppu.bgTileSelect":
+					lcdc.bgTileblockA = byteData & 1;
+					break;
+				case "ppu.mode":
+					stat.mode = intData & 3;
+					break;
+				case "ppu.lyCoincidenceFlag":
+					stat.coincidence = byteData & 1;
+					break;
+				case "ppu.status":
+					stat.mode0HBlankIRQ = !!(byteData & 0b00001000);
+					stat.mode1VBlankIRQ = !!(byteData & 0b00010000);
+					stat.mode2OAMIRQ = !!(byteData & 0b00100000);
+					stat.lycEqualsLYFlag = !!(byteData & 0b01000000);
+					break;
+				case "videoRam":
+					ppu.vram[0x8000 .. 0xA000] = data;
+					break;
+				case "spriteRam":
+					ppu.oam[] = data;
+					break;
+				default:
+					import std.logger; debug infof("%s (%s bytes)", key, data.length);
+					break;
+			}
+		});
+		ppu.registers.lcdc = lcdc.raw;
+		ppu.registers.stat = stat.raw;
+		return draw(ppu);
+	}
+	static void runTest(string name) {
+		comparePNG(renderMesen2State(name~".mss"), "testdata/gameboy", name~".png", width, height);
+
+	}
+	runTest("everythingok");
+}
+
 immutable ushort[] pixelBitmasks = [
 	0b0000000100000001,
 	0b0000001000000010,
@@ -224,4 +357,35 @@ bool inRange(T)(T value, T lower, T upper) {
 	assert(10.inRange(0, 11));
 	assert(!10.inRange(0, 10));
 	assert(!9.inRange(10, 11));
+}
+
+union LCDCValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			bool, "bgEnabled", 1,
+			bool, "spritesEnabled", 1,
+			bool, "largeSprites", 1,
+			bool, "bgScreenB", 1,
+			bool, "bgTileblockA", 1,
+			bool, "windowEnabled", 1,
+			bool, "windowScreenB", 1,
+			bool, "lcdEnabled", 1,
+		));
+	}
+}
+
+union STATValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			uint, "mode", 2,
+			bool, "coincidence", 1,
+			bool, "mode0HBlankIRQ", 1,
+			bool, "mode1VBlankIRQ", 1,
+			bool, "mode2OAMIRQ", 1,
+			bool, "lycEqualsLYFlag", 1,
+			bool, "", 1,
+		));
+	}
 }
