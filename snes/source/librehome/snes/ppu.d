@@ -2220,6 +2220,7 @@ unittest {
 	//runTest("mosaicm5");
 	//runTest("ebswirl");
 	runTest("ebbattle");
+	//runTest("ebmeteor");
 	runTest("8x8BG1Map2BPP32x328PAL");
 	runTest("8x8BG2Map2BPP32x328PAL");
 	runTest("8x8BG3Map2BPP32x328PAL");
