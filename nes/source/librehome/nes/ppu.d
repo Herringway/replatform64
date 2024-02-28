@@ -79,26 +79,24 @@ __gshared const uint32_t[64] defaultPaletteRGB = [
     0x000000
 ];
 
-/**
- * RGB representation of the NES palette.
- */
-__gshared const(uint32_t)* paletteRGB = defaultPaletteRGB.ptr;
 
 /**
  * Emulates the NES Picture Processing Unit.
  */
 struct PPU
 {
+    /// RGB representation of the NES palette.
+    const(uint)[] paletteRGB = defaultPaletteRGB;
     ubyte[] nesCPUVRAM;
-    ubyte readRegister(ushort address)
+    private int registerCycle = 0;
+    ubyte readRegister(ushort address) @safe pure
     {
-        static int cycle = 0;
         switch(address)
         {
         // PPUSTATUS
         case 0x2002:
             writeToggle = false;
-            return (cycle++ % 2 == 0 ? 0xc0 : 0);
+            return (registerCycle++ % 2 == 0 ? 0xc0 : 0);
         // OAMDATA
         case 0x2004:
             return oam[oamAddress];
@@ -112,14 +110,14 @@ struct PPU
         return 0;
     }
 
-    ushort getSpriteBase(ubyte index) {
+    ushort getSpriteBase(ubyte index) @safe pure {
         if (ppuCtrl & (1 << 5)) { //8x16 mode
             return (index & 0xFE) + (index & 1 ? 256 : 0);
         } else {
             return index + (ppuCtrl & (1 << 3) ? 256 : 0);
         }
     }
-    void drawSprite(uint* buffer, uint i, bool background) {
+    void drawSprite(scope uint[] buffer, uint i, bool background) @safe pure {
         // Read OAM for the sprite
         ubyte y          = oam[i * 4];
         ubyte index      = oam[i * 4 + 1];
@@ -196,7 +194,7 @@ struct PPU
     /**
      * Render to a frame buffer.
      */
-    void render(uint32_t* buffer)
+    void render(uint[] buffer) @safe pure
     {
         // Clear the buffer with the background color
         for (int index = 0; index < 256 * 240; index++)
@@ -273,7 +271,7 @@ struct PPU
         }
     }
 
-    void writeRegister(ushort address, ubyte value)
+    void writeRegister(ushort address, ubyte value) @safe pure
     {
         switch(address)
         {
@@ -335,7 +333,7 @@ struct PPU
     private bool writeToggle; /**< Toggles whether the low or high bit of the current address will be set on the next write to PPUADDR. */
     private ubyte vramBuffer; /**< Stores the last read byte from VRAM to delay reads by 1 byte. */
 
-    private ubyte getAttributeTableValue(ushort nametableAddress)
+    private ubyte getAttributeTableValue(ushort nametableAddress) @safe pure
     {
         nametableAddress = getNametableIndex(nametableAddress);
 
@@ -352,7 +350,7 @@ struct PPU
         // Determine the attribute table value
         return (nametable[offset] & (0x3 << shift)) >> shift;
     }
-    private ushort getNametableIndex(ushort address)
+    private ushort getNametableIndex(ushort address) @safe pure
     {
         address = cast(ushort)((address - 0x2000) % 0x1000);
         int table = address / 0x400;
@@ -360,7 +358,7 @@ struct PPU
         int mode = 1;
         return cast(ushort)((nametableMirrorLookup[mode][table] * 0x400 + offset) % 2048);
     }
-    private ubyte readByte(ushort address)
+    private ubyte readByte(ushort address) @safe pure
     {
         // Mirror all addresses above $3fff
         address &= 0x3fff;
@@ -378,7 +376,7 @@ struct PPU
 
         return 0;
     }
-    private ubyte readCHR(int index)
+    private ubyte readCHR(int index) @safe pure
     {
         if (index < 0x2000)
         {
@@ -389,7 +387,7 @@ struct PPU
             return 0;
         }
     }
-    private ubyte readDataRegister()
+    private ubyte readDataRegister() @safe pure
     {
         ubyte value = vramBuffer;
         vramBuffer = readByte(currentAddress);
@@ -405,7 +403,7 @@ struct PPU
 
         return value;
     }
-    private void renderTile(uint32_t* buffer, int index, int xOffset, int yOffset)
+    private void renderTile(scope uint[] buffer, int index, int xOffset, int yOffset) @safe pure
     {
         // Lookup the pattern table entry
         ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
@@ -440,7 +438,7 @@ struct PPU
         }
 
     }
-    private void writeAddressRegister(ubyte value)
+    private void writeAddressRegister(ubyte value) @safe pure
     {
         if (!writeToggle)
         {
@@ -454,7 +452,7 @@ struct PPU
         }
         writeToggle = !writeToggle;
     }
-    private void writeByte(ushort address, ubyte value)
+    private void writeByte(ushort address, ubyte value) @safe pure
     {
         // Mirror all addrsses above $3fff
         address &= 0x3fff;
@@ -479,7 +477,7 @@ struct PPU
             }
         }
     }
-    private void writeDataRegister(ubyte value)
+    private void writeDataRegister(ubyte value) @safe pure
     {
         writeByte(currentAddress, value);
         if (!(ppuCtrl & (1 << 2)))
@@ -504,7 +502,7 @@ unittest {
     static ubyte[] draw(ref PPU ppu) {
         auto buffer = new uint[](width * height);
         enum pitch = width * 2;
-        ppu.render(&buffer[0]);
+        ppu.render(buffer);
         foreach (i, ref pixel; buffer) {
             pixel = 0xFF000000 | ((pixel & 0xFF) << 16) | (pixel & 0xFF00) | ((pixel & 0xFF0000) >> 16);
         }
