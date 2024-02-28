@@ -4,7 +4,7 @@ import librehome.testhelpers;
 
 import core.stdc.stdint;
 
-__gshared const ubyte[4][2] nametableMirrorLookup = [
+immutable ubyte[4][2] nametableMirrorLookup = [
 	[0, 0, 1, 1], // Vertical
 	[0, 1, 0, 1], // Horizontal
 ];
