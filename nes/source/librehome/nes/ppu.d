@@ -83,29 +83,23 @@ __gshared const uint32_t[64] defaultPaletteRGB = [
 /**
  * Emulates the NES Picture Processing Unit.
  */
-struct PPU
-{
+struct PPU {
 	/// RGB representation of the NES palette.
 	const(uint)[] paletteRGB = defaultPaletteRGB;
 	ubyte[] nesCPUVRAM;
 	private int registerCycle = 0;
-	ubyte readRegister(ushort address) @safe pure
-	{
-		switch(address)
-		{
-		// PPUSTATUS
-		case 0x2002:
-			writeToggle = false;
-			return (registerCycle++ % 2 == 0 ? 0xc0 : 0);
-		// OAMDATA
-		case 0x2004:
-			return oam[oamAddress];
-		// PPUDATA
-		case 0x2007:
-			return readDataRegister();
-		default:
-			break;
-		}
+	ubyte readRegister(ushort address) @safe pure {
+		switch(address) {
+			case 0x2002: // PPUSTATUS
+				writeToggle = false;
+				return (registerCycle++ % 2 == 0 ? 0xc0 : 0);
+			case 0x2004: // OAMDATA
+				return oam[oamAddress];
+			case 0x2007: // PPUDATA
+				return readDataRegister();
+			default:
+				break;
+			}
 
 		return 0;
 	}
@@ -131,8 +125,7 @@ struct PPU
 		}
 
 		// Check if the sprite is visible
-		if( y >= 0xef || x >= 0xf9 )
-		{
+		if( y >= 0xef || x >= 0xf9 ) {
 			return;
 		}
 
@@ -146,42 +139,35 @@ struct PPU
 		bool flipY = (attributes & (1 << 7)) != 0;
 		foreach (tileOffset; 0 .. 1 + !!(ppuCtrl & (1 << 5))) {
 			// Copy pixels to the framebuffer
-			for( int row = 0; row < 8; row++ )
-			{
+			for( int row = 0; row < 8; row++ ) {
 				ubyte plane1 = readCHR((tile + tileOffset) * 16 + row);
 				ubyte plane2 = readCHR((tile + tileOffset) * 16 + row + 8);
 
-				for( int column = 0; column < 8; column++ )
-				{
+				for( int column = 0; column < 8; column++ ) {
 					ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
 					ubyte colorIndex = palette[0x10 + (attributes & 0x03) * 4 + paletteIndex];
-					if( paletteIndex == 0 )
-					{
+					if( paletteIndex == 0 ) {
 						// Skip transparent pixels
 						continue;
 					}
 					uint32_t pixel = 0xff000000 | paletteRGB[colorIndex];
 
 					int xOffset = 7 - column;
-					if( flipX )
-					{
+					if( flipX ) {
 						xOffset = column;
 					}
 					int yOffset = row;
-					if( flipY )
-					{
+					if( flipY ) {
 						yOffset = 7 - row;
 					}
 
 					int xPixel = cast(int)x + xOffset;
 					int yPixel = cast(int)y + yOffset + (8 * tileOffset);
-					if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240)
-					{
+					if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240) {
 						continue;
 					}
 
-					if (i == 0 && index == 0xff && row == 5 && column > 3 && column < 6)
-					{
+					if (i == 0 && index == 0xff && row == 5 && column > 3 && column < 6) {
 						continue;
 					}
 
@@ -194,56 +180,42 @@ struct PPU
 	/**
 	 * Render to a frame buffer.
 	 */
-	void render(uint[] buffer) @safe pure
-	{
+	void render(uint[] buffer) @safe pure {
 		// Clear the buffer with the background color
-		for (int index = 0; index < 256 * 240; index++)
-		{
+		for (int index = 0; index < 256 * 240; index++) {
 			buffer[index] = paletteRGB[palette[0]];
 		}
 
 		// Draw sprites behind the backround
-		if (ppuMask & (1 << 4)) // Are sprites enabled?
-		{
+		if (ppuMask & (1 << 4)) { // Are sprites enabled?
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
 			//
-			for (int i = 63; i >= 0; i--)
-			{
+			for (int i = 63; i >= 0; i--) {
 				drawSprite(buffer, i, true);
 			}
 		}
 
 		// Draw the background (nametable)
-		if (ppuMask & (1 << 3)) // Is the background enabled?
-		{
+		if (ppuMask & (1 << 3)) { // Is the background enabled?
 			int scrollX = cast(int)ppuScrollX + ((ppuCtrl & (1 << 0)) ? 256 : 0);
 			int xMin = scrollX / 8;
 			int xMax = (cast(int)scrollX + 256) / 8;
-			for (int x = 0; x < 32; x++)
-			{
-				for (int y = 0; y < 4; y++)
-				{
+			for (int x = 0; x < 32; x++) {
+				for (int y = 0; y < 4; y++) {
 					// Render the status bar in the same position (it doesn't scroll)
 					renderTile(buffer, 0x2000 + 32 * y + x, x * 8, y * 8);
 				}
 			}
-			for (int x = xMin; x <= xMax; x++)
-			{
-				for (int y = 4; y < 30; y++)
-				{
+			for (int x = xMin; x <= xMax; x++) {
+				for (int y = 4; y < 30; y++) {
 					// Determine the index of the tile to render
 					int index;
-					if (x < 32)
-					{
+					if (x < 32) {
 						index = 0x2000 + 32 * y + x;
-					}
-					else if (x < 64)
-					{
+					} else if (x < 64) {
 						index = 0x2400 + 32 * y + (x - 32);
-					}
-					else
-					{
+					} else {
 						index = 0x2800 + 32 * y + (x - 64);
 					}
 
@@ -254,15 +226,13 @@ struct PPU
 		}
 
 		// Draw sprites in front of the background
-		if (ppuMask & (1 << 4))
-		{
+		if (ppuMask & (1 << 4)) {
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
 			//
 			// We render sprite 0 first as a special case (coin indicator).
 			//
-			for (int j = 64; j > 0; j--)
-			{
+			for (int j = 64; j > 0; j--) {
 				// Start at 0, then 63, 62, 61, ..., 1
 				//
 				int i = j % 64;
@@ -271,49 +241,37 @@ struct PPU
 		}
 	}
 
-	void writeRegister(ushort address, ubyte value) @safe pure
-	{
-		switch(address)
-		{
-		// PPUCTRL
-		case 0x2000:
-			ppuCtrl = value;
-			break;
-		// PPUMASK
-		case 0x2001:
-			ppuMask = value;
-			break;
-		// OAMADDR
-		case 0x2003:
-			oamAddress = value;
-			break;
-		// OAMDATA
-		case 0x2004:
-			oam[oamAddress] = value;
-			oamAddress++;
-			break;
-		// PPUSCROLL
-		case 0x2005:
-			if (!writeToggle)
-			{
-				ppuScrollX = value;
-			}
-			else
-			{
-				ppuScrollY = value;
-			}
-			writeToggle = !writeToggle;
-			break;
-		// PPUADDR
-		case 0x2006:
-			writeAddressRegister(value);
-			break;
-		// PPUDATA
-		case 0x2007:
-			writeDataRegister(value);
-			break;
-		default:
-			break;
+	void writeRegister(ushort address, ubyte value) @safe pure {
+		switch(address) {
+			case 0x2000: // PPUCTRL
+				ppuCtrl = value;
+				break;
+			case 0x2001: // PPUMASK
+				ppuMask = value;
+				break;
+			case 0x2003: // OAMADDR
+				oamAddress = value;
+				break;
+			case 0x2004: // OAMDATA
+				oam[oamAddress] = value;
+				oamAddress++;
+				break;
+			case 0x2005: // PPUSCROLL
+				if (!writeToggle) {
+					ppuScrollX = value;
+				} else {
+					ppuScrollY = value;
+				}
+				writeToggle = !writeToggle;
+				break;
+			case 0x2006: // PPUADDR
+				writeAddressRegister(value);
+				break;
+			case 0x2007: // PPUDATA
+				writeDataRegister(value);
+				break;
+			default:
+				break;
 		}
 	}
 
@@ -333,8 +291,7 @@ struct PPU
 	private bool writeToggle; /**< Toggles whether the low or high bit of the current address will be set on the next write to PPUADDR. */
 	private ubyte vramBuffer; /**< Stores the last read byte from VRAM to delay reads by 1 byte. */
 
-	private ubyte getAttributeTableValue(ushort nametableAddress) @safe pure
-	{
+	private ubyte getAttributeTableValue(ushort nametableAddress) @safe pure {
 		nametableAddress = getNametableIndex(nametableAddress);
 
 		// Determine the 32x32 attribute table address
@@ -350,77 +307,61 @@ struct PPU
 		// Determine the attribute table value
 		return (nametable[offset] & (0x3 << shift)) >> shift;
 	}
-	private ushort getNametableIndex(ushort address) @safe pure
-	{
+	private ushort getNametableIndex(ushort address) @safe pure {
 		address = cast(ushort)((address - 0x2000) % 0x1000);
 		int table = address / 0x400;
 		int offset = address % 0x400;
 		int mode = 1;
 		return cast(ushort)((nametableMirrorLookup[mode][table] * 0x400 + offset) % 2048);
 	}
-	private ubyte readByte(ushort address) @safe pure
-	{
+	private ubyte readByte(ushort address) @safe pure {
 		// Mirror all addresses above $3fff
 		address &= 0x3fff;
 
-		if (address < 0x2000)
-		{
+		if (address < 0x2000) {
 			// CHR
 			return nesCPUVRAM[address];
 		}
-		else if (address < 0x3f00)
-		{
+		else if (address < 0x3f00) {
 			// Nametable
 			return nametable[getNametableIndex(address)];
 		}
 
 		return 0;
 	}
-	private ubyte readCHR(int index) @safe pure
-	{
-		if (index < 0x2000)
-		{
+	private ubyte readCHR(int index) @safe pure {
+		if (index < 0x2000) {
 			return nesCPUVRAM[index];
-		}
-		else
-		{
+		} else {
 			return 0;
 		}
 	}
-	private ubyte readDataRegister() @safe pure
-	{
+	private ubyte readDataRegister() @safe pure {
 		ubyte value = vramBuffer;
 		vramBuffer = readByte(currentAddress);
 
-		if (!(ppuCtrl & (1 << 2)))
-		{
+		if (!(ppuCtrl & (1 << 2))) {
 			currentAddress++;
-		}
-		else
-		{
+		} else {
 			currentAddress += 32;
 		}
 
 		return value;
 	}
-	private void renderTile(scope uint[] buffer, int index, int xOffset, int yOffset) @safe pure
-	{
+	private void renderTile(scope uint[] buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
 		ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
 
 		// Read the pixels of the tile
-		for( int row = 0; row < 8; row++ )
-		{
+		for( int row = 0; row < 8; row++ ) {
 			ubyte plane1 = readCHR(tile * 16 + row);
 			ubyte plane2 = readCHR(tile * 16 + row + 8);
 
-			for( int column = 0; column < 8; column++ )
-			{
+			for( int column = 0; column < 8; column++ ) {
 				ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
 				ubyte colorIndex = palette[attribute * 4 + paletteIndex];
-				if( paletteIndex == 0 )
-				{
+				if( paletteIndex == 0 ) {
 					// skip transparent pixels
 					//colorIndex = palette[0];
 					continue;
@@ -429,8 +370,7 @@ struct PPU
 
 				int x = (xOffset + (7 - column));
 				int y = (yOffset + row);
-				if (x < 0 || x >= 256 || y < 0 || y >= 240)
-				{
+				if (x < 0 || x >= 256 || y < 0 || y >= 240) {
 					continue;
 				}
 				buffer[y * 256 + x] = pixel;
@@ -438,54 +378,39 @@ struct PPU
 		}
 
 	}
-	private void writeAddressRegister(ubyte value) @safe pure
-	{
-		if (!writeToggle)
-		{
+	private void writeAddressRegister(ubyte value) @safe pure {
+		if (!writeToggle) {
 			// Upper byte
 			currentAddress = (currentAddress & 0xff) | ((cast(ushort)value << 8) & 0xff00);
-		}
-		else
-		{
+		} else {
 			// Lower byte
 			currentAddress = (currentAddress & 0xff00) | cast(ushort)value;
 		}
 		writeToggle = !writeToggle;
 	}
-	private void writeByte(ushort address, ubyte value) @safe pure
-	{
+	private void writeByte(ushort address, ubyte value) @safe pure {
 		// Mirror all addrsses above $3fff
 		address &= 0x3fff;
 
-		if (address < 0x2000)
-		{
+		if (address < 0x2000) {
 			// CHR (no-op)
-		}
-		else if (address < 0x3f00)
-		{
+		} else if (address < 0x3f00) {
 			nametable[getNametableIndex(address)] = value;
-		}
-		else if (address < 0x3f20)
-		{
+		} else if (address < 0x3f20) {
 			// Palette data
 			palette[address - 0x3f00] = value;
 
 			// Mirroring
-			if (address == 0x3f10 || address == 0x3f14 || address == 0x3f18 || address == 0x3f1c)
-			{
+			if (address == 0x3f10 || address == 0x3f14 || address == 0x3f18 || address == 0x3f1c) {
 				palette[address - 0x3f10] = value;
 			}
 		}
 	}
-	private void writeDataRegister(ubyte value) @safe pure
-	{
+	private void writeDataRegister(ubyte value) @safe pure {
 		writeByte(currentAddress, value);
-		if (!(ppuCtrl & (1 << 2)))
-		{
+		if (!(ppuCtrl & (1 << 2))) {
 			currentAddress++;
-		}
-		else
-		{
+		} else {
 			currentAddress += 32;
 		}
 	}
