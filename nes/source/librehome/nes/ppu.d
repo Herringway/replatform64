@@ -79,6 +79,14 @@ __gshared const uint32_t[64] defaultPaletteRGB = [
 	0x000000
 ];
 
+struct OAMEntry {
+	align(1):
+	ubyte y;
+	ubyte index;
+	ubyte attributes;
+	ubyte x;
+}
+
 
 /**
  * Emulates the NES Picture Processing Unit.
@@ -94,7 +102,7 @@ struct PPU {
 				writeToggle = false;
 				return (registerCycle++ % 2 == 0 ? 0xc0 : 0);
 			case 0x2004: // OAMDATA
-				return oam[oamAddress];
+				return (cast(ubyte[])oam[])[oamAddress];
 			case 0x2007: // PPUDATA
 				return readDataRegister();
 			default:
@@ -113,10 +121,10 @@ struct PPU {
 	}
 	void drawSprite(scope uint[] buffer, uint i, bool background) @safe pure {
 		// Read OAM for the sprite
-		ubyte y = oam[i * 4];
-		ubyte index = oam[i * 4 + 1];
-		ubyte attributes = oam[i * 4 + 2];
-		ubyte x = oam[i * 4 + 3];
+		ubyte y = oam[i].y;
+		ubyte index = oam[i].index;
+		ubyte attributes = oam[i].attributes;
+		ubyte x = oam[i].x;
 
 		// Check if the sprite has the correct priority
 		//
@@ -253,7 +261,7 @@ struct PPU {
 				oamAddress = value;
 				break;
 			case 0x2004: // OAMDATA
-				oam[oamAddress] = value;
+				(cast(ubyte[])oam[])[oamAddress] = value;
 				oamAddress++;
 				break;
 			case 0x2005: // PPUSCROLL
@@ -282,9 +290,16 @@ struct PPU {
 	private ubyte ppuScrollX; /**< $2005 */
 	private ubyte ppuScrollY; /**< $2005 */
 
-	private ubyte[32] palette; /**< Palette data. */
-	private ubyte[2048] nametable; /**< Background table. */
-	private ubyte[256] oam; /**< Sprite memory. */
+	inout(ubyte)[] palette() inout @safe pure {
+		return nesCPUVRAM[0x3F00 .. 0x3F20];
+	}
+	inout(ubyte)[] chr() inout @safe pure {
+		return nesCPUVRAM[0x0000 .. 0x2000];
+	}
+	inout(ubyte)[] nametable() inout @safe pure {
+		return nesCPUVRAM[0x2000 .. 0x3000];
+	}
+	OAMEntry[64] oam; // Sprite memory
 
 	// PPU Address control
 	private ushort currentAddress; /**< Address that will be accessed on the next PPU read/write. */
@@ -436,7 +451,7 @@ unittest {
 	static ubyte[] renderMesen2State(string filename) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
-		ppu.nesCPUVRAM = new ubyte[](0x2000);
+		ppu.nesCPUVRAM = new ubyte[](0x4000);
 		ubyte PPUCTRL;
 		ubyte PPUMASK;
 		ubyte PPUSCROLL;
@@ -455,16 +470,16 @@ unittest {
 			}
 			switch (key) {
 				case "mapper.nametableRam":
-					ppu.nametable[] = data;
+					ppu.nametable[0 .. data.length] = data;
 					break;
 				case "mapper.chrRam":
-					ppu.nesCPUVRAM[] = data;
+					ppu.chr[] = data;
 					break;
 				case "ppu.paletteRam":
 					ppu.palette[] = data;
 					break;
 				case "ppu.spriteRam":
-					ppu.oam[] = data;
+					ppu.oam[] = cast(const(OAMEntry[]))data;
 					break;
 				case "ppu.control.verticalWrite":
 					PPUCTRL |= !!byteData << 2;
