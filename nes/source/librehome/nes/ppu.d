@@ -110,6 +110,87 @@ struct PPU
         return 0;
     }
 
+    ushort getSpriteBase(ubyte index) {
+        if (ppuCtrl & (1 << 5)) { //8x16 mode
+            return (index & 0xFE) + (index & 1 ? 256 : 0);
+        } else {
+            return index + (ppuCtrl & (1 << 3) ? 256 : 0);
+        }
+    }
+    void drawSprite(uint* buffer, uint i, bool background) {
+        // Read OAM for the sprite
+        ubyte y          = oam[i * 4];
+        ubyte index      = oam[i * 4 + 1];
+        ubyte attributes = oam[i * 4 + 2];
+        ubyte x          = oam[i * 4 + 3];
+
+        // Check if the sprite has the correct priority
+        //
+        if (background != (attributes & (1 << 5))) {
+            return;
+        }
+
+        // Check if the sprite is visible
+        if( y >= 0xef || x >= 0xf9 )
+        {
+            return;
+        }
+
+        // Increment y by one since sprite data is delayed by one scanline
+        //
+        y++;
+
+        // Determine the tile to use
+        ushort tile = getSpriteBase(index);
+        bool flipX = (attributes & (1 << 6)) != 0;
+        bool flipY = (attributes & (1 << 7)) != 0;
+        foreach (tileOffset; 0 .. 1 + !!(ppuCtrl & (1 << 5))) {
+            // Copy pixels to the framebuffer
+            for( int row = 0; row < 8; row++ )
+            {
+                ubyte plane1 = readCHR((tile + tileOffset) * 16 + row);
+                ubyte plane2 = readCHR((tile + tileOffset) * 16 + row + 8);
+
+                for( int column = 0; column < 8; column++ )
+                {
+                    ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
+                    ubyte colorIndex = palette[0x10 + (attributes & 0x03) * 4 + paletteIndex];
+                    if( paletteIndex == 0 )
+                    {
+                        // Skip transparent pixels
+                        continue;
+                    }
+                    uint32_t pixel = 0xff000000 | paletteRGB[colorIndex];
+
+                    int xOffset = 7 - column;
+                    if( flipX )
+                    {
+                        xOffset = column;
+                    }
+                    int yOffset = row;
+                    if( flipY )
+                    {
+                        yOffset = 7 - row;
+                    }
+
+                    int xPixel = cast(int)x + xOffset;
+                    int yPixel = cast(int)y + yOffset + (8 * tileOffset);
+                    if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240)
+                    {
+                        continue;
+                    }
+
+                    if (i == 0 && index == 0xff && row == 5 && column > 3 && column < 6)
+                    {
+                        continue;
+                    }
+
+                    buffer[yPixel * 256 + xPixel] = pixel;
+                }
+            }
+        }
+    }
+
     /**
      * Render to a frame buffer.
      */
@@ -129,71 +210,7 @@ struct PPU
             //
             for (int i = 63; i >= 0; i--)
             {
-                // Read OAM for the sprite
-                ubyte y          = oam[i * 4];
-                ubyte index      = oam[i * 4 + 1];
-                ubyte attributes = oam[i * 4 + 2];
-                ubyte x          = oam[i * 4 + 3];
-
-                // Check if the sprite has the correct priority
-                if (!(attributes & (1 << 5)))
-                {
-                    continue;
-                }
-
-                // Check if the sprite is visible
-                if( y >= 0xef || x >= 0xf9 )
-                {
-                    continue;
-                }
-
-                // Increment y by one since sprite data is delayed by one scanline
-                //
-                y++;
-
-                // Determine the tile to use
-                ushort tile = index + (ppuCtrl & (1 << 3) ? 256 : 0);
-                bool flipX = (attributes & (1 << 6)) != 0;
-                bool flipY = (attributes & (1 << 7)) != 0;
-
-                // Copy pixels to the framebuffer
-                for( int row = 0; row < 8; row++ )
-                {
-                    ubyte plane1 = readCHR(tile * 16 + row);
-                    ubyte plane2 = readCHR(tile * 16 + row + 8);
-
-                    for( int column = 0; column < 8; column++ )
-                    {
-                        ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
-                        ubyte colorIndex = palette[0x10 + (attributes & 0x03) * 4 + paletteIndex];
-                        if( paletteIndex == 0 )
-                        {
-                            // Skip transparent pixels
-                            continue;
-                        }
-                        uint32_t pixel = 0xff000000 | paletteRGB[colorIndex];
-
-                        int xOffset = 7 - column;
-                        if( flipX )
-                        {
-                            xOffset = column;
-                        }
-                        int yOffset = row;
-                        if( flipY )
-                        {
-                            yOffset = 7 - row;
-                        }
-
-                        int xPixel = cast(int)x + xOffset;
-                        int yPixel = cast(int)y + yOffset;
-                        if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240)
-                        {
-                            continue;
-                        }
-
-                        buffer[yPixel * 256 + xPixel] = pixel;
-                    }
-                }
+                drawSprite(buffer, i, true);
             }
         }
 
@@ -249,78 +266,7 @@ struct PPU
                 // Start at 0, then 63, 62, 61, ..., 1
                 //
                 int i = j % 64;
-
-                // Read OAM for the sprite
-                ubyte y          = oam[i * 4];
-                ubyte index      = oam[i * 4 + 1];
-                ubyte attributes = oam[i * 4 + 2];
-                ubyte x          = oam[i * 4 + 3];
-
-                // Check if the sprite has the correct priority
-                //
-                if (attributes & (1 << 5) && !(i == 0 && index == 0xff))
-                {
-                    continue;
-                }
-
-                // Check if the sprite is visible
-                if( y >= 0xef || x >= 0xf9 )
-                {
-                    continue;
-                }
-
-                // Increment y by one since sprite data is delayed by one scanline
-                //
-                y++;
-
-                // Determine the tile to use
-                ushort tile = index + (ppuCtrl & (1 << 3) ? 256 : 0);
-                bool flipX = (attributes & (1 << 6)) != 0;
-                bool flipY = (attributes & (1 << 7)) != 0;
-
-                // Copy pixels to the framebuffer
-                for( int row = 0; row < 8; row++ )
-                {
-                    ubyte plane1 = readCHR(tile * 16 + row);
-                    ubyte plane2 = readCHR(tile * 16 + row + 8);
-
-                    for( int column = 0; column < 8; column++ )
-                    {
-                        ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
-                        ubyte colorIndex = palette[0x10 + (attributes & 0x03) * 4 + paletteIndex];
-                        if( paletteIndex == 0 )
-                        {
-                            // Skip transparent pixels
-                            continue;
-                        }
-                        uint32_t pixel = 0xff000000 | paletteRGB[colorIndex];
-
-                        int xOffset = 7 - column;
-                        if( flipX )
-                        {
-                            xOffset = column;
-                        }
-                        int yOffset = row;
-                        if( flipY )
-                        {
-                            yOffset = 7 - row;
-                        }
-
-                        int xPixel = cast(int)x + xOffset;
-                        int yPixel = cast(int)y + yOffset;
-                        if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240)
-                        {
-                            continue;
-                        }
-
-                        if (i == 0 && index == 0xff && row == 5 && column > 3 && column < 6)
-                        {
-                            continue;
-                        }
-
-                        buffer[yPixel * 256 + xPixel] = pixel;
-                    }
-                }
+                drawSprite(buffer, i, false);
             }
         }
     }
