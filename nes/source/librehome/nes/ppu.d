@@ -1,5 +1,7 @@
 module librehome.nes.ppu;
 
+import librehome.testhelpers;
+
 import core.stdc.stdint;
 
 __gshared  const ubyte[4][2] nametableMirrorLookup = [
@@ -11,68 +13,68 @@ __gshared  const ubyte[4][2] nametableMirrorLookup = [
  * Default hardcoded palette.
  */
 __gshared const uint32_t[64] defaultPaletteRGB = [
-    0x7c7c7c,
-    0x0000fc,
-    0x0000bc,
-    0x4428bc,
-    0x940084,
-    0xa80020,
-    0xa81000,
-    0x881400,
-    0x503000,
-    0x007800,
-    0x006800,
-    0x005800,
-    0x004058,
+    0x666666,
+    0x002A88,
+    0x1412A7,
+    0x3B00A4,
+    0x5C007E,
+    0x6E0040,
+    0x6C0600,
+    0x561D00,
+    0x333500,
+    0x0B4800,
+    0x005200,
+    0x004F08,
+    0x00404D,
     0x000000,
     0x000000,
     0x000000,
-    0xbcbcbc,
-    0x0078f8,
-    0x0058f8,
-    0x6844fc,
-    0xd800cc,
-    0xe40058,
-    0xf83800,
-    0xe45c10,
-    0xac7c00,
-    0x00b800,
-    0x00a800,
-    0x00a844,
-    0x008888,
+    0xADADAD,
+    0x155FD9,
+    0x4240FF,
+    0x7527FE,
+    0xA01ACC,
+    0xB71E7B,
+    0xB53120,
+    0x994E00,
+    0x6B6D00,
+    0x388700,
+    0x0C9300,
+    0x008F32,
+    0x007C8D,
     0x000000,
     0x000000,
     0x000000,
-    0xf8f8f8,
-    0x3cbcfc,
-    0x6888fc,
-    0x9878f8,
-    0xf878f8,
-    0xf85898,
-    0xf87858,
-    0xfca044,
-    0xf8b800,
-    0xb8f818,
-    0x58d854,
-    0x58f898,
-    0x00e8d8,
-    0x787878,
+    0xFFFEFF,
+    0x64B0FF,
+    0x9290FF,
+    0xC676FF,
+    0xF36AFF,
+    0xFE6ECC,
+    0xFE8170,
+    0xEA9E22,
+    0xBCBE00,
+    0x88D800,
+    0x5CE430,
+    0x45E082,
+    0x48CDDE,
+    0x4F4F4F,
     0x000000,
     0x000000,
-    0xfcfcfc,
-    0xa4e4fc,
-    0xb8b8f8,
-    0xd8b8f8,
-    0xf8b8f8,
-    0xf8a4c0,
-    0xf0d0b0,
-    0xfce0a8,
-    0xf8d878,
-    0xd8f878,
-    0xb8f8b8,
-    0xb8f8d8,
-    0x00fcfc,
-    0xf8d8f8,
+    0xFFFEFF,
+    0xC0DFFF,
+    0xD3D2FF,
+    0xE8C8FF,
+    0xFBC2FF,
+    0xFEC4EA,
+    0xFECCC5,
+    0xF7D8A5,
+    0xE4E594,
+    0xCFEF96,
+    0xBDF4AB,
+    0xB3F3CC,
+    0xB5EBF2,
+    0xB8B8B8,
     0x000000,
     0x000000
 ];
@@ -489,4 +491,112 @@ struct PPU
             currentAddress += 32;
         }
     }
+}
+
+unittest {
+    import std.algorithm.iteration : splitter;
+    import std.conv : to;
+    import std.file : exists, read, readText;
+    import std.path : buildPath;
+    import std.string : lineSplitter;
+    enum width = 256;
+    enum height = 240;
+    static ubyte[] draw(ref PPU ppu) {
+        auto buffer = new uint[](width * height);
+        enum pitch = width * 2;
+        ppu.render(&buffer[0]);
+        foreach (i, ref pixel; buffer) {
+            pixel = 0xFF000000 | ((pixel & 0xFF) << 16) | (pixel & 0xFF00) | ((pixel & 0xFF0000) >> 16);
+        }
+        return cast(ubyte[])buffer;
+    }
+    static ubyte[] renderMesen2State(string filename) {
+        PPU ppu;
+        auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
+        ppu.nesCPUVRAM = new ubyte[](0x2000);
+        ubyte PPUCTRL;
+        ubyte PPUMASK;
+        ubyte PPUSCROLL;
+        loadMesen2SaveState(file, 2, (key, data) @safe pure {
+            ubyte byteData() {
+                assert(data.length == 1);
+                return data[0];
+            }
+            ushort shortData() {
+                assert(data.length == 2);
+                return (cast(const(ushort)[])data)[0];
+            }
+            uint intData() {
+                assert(data.length == 4);
+                return (cast(const(uint)[])data)[0];
+            }
+            switch (key) {
+                case "mapper.nametableRam":
+                    ppu.nametable[] = data;
+                    break;
+                case "mapper.chrRam":
+                    ppu.nesCPUVRAM[] = data;
+                    break;
+                case "ppu.paletteRam":
+                    ppu.palette[] = data;
+                    break;
+                case "ppu.spriteRam":
+                    ppu.oam[] = data;
+                    break;
+                case "ppu.control.verticalWrite":
+                    PPUCTRL |= !!byteData << 2;
+                    break;
+                case "ppu.control.spritePatternAddr":
+                    PPUCTRL |= (shortData == 0) << 3;
+                    break;
+                case "ppu.control.backgroundPatternAddr":
+                    PPUCTRL |= (shortData != 0) << 4;
+                    break;
+                case "ppu.control.largeSprites":
+                    PPUCTRL |= (byteData != 0) << 5;
+                    break;
+                case "ppu.control.nmiOnVerticalBlank":
+                    PPUCTRL |= (byteData != 0) << 7;
+                    break;
+                case "ppu.mask.grayscale":
+                    PPUMASK |= byteData & 1;
+                    break;
+                case "ppu.mask.backgroundMask":
+                    PPUMASK |= (byteData & 1) << 1;
+                    break;
+                case "ppu.mask.spriteMask":
+                    PPUMASK |= (byteData & 1) << 2;
+                    break;
+                case "ppu.mask.backgroundEnabled":
+                    PPUMASK |= (byteData & 1) << 3;
+                    break;
+                case "ppu.mask.spritesEnabled":
+                    PPUMASK |= (byteData & 1) << 4;
+                    break;
+                case "ppu.mask.intensifyRed":
+                    PPUMASK |= (byteData & 1) << 5;
+                    break;
+                case "ppu.mask.intensifyGreen":
+                    PPUMASK |= (byteData & 1) << 6;
+                    break;
+                case "ppu.mask.intensifyBlue":
+                    PPUMASK |= (byteData & 1) << 7;
+                    break;
+                case "ppu.xScroll":
+                    PPUSCROLL = byteData;
+                    break;
+                default:
+                    break;
+            }
+        });
+        ppu.writeRegister(0x2000, PPUCTRL);
+        ppu.writeRegister(0x2001, PPUMASK);
+        ppu.writeRegister(0x2005, PPUSCROLL);
+        return draw(ppu);
+    }
+    static void runTest(string name) {
+        comparePNG(renderMesen2State(name~".mss"), "testdata/nes", name~".png", width, height);
+
+    }
+    runTest("cv");
 }
