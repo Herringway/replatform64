@@ -87,6 +87,40 @@ struct OAMEntry {
 	ubyte x;
 }
 
+enum MirrorType {
+	horizontal,
+	vertical,
+	screenA,
+	screenB,
+	fourScreens,
+}
+
+immutable ushort[][] mirrorOffsets = [
+	MirrorType.horizontal: [0x000, 0x000, 0x400, 0x400],
+	MirrorType.vertical: [0x000, 0x400, 0x000, 0x400],
+	MirrorType.screenA: [0x000, 0x000, 0x000, 0x000],
+	MirrorType.screenB: [0x400, 0x400, 0x400, 0x400],
+	MirrorType.fourScreens: [0x000, 0x400, 0x800, 0xC00],
+];
+
+uint getTilemapOffset(uint x, uint y, MirrorType mirrorMode) @safe pure {
+	enum tilemapWidth = 32;
+	enum tilemapHeight = 30;
+	x %= tilemapWidth * 2;
+	y %= tilemapHeight * 2;
+	const tilemap = (x >= tilemapWidth) + (y >= tilemapHeight) * 2;
+	// Determine the index of the tile to render
+	return 0x2000 + mirrorOffsets[mirrorMode][tilemap] + (tilemapWidth * (y % tilemapHeight)) + (x % tilemapWidth);
+}
+@safe pure unittest {
+	assert(getTilemapOffset(0, 0, MirrorType.fourScreens) == 0x2000);
+	assert(getTilemapOffset(32, 0, MirrorType.vertical) == 0x2400);
+	assert(getTilemapOffset(32, 0, MirrorType.horizontal) == 0x2000);
+	assert(getTilemapOffset(32, 0, MirrorType.fourScreens) == 0x2400);
+	assert(getTilemapOffset(0, 30, MirrorType.fourScreens) == 0x2800);
+	assert(getTilemapOffset(32, 30, MirrorType.fourScreens) == 0x2C00);
+	assert(getTilemapOffset(0, 29, MirrorType.fourScreens) == 0x23A0);
+}
 
 /**
  * Emulates the NES Picture Processing Unit.
@@ -96,6 +130,7 @@ struct PPU {
 	const(uint)[] paletteRGB = defaultPaletteRGB;
 	ubyte[] nesCPUVRAM;
 	private int registerCycle = 0;
+	MirrorType mirrorMode;
 	ubyte readRegister(ushort address) @safe pure {
 		switch(address) {
 			case 0x2002: // PPUSTATUS
@@ -185,6 +220,10 @@ struct PPU {
 		}
 	}
 
+	uint getTilemapOffset(uint x, uint y) const @safe pure {
+		return .getTilemapOffset(x, y, mirrorMode);
+	}
+
 	/**
 	 * Render to a frame buffer.
 	 */
@@ -198,7 +237,6 @@ struct PPU {
 		if (ppuMask & (1 << 4)) { // Are sprites enabled?
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
-			//
 			for (int i = 63; i >= 0; i--) {
 				drawSprite(buffer, i, true);
 			}
@@ -207,28 +245,15 @@ struct PPU {
 		// Draw the background (nametable)
 		if (ppuMask & (1 << 3)) { // Is the background enabled?
 			int scrollX = cast(int)ppuScrollX + ((ppuCtrl & (1 << 0)) ? 256 : 0);
+			int scrollY = cast(int)ppuScrollY + ((ppuCtrl & (1 << 0)) ? 256 : 0);
 			int xMin = scrollX / 8;
 			int xMax = (cast(int)scrollX + 256) / 8;
-			for (int x = 0; x < 32; x++) {
-				for (int y = 0; y < 4; y++) {
-					// Render the status bar in the same position (it doesn't scroll)
-					renderTile(buffer, 0x2000 + 32 * y + x, x * 8, y * 8);
-				}
-			}
+			int yMin = scrollY / 8;
+			int yMax = (cast(int)scrollY + 240) / 8;
 			for (int x = xMin; x <= xMax; x++) {
-				for (int y = 4; y < 30; y++) {
-					// Determine the index of the tile to render
-					int index;
-					if (x < 32) {
-						index = 0x2000 + 32 * y + x;
-					} else if (x < 64) {
-						index = 0x2400 + 32 * y + (x - 32);
-					} else {
-						index = 0x2800 + 32 * y + (x - 64);
-					}
-
+				for (int y = yMin; y < yMax; y++) {
 					// Render the tile
-					renderTile(buffer, index, (x * 8) - cast(int)scrollX, (y * 8));
+					renderTile(buffer, getTilemapOffset(x, y), (x * 8) - scrollX, (y * 8) - scrollY);
 				}
 			}
 		}
@@ -237,13 +262,7 @@ struct PPU {
 		if (ppuMask & (1 << 4)) {
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
-			//
-			// We render sprite 0 first as a special case (coin indicator).
-			//
-			for (int j = 64; j > 0; j--) {
-				// Start at 0, then 63, 62, 61, ..., 1
-				//
-				int i = j % 64;
+			for (int i = 63; i >= 0; i--) {
 				drawSprite(buffer, i, false);
 			}
 		}
@@ -455,6 +474,7 @@ unittest {
 		ubyte PPUCTRL;
 		ubyte PPUMASK;
 		ubyte PPUSCROLL;
+		ubyte PPUSCROLL2;
 		loadMesen2SaveState(file, 2, (key, data) @safe pure {
 			ubyte byteData() {
 				assert(data.length == 1);
@@ -523,6 +543,30 @@ unittest {
 				case "ppu.xScroll":
 					PPUSCROLL = byteData;
 					break;
+				case "mapper.mirroringType":
+					switch (intData) {
+						case 0:
+							ppu.mirrorMode = MirrorType.horizontal;
+							break;
+						case 1:
+							ppu.mirrorMode = MirrorType.vertical;
+							break;
+						case 2:
+							ppu.mirrorMode = MirrorType.screenA;
+							break;
+						case 3:
+							ppu.mirrorMode = MirrorType.screenB;
+							break;
+						case 4:
+							ppu.mirrorMode = MirrorType.fourScreens;
+							break;
+						default: assert(0, "Unexpected mirror type");
+					}
+					break;
+				case "ppu.tmpVideoRamAddr":
+					//mesen stores this in a strange way
+					PPUSCROLL2 = ((shortData & 0x3E0) >> 2) | ((shortData & 0x7000) >> 12);
+					break;
 				default:
 					break;
 			}
@@ -530,6 +574,7 @@ unittest {
 		ppu.writeRegister(0x2000, PPUCTRL);
 		ppu.writeRegister(0x2001, PPUMASK);
 		ppu.writeRegister(0x2005, PPUSCROLL);
+		ppu.writeRegister(0x2005, PPUSCROLL2);
 		return draw(ppu);
 	}
 	static void runTest(string name) {
@@ -537,4 +582,5 @@ unittest {
 
 	}
 	runTest("cv");
+	runTest("con2");
 }
