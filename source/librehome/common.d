@@ -42,3 +42,69 @@ struct DebugState {
 	string group;
 	string label;
 }
+
+
+// from D documentation
+struct Array2D(E) {
+	import std.traits : isMutable;
+	E[] impl;
+	int stride;
+	int width, height;
+
+	this(int width, int height, E[] initialData = []) {
+		impl = initialData;
+		this.stride = this.width = width;
+		this.height = height;
+		impl.length = width * height;
+	}
+
+	// Index a single element, e.g., arr[0, 1]
+	ref inout(E) opIndex(int i, int j) inout {
+		return impl[i + stride * j];
+	}
+
+	// Array slicing, e.g., arr[1..2, 1..2], arr[2, 0..$], arr[0..$, 1].
+	Array2D opIndex(int[2] r1, int[2] r2) {
+		Array2D result;
+
+		auto startOffset = r1[0] + r2[0] * stride;
+		auto endOffset = r1[1] + (r2[1] - 1) * stride;
+		result.impl = this.impl[startOffset .. endOffset];
+
+		result.stride = this.stride;
+		result.width = r1[1] - r1[0];
+		result.height = r2[1] - r2[0];
+
+		return result;
+	}
+	auto opIndex(int[2] r1, int j) {
+		return opIndex(r1, [j, j + 1]);
+	}
+	auto opIndex(int i, int[2] r2) {
+		return opIndex([i, i + 1], r2);
+	}
+	auto opIndex() inout {
+		return impl;
+	}
+	static if (isMutable!E) {
+		auto opAssign(E element) {
+			impl[] = element;
+		}
+	}
+
+	// Support for `x..y` notation in slicing operator for the given dimension.
+	int[2] opSlice(size_t dim)(int start, int end)
+	if (dim >= 0 && dim < 2)
+	in(start >= 0 && end <= this.opDollar!dim)
+	{
+		return [start, end];
+	}
+
+	// Support `$` in slicing notation, e.g., arr[1..$, 0..$-1].
+	int opDollar(size_t dim : 0)() {
+		return width;
+	}
+	int opDollar(size_t dim : 1)() {
+		return height;
+	}
+}

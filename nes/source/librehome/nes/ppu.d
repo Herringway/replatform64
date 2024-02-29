@@ -1,5 +1,6 @@
 module librehome.nes.ppu;
 
+import librehome.common;
 import librehome.testhelpers;
 
 import core.stdc.stdint;
@@ -154,7 +155,7 @@ struct PPU {
 			return index + (ppuCtrl & (1 << 3) ? 256 : 0);
 		}
 	}
-	void drawSprite(scope uint[] buffer, uint i, bool background) @safe pure {
+	void drawSprite(scope Array2D!uint buffer, uint i, bool background) @safe pure {
 		// Read OAM for the sprite
 		ubyte y = oam[i].y;
 		ubyte index = oam[i].index;
@@ -214,7 +215,7 @@ struct PPU {
 						continue;
 					}
 
-					buffer[yPixel * 256 + xPixel] = pixel;
+					buffer[xPixel, yPixel] = pixel;
 				}
 			}
 		}
@@ -227,11 +228,10 @@ struct PPU {
 	/**
 	 * Render to a frame buffer.
 	 */
-	void render(uint[] buffer) @safe pure {
+	void render(uint[] target) @safe pure {
+		auto buffer = Array2D!uint(256, 240, target);
 		// Clear the buffer with the background color
-		for (int index = 0; index < 256 * 240; index++) {
-			buffer[index] = paletteRGB[palette[0]];
-		}
+		buffer[0 .. $, 0 .. $] = paletteRGB[palette[0]];
 
 		// Draw sprites behind the backround
 		if (ppuMask & (1 << 4)) { // Are sprites enabled?
@@ -382,7 +382,7 @@ struct PPU {
 
 		return value;
 	}
-	private void renderTile(scope uint[] buffer, int index, int xOffset, int yOffset) @safe pure {
+	private void renderTile(scope Array2D!uint buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
 		ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
@@ -407,7 +407,7 @@ struct PPU {
 				if (x < 0 || x >= 256 || y < 0 || y >= 240) {
 					continue;
 				}
-				buffer[y * 256 + x] = pixel;
+				buffer[x, y] = pixel;
 			}
 		}
 
