@@ -76,7 +76,7 @@ struct PPU {
 	ubyte lastMosaicModulo = 0xff;
 	ubyte renderFlags;
 	uint renderPitch;
-	ubyte[] renderBuffer;
+	uint[] renderBuffer;
 	ubyte extraLeftCur = 0;
 	ubyte extraRightCur = 0;
 	ubyte extraLeftRight = 0;
@@ -163,8 +163,8 @@ struct PPU {
 
 	void beginDrawing(ubyte[] pixels, size_t pitch, uint render_flags) @safe pure {
 		renderFlags = cast(ubyte)render_flags;
-		renderPitch = cast(uint)pitch;
-		renderBuffer = pixels;
+		renderPitch = cast(uint)pitch / uint.sizeof;
+		renderBuffer = cast(uint[])pixels;
 
 		// Cache the brightness computation
 		if (brightness != lastBrightnessMult) {
@@ -206,7 +206,7 @@ struct PPU {
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
-				renderBuffer[(line - 1) * renderPitch .. (line - 1) * renderPitch + uint.sizeof * (256 + extraLeftRight * 2)] = 0;
+				renderBuffer[(line - 1) * renderPitch .. (line - 1) * renderPitch + (256 + extraLeftRight * 2)] = 0;
 				return;
 			}
 
@@ -220,10 +220,10 @@ struct PPU {
 					handlePixel(x, line);
 				}
 
-				ubyte[] dst = renderBuffer[(line - 1) * renderPitch .. $];
+				uint[] dst = renderBuffer[(line - 1) * renderPitch .. $];
 				if (extraLeftRight != 0) {
-					dst[0 .. uint.sizeof * extraLeftRight] = 0;
-					dst[uint.sizeof * (256 + extraLeftRight) .. uint.sizeof * (257 + extraLeftRight)] = 0;
+					dst[0 .. extraLeftRight] = 0;
+					dst[256 + extraLeftRight .. 257 + extraLeftRight] = 0;
 				}
 			}
 		}
@@ -704,10 +704,10 @@ struct PPU {
 			}
 		}
 		size_t pitch = renderPitch;
-		ubyte[] render_buffer_ptr = renderBuffer[(y - 1) * 4 * pitch .. $];
-		ubyte[] dst_start = render_buffer_ptr[(extraLeftRight - extraLeftCur) * 16 .. $];
+		uint[] render_buffer_ptr = renderBuffer[(y - 1) * 4 * pitch .. $];
+		uint[] dst_start = render_buffer_ptr[(extraLeftRight - extraLeftCur) * 4 .. $];
 		size_t draw_width = 256 + extraLeftCur + extraRightCur;
-		ubyte[] dst_curline = dst_start;
+		uint[] dst_curline = dst_start;
 		uint m1 = m7matrix[1] << 12; // xpos increment per vert movement
 		uint m2 = m7matrix[2] << 12; // ypos increment per horiz movement
 		for (int j = 0; j < 4; j++) {
@@ -724,16 +724,16 @@ struct PPU {
 			xcur -= extraLeftCur * 4 * m0;
 			ycur -= extraLeftCur * 4 * m2;
 
-			ubyte[] dst = dst_curline[0 .. draw_width * 16];
+			uint[] dst = dst_curline[0 .. draw_width * 4];
 
 			void DRAW_PIXEL(int mode) {
 				tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
 				pixel = vram[tile * 64 + (ycur >> 22 & 7) * 8 + (xcur >> 22 & 7)] >> 8;
 				pixel = (xcur & 0x80000000) ? 0 : pixel;
-				(cast(uint[])dst)[0] = (mode ? (colorMapRgb[pixel] & 0xfefefe) >> 1 : colorMapRgb[pixel]);
+				dst[0] = (mode ? (colorMapRgb[pixel] & 0xfefefe) >> 1 : colorMapRgb[pixel]);
 				xcur += m0;
 				ycur += m2;
-				dst = dst[4 .. $];
+				dst = dst[1 .. $];
 			}
 
 			if (!halfColor) {
@@ -756,16 +756,16 @@ struct PPU {
 		}
 
 		if (lineHasSprites) {
-			ubyte[] dst = dst_start;
+			uint[] dst = dst_start;
 			PpuZbufType[] pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
 			for (size_t i = 0; i < draw_width; i++, dst = dst[16 .. $]) {
 				uint pixel = pixels[i] & 0xff;
 				if (pixel) {
 					uint color = colorMapRgb[pixel];
-					(cast(uint[])(dst[pitch * 0 .. pitch * 0 + 4 * uint.sizeof]))[] = color;
-					(cast(uint[])(dst[pitch * 1 .. pitch * 1 + 4 * uint.sizeof]))[] = color;
-					(cast(uint[])(dst[pitch * 2 .. pitch * 2 + 4 * uint.sizeof]))[] = color;
-					(cast(uint[])(dst[pitch * 3 .. pitch * 3 + 4 * uint.sizeof]))[] = color;
+					dst[pitch * 0 .. pitch * 0 + 4][] = color;
+					dst[pitch * 1 .. pitch * 1 + 4][] = color;
+					dst[pitch * 2 .. pitch * 2 + 4][] = color;
+					dst[pitch * 3 .. pitch * 3 + 4][] = color;
 					//(cast(uint *)dst)[3] = (cast(uint *)dst)[2] = (cast(uint *)dst)[1] = (cast(uint *)dst)[0] = color;
 					//(cast(uint *)(dst + pitch * 1))[3] = (cast(uint *)(dst + pitch * 1))[2] = (cast(uint *)(dst + pitch * 1))[1] = (cast(uint *)(dst + pitch * 1))[0] = color;
 					//(cast(uint *)(dst + pitch * 2))[3] = (cast(uint *)(dst + pitch * 2))[2] = (cast(uint *)(dst + pitch * 2))[1] = (cast(uint *)(dst + pitch * 2))[0] = color;
@@ -838,7 +838,7 @@ struct PPU {
 
 	private void drawWholeLine(uint y) @safe pure {
 		if (forcedBlank) {
-			ubyte[] dst = renderBuffer[(y - 1) * renderPitch .. $];
+			uint[] dst = renderBuffer[(y - 1) * renderPitch .. $];
 			size_t n = uint.sizeof * (256 + extraLeftRight * 2);
 			dst[0 .. n] = 0;
 			return;
@@ -1016,11 +1016,10 @@ struct PPU {
 			}
 		}
 		int row = y - 1;
-		ubyte[] pixelBuffer = cast(ubyte[]) renderBuffer[row * renderPitch + (x + extraLeftRight) * 4 .. $];
-		pixelBuffer[0] = cast(ubyte)(((b << 3) | (b >> 2)) * brightness / 15);
-		pixelBuffer[1] = cast(ubyte)(((g << 3) | (g >> 2)) * brightness / 15);
-		pixelBuffer[2] = cast(ubyte)(((r << 3) | (r >> 2)) * brightness / 15);
-		pixelBuffer[3] = 0;
+		renderBuffer[row * renderPitch + (x + extraLeftRight)] =
+			(cast(ubyte)(((b << 3) | (b >> 2)) * brightness / 15) << 0) |
+			(cast(ubyte)(((g << 3) | (g >> 2)) * brightness / 15) << 8) |
+			(cast(ubyte)(((r << 3) | (r >> 2)) * brightness / 15) << 16);
 	}
 
 	immutable int[4][10] bitDepthsPerMode = [
