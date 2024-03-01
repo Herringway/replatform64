@@ -1759,10 +1759,10 @@ unittest {
 		}
 		return result;
 	}
-	static ubyte[] draw(ref PPU ppu, HDMAWrite[] hdmaWrites = []) {
+	static ubyte[] draw(ref PPU ppu, HDMAWrite[] hdmaWrites, int flags) {
 		ubyte[] buffer = new ubyte[](width * height * 4);
 		enum pitch = width * 4;
-		ppu.beginDrawing(buffer, pitch, 0);
+		ppu.beginDrawing(buffer, pitch, flags);
 		foreach (i; 0 .. height + 1) {
 			foreach (write; hdmaWrites) {
 				if (write.vcounter + 1 == i) {
@@ -1777,7 +1777,7 @@ unittest {
 		}
 		return buffer;
 	}
-	static ubyte[] renderMesen2State(string filename, HDMAWrite[] hdma = []) {
+	static ubyte[] renderMesen2State(string filename, HDMAWrite[] hdma = [], int flags) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/snes", filename));
 		INIDISPValue INIDISP;
@@ -2205,7 +2205,7 @@ unittest {
 		ppu.write(0x32, COLDATAG | 0x40);
 		ppu.write(0x32, COLDATAR | 0x20);
 		ppu.SETINI = SETINI.raw;
-		return draw(ppu, hdma);
+		return draw(ppu, hdma, flags);
 	}
 	static void runTest(string name) {
 		HDMAWrite[] writes;
@@ -2213,7 +2213,7 @@ unittest {
 			writes = parseHDMAWrites(name~".hdma");
 		}
 
-		const frame = renderMesen2State(name~".mss", writes);
+		const frame = renderMesen2State(name~".mss", writes, 0);
 		if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
 			dumpPNG(frame, name~".png", width, height);
 			assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
