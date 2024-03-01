@@ -1739,6 +1739,7 @@ unittest {
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;
 	import std.file : exists, read, readText;
+	import std.format : format;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	enum width = 256;
@@ -2211,8 +2212,12 @@ unittest {
 		if (buildPath("testdata/snes", name~".hdma").exists) {
 			writes = parseHDMAWrites(name~".hdma");
 		}
-		comparePNG(renderMesen2State(name~".mss", writes), "testdata/snes", name~".png", width, height);
 
+		const frame = renderMesen2State(name~".mss", writes);
+		if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
+			dumpPNG(frame, name~".png", width, height);
+			assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+		}
 	}
 	runTest("helloworld");
 	runTest("mosaicm3");

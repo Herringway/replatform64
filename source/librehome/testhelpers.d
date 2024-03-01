@@ -4,20 +4,33 @@ import librehome.common;
 
 package:
 
-static void comparePNG(const ubyte[] frame, string baseDir, string comparePath, uint width, uint height) {
+static void dumpPNG(const ubyte[] frame, string file, uint width, uint height) {
+	import arsd.png : PngType, writePng;
+	writePng(file, frame, width, height, PngType.truecolor_with_alpha);
+}
+auto comparePNG(const ubyte[] frame, string baseDir, string comparePath, uint width, uint height) {
 	import std.format : format;
 	import std.path : buildPath;
-	import arsd.png : PngType, readPng, writePng;
+	import arsd.png : readPng;
+	static struct Result {
+		size_t x = size_t.max;
+		size_t y = size_t.max;
+		uint expected;
+		uint got;
+		bool opCast(T: bool)() const {
+			return (x != size_t.max) && (y != size_t.max);
+		}
+	}
 	auto reference = readPng(buildPath(baseDir, comparePath));
 	const pixels = Array2D!(const(uint))(width, height, cast(const(uint)[])frame);
 	foreach (x; 0 .. width) {
 		foreach (y; 0 .. height) {
 			if (reference.getPixel(x, y).asUint != pixels[x, y]) {
-				writePng(comparePath, frame, width, height, PngType.truecolor_with_alpha);
-				assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(x, y, comparePath, pixels[x, y], reference.getPixel(x, y).asUint));
+				return Result(x, y, reference.getPixel(x, y).asUint, pixels[x, y]);
 			}
 		}
 	}
+	return Result();
 }
 
 void loadMesen2SaveState(const(ubyte)[] file, uint system, scope void delegate(const char[] key, const ubyte[] data) @safe pure dg) @safe pure {

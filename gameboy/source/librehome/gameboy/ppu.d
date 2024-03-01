@@ -185,6 +185,7 @@ unittest {
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;
 	import std.file : exists, read, readText;
+	import std.format : format;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	enum width = 160;
@@ -303,8 +304,11 @@ unittest {
 		return draw(ppu);
 	}
 	static void runTest(string name) {
-		comparePNG(renderMesen2State(name~".mss"), "testdata/gameboy", name~".png", width, height);
-
+		const frame = renderMesen2State(name~".mss");
+		if (const result = comparePNG(frame, "testdata/gameboy", name~".png", width, height)) {
+			dumpPNG(frame, name~".png", width, height);
+			assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+		}
 	}
 	runTest("everythingok");
 	runTest("ffl2");
