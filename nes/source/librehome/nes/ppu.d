@@ -127,6 +127,8 @@ uint getTilemapOffset(uint x, uint y, MirrorType mirrorMode) @safe pure {
  * Emulates the NES Picture Processing Unit.
  */
 struct PPU {
+	enum width = 256;
+	enum height = 240;
 	/// RGB representation of the NES palette.
 	const(uint)[] paletteRGB = defaultPaletteRGB;
 	ubyte[] nesCPUVRAM;

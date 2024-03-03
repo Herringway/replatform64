@@ -536,3 +536,10 @@ private:
 		}
 	}
 }
+
+void audioCallback(void* userdata, ubyte[] stream) {
+	audioCallback(*cast(APU*)userdata, stream);
+}
+void audioCallback(ref APU apu, ubyte[] stream) {
+	apu.output(stream);
+}
