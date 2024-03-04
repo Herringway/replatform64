@@ -1,9 +1,8 @@
 module librehome.snes.platform;
+
 import librehome.backend.common;
-//import librehome.common;
 import librehome.commonplatform;
 import librehome.dumping;
-//import librehome.framestat;
 import librehome.planet;
 import librehome.snes.audio;
 import librehome.snes.hardware;
@@ -11,10 +10,7 @@ import librehome.snes.rendering;
 import librehome.snes.sfcdma;
 import librehome.ui;
 
-import core.thread;
 import std.algorithm.comparison;
-import std.algorithm.mutation;
-import std.datetime;
 import std.file;
 import std.format;
 import std.functional;
@@ -22,8 +18,6 @@ import std.logger;
 import std.range;
 import std.path;
 import std.stdio;
-
-import siryul;
 
 struct Settings {
 	RendererSettings renderer;
@@ -35,7 +29,6 @@ struct SNES {
 	void function() entryPoint;
 	void function() interruptHandler;
 	string title;
-	string gameID;
 	SNESRenderer renderer;
 	DebugFunction debugMenuRenderer;
 	DebugFunction gameStateMenu;
@@ -46,8 +39,15 @@ struct SNES {
 	private Settings settings;
 	private immutable(ubyte)[] originalData;
 	private SPC700Emulated spc700;
-	private ubyte[][uint] sramSlotBuffer;
 	private PlatformCommon platform;
+	DMAChannel[8] dmaChannels; ///
+	ubyte HDMAEN;
+	ubyte HVBJOY;
+	ubyte NMITIMEN;
+	ubyte STAT78;
+	auto ref gameID() {
+		return platform.gameID;
+	}
 	T loadSettings(T)() {
 		auto allSettings = platform.loadSettings!(Settings, T)();
 		settings = allSettings.system;
@@ -57,9 +57,7 @@ struct SNES {
 		platform.saveSettings(settings, gameSettings);
 	}
 	void initialize() {
-		auto game = new Fiber({ entryPoint(); });
-
-		platform.initialize(game);
+		platform.initialize({ entryPoint(); });
 		renderer.initialize(title, platform.backend.video, settings.renderer);
 		crashHandler = &dumpSNESDebugData;
 		platform.debugMenu = debugMenuRenderer;
@@ -91,8 +89,53 @@ struct SNES {
 		}
 	}
 	void wait() {
-		Fiber.yield();
+		platform.wait();
 	}
+	immutable(ubyte)[] romData() {
+		if (!originalData) {
+			originalData = (cast(ubyte[])read(gameID~".sfc")).idup;
+			const result = detect(originalData, matchingInternalID);
+			info("Loaded ", title, " ROM", result.header ? " (with header)" : "");
+			if (result.header) {
+				originalData = originalData[0x200 .. $];
+			}
+		}
+		return originalData;
+	}
+	bool assetsExist() {
+		return platform.assetsExist();
+	}
+	PlanetArchive assets() {
+		return platform.assets();
+	}
+	void saveAssets(PlanetArchive archive) {
+		platform.saveAssets(archive);
+	}
+	void runHook(string id) {
+		platform.runHook(id);
+	}
+	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook.toDelegate(), settings);
+	}
+	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook, settings);
+	}
+	void extractAssets(ExtractFunction func) {
+		.extractAssets(func, platform.backend, romData, ".");
+	}
+	void loadWAV(const(ubyte)[] data) {
+		platform.backend.audio.loadWAV(data);
+	}
+	ref T sram(T)(uint slot) {
+		return platform.sram!T(slot);
+	}
+	void commitSRAM() {
+		platform.commitSRAM();
+	}
+	void deleteSlot(uint slot) {
+		platform.deleteSlot(slot);
+	}
+	// SNES-specific functions
 	void handleHDMA() {
 		import std.algorithm.sorting : sort;
 		import std.algorithm.mutation : SwapStrategy;
@@ -250,11 +293,6 @@ struct SNES {
 		if (platform.inputState.controllers[playerID] & ControllerMask.extra4) { result |= Pad.extra4; }
 		return result;
 	}
-	DMAChannel[8] dmaChannels; ///
-	ubyte HDMAEN;
-	ubyte HVBJOY;
-	ubyte NMITIMEN;
-	ubyte STAT78;
 	void BG1SC(ubyte val) {
 		renderer.BG1SC = val;
 	}
@@ -345,46 +383,6 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.oam"), "wb").rawWrite(renderer.oam1);
 		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
-	}
-	immutable(ubyte)[] romData() {
-		if (!originalData) {
-			originalData = (cast(ubyte[])read(gameID~".sfc")).idup;
-			const result = detect(originalData, matchingInternalID);
-			info("Loaded ", title, " ROM", result.header ? " (with header)" : "");
-			if (result.header) {
-				originalData = originalData[0x200 .. $];
-			}
-		}
-		return originalData;
-	}
-	bool assetsExist() {
-		return (gameID~".planet").exists;
-	}
-	PlanetArchive assets() {
-		if ((gameID~".planet").exists) {
-			return PlanetArchive.read(cast(ubyte[])read(gameID~".planet"));
-		}
-		throw new Exception("Not found");
-	}
-	void saveAssets(PlanetArchive archive) {
-		archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
-	}
-	void runHook(string id) {
-		if (auto matchingHooks = id in hooks) {
-			for (int i = 0; i < matchingHooks.length; i++) {
-				(*matchingHooks)[i].func();
-				if ((*matchingHooks)[i].settings.type == HookType.once) {
-					*matchingHooks = (*matchingHooks).remove(i);
-				}
-			}
-		}
-	}
-	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
-		registerHook(id, hook.toDelegate(), settings);
-	}
-	HookState[][string] hooks;
-	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
-		hooks.require(id, []) ~= HookState(hook, settings);
 	}
 	private void commonSNESDebugging(const UIState state) {
 		static MemoryEditor defaultMemoryEditorSettings(string filename) {
@@ -573,56 +571,6 @@ struct SNES {
 	void APUIO3(ubyte val) {
 		APUIO(3, val);
 	}
-	void extractAssets(ExtractFunction func) {
-		.extractAssets(func, platform.backend, romData, ".");
-	}
-	void loadWAV(const(ubyte)[] data) {
-		platform.backend.audio.loadWAV(data);
-	}
-	private void prepareSRAM(uint slot, size_t size) {
-		sramSlotBuffer.require(slot, () {
-			auto buffer = new ubyte[](size);
-			const name = saveFileName(slot);
-			if (name.exists) {
-				infof("Reading SRAM file %s", name);
-				File(name, "r").rawRead(buffer);
-			}
-			return buffer;
-		}());
-	}
-
-	ref T sram(T)(uint slot) {
-		prepareSRAM(slot, T.sizeof);
-		return (cast(T[])sramSlotBuffer[slot][0 .. T.sizeof])[0];
-	}
-	void commitSRAM() {
-		foreach (slot, data; sramSlotBuffer) {
-			const name = saveFileName(slot);
-			infof("Writing %s", name);
-			File(name, "wb").rawWrite(data);
-		}
-	}
-	void deleteSlot(uint slot) {
-		remove(saveFileName(slot));
-	}
-	private string saveFileName(uint slot) {
-		return format!"%s.%s.sav"(title, slot);
-	}
-}
-
-enum HookType {
-	once,
-	repeat
-}
-
-alias HookDelegate = void delegate();
-alias HookFunction = void function();
-struct HookState {
-	HookDelegate func;
-	HookSettings settings;
-}
-struct HookSettings {
-	HookType type;
 }
 
 struct DummySNES {

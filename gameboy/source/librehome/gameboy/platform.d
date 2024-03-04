@@ -5,8 +5,8 @@ import librehome.gameboy.ppu;
 import librehome.gameboy.renderer;
 
 import librehome.backend.common;
-
 import librehome.commonplatform;
+import librehome.planet;
 import librehome.registers;
 import librehome.ui;
 
@@ -14,8 +14,8 @@ import d_imgui.imgui_h;
 import ImGui = d_imgui;
 import imgui.hexeditor;
 
-import core.thread;
 import std.file;
+import std.functional;
 import std.logger;
 import std.random;
 import std.stdio;
@@ -106,18 +106,15 @@ struct GameBoySimple {
 	DebugFunction debugMenuRenderer;
 	string title;
 	string sourceFile;
-	string saveFile;
 	ubyte lcdYUpdateValue = 1;
 	LCDYUpdateStrategy lcdYUpdateStrategy;
 	uint seed = 0x12345678;
 	GameBoyModel model;
-	uint saveSize;
 	private Random rng;
 	private Settings settings;
 	private Renderer renderer;
 	private APU apu;
-	private const(ubyte)[] originalData;
-	private ubyte[] sramBuffer;
+	private immutable(ubyte)[] originalData;
 	private bool vramEditorActive;
 	private MemoryEditor memoryEditorVRAM;
 	private bool oamEditorActive;
@@ -126,6 +123,9 @@ struct GameBoySimple {
 	alias height = renderer.ppu.height;
 
 	private PlatformCommon platform;
+	auto ref gameID() {
+		return platform.gameID;
+	}
 	T loadSettings(T)() {
 		auto allSettings = platform.loadSettings!(Settings, T)();
 		settings = allSettings.system;
@@ -146,10 +146,8 @@ struct GameBoySimple {
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
-		auto game = new Fiber({ entryPoint(model); });
-
 		apu.initialize();
-		platform.initialize(game);
+		platform.initialize({ entryPoint(model); });
 		platform.installAudioCallback(&apu, &audioCallback);
 		renderer.initialize(title, platform.backend.video);
 		platform.debugMenu = debugMenuRenderer;
@@ -169,49 +167,55 @@ struct GameBoySimple {
 			copyInputState(platform.inputState);
 		}
 	}
-	private void prepareSRAM(size_t size) {
-		if (!sramBuffer) {
-			sramBuffer = new ubyte[](size);
+	void wait() {
+		platform.wait();
+	}
+	bool assetsExist() {
+		return platform.assetsExist();
+	}
+	PlanetArchive assets() {
+		return platform.assets();
+	}
+	void saveAssets(PlanetArchive archive) {
+		platform.saveAssets(archive);
+	}
+	void runHook(string id) {
+		platform.runHook(id);
+	}
+	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook.toDelegate(), settings);
+	}
+	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook, settings);
+	}
+	void extractAssets(ExtractFunction func) {
+		.extractAssets(func, platform.backend, romData, ".");
+	}
+	void loadWAV(const(ubyte)[] data) {
+		platform.backend.audio.loadWAV(data);
+	}
+	ref T sram(T)(uint slot) {
+		return platform.sram!T(slot);
+	}
+	void commitSRAM() {
+		platform.commitSRAM();
+	}
+	void deleteSlot(uint slot) {
+		platform.deleteSlot(slot);
+	}
+	immutable(ubyte)[] romData() {
+		if (!originalData) {
+			originalData = (cast(ubyte[])read(sourceFile)).idup;
 		}
+		return originalData;
 	}
-	void loadSRAM(size_t size) {
-		prepareSRAM(size);
-		static bool loaded;
-		if (loaded || !saveFileName.exists) {
-			return;
-		}
-		auto file = File(saveFileName, "r");
-		if (file.size != sramBuffer.length) {
-			infof("Discarding save file with incorrect size: Expected %s, got %s", sramBuffer.length, file.size);
-			return;
-		}
-		infof("Loaded save file %s", saveFileName);
-		file.rawRead(sramBuffer);
-		loaded = true;
+	void enableSRAM() {
+		//enableSRAM(saveSize);
 	}
-	void saveSRAM(size_t size) {
-		prepareSRAM(size);
-		File(saveFileName, "w").rawWrite(sramBuffer);
+	void disableSRAM() {
+		platform.commitSRAM();
 	}
-
-	void loadSRAMSerialized(T)() {
-		static bool loaded;
-		if (loaded || !saveFileName.exists) {
-			return;
-		}
-		sram!T() = fromFile!(T, YAML)(saveFileName);
-		loaded = true;
-	}
-	void saveSRAMSerialized(T)() {
-		sram!T.toFile!YAML(saveFileName);
-	}
-	private string saveFileName() {
-		if (settings.yamlSave) {
-			return saveFile~".yaml";
-		} else {
-			return saveFile;
-		}
-	}
+	// GB-specific features
 	void updateReadableRegisters() {
 		final switch (lcdYUpdateStrategy) {
 			case LCDYUpdateStrategy.constant:
@@ -231,43 +235,11 @@ struct GameBoySimple {
 	ref ubyte[0x400] getWindowTilemap() @safe {
 		return renderer.ppu.vram[0x9C00 .. 0xA000];
 	}
-	void wait() {
-		Fiber.yield();
-	}
 	void waitHBlank() {
 		// do nothing, we don't enforce the read/writeability of the different PPU modes
 	}
 	ubyte[] vram() {
 		return renderer.ppu.vram;
-	}
-	const(ubyte)[] romData() {
-		if (!originalData) {
-			originalData = cast(ubyte[])read(sourceFile);
-		}
-		return originalData;
-	}
-	void enableSRAM(T)() {
-		enableSRAM!T(saveSize);
-	}
-	void enableSRAM(T)(size_t size) {
-		if (settings.yamlSave) {
-			loadSRAMSerialized!T();
-		} else {
-			loadSRAM(size);
-		}
-	}
-	void disableSRAM(T)() {
-		disableSRAM!T(saveSize);
-	}
-	void disableSRAM(T)(size_t size) {
-		if (settings.yamlSave) {
-			saveSRAMSerialized!T();
-		} else {
-			saveSRAM(size);
-		}
-	}
-	ref T sram(T)() {
-		return (cast(T[])sramBuffer[0 .. T.sizeof])[0];
 	}
 	private ubyte pad;
 

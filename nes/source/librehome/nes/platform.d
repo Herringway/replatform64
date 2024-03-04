@@ -11,8 +11,8 @@ import librehome.ui;
 
 import siryul;
 
-import core.thread;
 import std.file;
+import std.functional;
 
 enum settingsFile = "settings.yaml";
 
@@ -68,8 +68,12 @@ struct NES {
 	private Settings settings;
 	private APU apu;
 	private Renderer renderer;
+	private immutable(ubyte)[] romData;
 
 	private PlatformCommon platform;
+	auto ref gameID() {
+		return platform.gameID;
+	}
 	T loadSettings(T)() {
 		auto allSettings = platform.loadSettings!(Settings, T)();
 		settings = allSettings.system;
@@ -79,8 +83,7 @@ struct NES {
 		platform.saveSettings(settings, gameSettings);
 	}
 	void initialize() {
-		auto game = new Fiber({ entryPoint(); });
-		platform.initialize(game);
+		platform.initialize({ entryPoint(); });
 		renderer.initialize(title, platform.backend.video);
 		platform.installAudioCallback(&apu, &audioCallback);
 		platform.debugMenu = debugMenuRenderer;
@@ -101,34 +104,42 @@ struct NES {
 		}
 	}
 	void wait() {
-		Fiber.yield();
+		platform.wait();
 	}
 	bool assetsExist() {
-		return false;
+		return platform.assetsExist();
 	}
-	void extractAssets(ExtractFunction) {}
-
-	T loadSettings(T)() {
-		static struct FullSettings {
-			Settings system;
-			T game;
-		}
-		if (!settingsFile.exists) {
-			FullSettings defaults;
-			//defaults.system.input = getDefaultInputSettings();
-			defaults.toFile!YAML(settingsFile);
-		}
-		auto allSettings = fromFile!(FullSettings, YAML)(settingsFile);
-		settings = allSettings.system;
-		return allSettings.game;
+	PlanetArchive assets() {
+		return platform.assets();
 	}
-	void saveSettings(T)(T gameSettings) {
-		static struct FullSettings {
-			Settings system;
-			T game;
-		}
-		FullSettings(settings, gameSettings).toFile!YAML(settingsFile);
+	void saveAssets(PlanetArchive archive) {
+		platform.saveAssets(archive);
 	}
+	void runHook(string id) {
+		platform.runHook(id);
+	}
+	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook.toDelegate(), settings);
+	}
+	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook, settings);
+	}
+	void extractAssets(ExtractFunction func) {
+		.extractAssets(func, platform.backend, romData, ".");
+	}
+	void loadWAV(const(ubyte)[] data) {
+		platform.backend.audio.loadWAV(data);
+	}
+	ref T sram(T)(uint slot) {
+		return platform.sram!T(slot);
+	}
+	void commitSRAM() {
+		platform.commitSRAM();
+	}
+	void deleteSlot(uint slot) {
+		platform.deleteSlot(slot);
+	}
+	// NES-specific features
 	private void commonNESDebugging(const UIState state) {}
 	void PPUCTRL(ubyte val) {
 		renderer.ppu.writeRegister(Register.PPUCTRL, val);
