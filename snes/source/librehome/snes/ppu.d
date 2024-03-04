@@ -302,7 +302,11 @@ struct PPU {
 	}
 	// Draw a whole line of a 4bpp background layer into bgBuffers
 	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
-		enum kPaletteShift = 6;
+		static if (bpp == 4) {
+			enum kPaletteShift = 6;
+		} else {
+			enum kPaletteShift = 8;
+		}
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
 		}
