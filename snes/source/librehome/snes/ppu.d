@@ -332,6 +332,10 @@ struct PPU {
 			static if (bpp == 4) {
 				addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
 				return addr[0] | addr[8] << 16;
+			} else static if (bpp == 8) {
+				// TODO
+				addr = vram[((ta) + (tile) * 32) & 0x7fff .. $];
+				return addr[0] | addr[8] << 16;
 			} else static if (bpp == 2) {
 				addr = vram[(ta) + (tile) * 8 & 0x7fff .. $];
 				return addr[0];
@@ -351,7 +355,8 @@ struct PPU {
 			PpuZbufType z;
 			void DO_PIXEL(int i)() {
 				pixel = 0;
-				static foreach (plane; 0 .. bpp) {
+				// TODO: 8BPP
+				static foreach (plane; 0 .. min(bpp, 4)) {
 					pixel |= (bits >> (7 * plane + i)) & (1 << plane);
 				}
 				static if (bpp == 4) {
@@ -366,7 +371,8 @@ struct PPU {
 			}
 			void DO_PIXEL_HFLIP(int i)() {
 				pixel = 0;
-				static foreach (plane; 0 .. bpp) {
+				// TODO: 8BPP
+				static foreach (plane; 0 .. min(bpp, 4)) {
 					pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
 				}
 				static if (bpp == 4) {
@@ -508,6 +514,10 @@ struct PPU {
 			static if (bpp == 4) {
 				addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
 				return addr[0] | addr[8] << 16;
+			} else static if (bpp == 8) {
+				// TODO
+				addr = vram[((ta) + (tile) * 32) & 0x7fff .. $];
+				return addr[0] | addr[8] << 16;
 			} else static if (bpp == 2) {
 				addr = vram[((ta) + (tile) * 8) & 0x7fff .. $];
 				return addr[0];
@@ -558,10 +568,10 @@ struct PPU {
 
 	// level6 should be set if it's from palette 0xc0 which means color math is not applied
 	uint SPRITE_PRIO_TO_PRIO(uint prio, bool level6) @safe pure {
-		return (prio * 4 + 2) * 16 + 4 + (level6 ? 2 : 0);
+		return SPRITE_PRIO_TO_PRIO_HI(prio) * 16 + 4 + (level6 ? 2 : 0);
 	}
 	uint SPRITE_PRIO_TO_PRIO_HI(uint prio) @safe pure {
-		return prio * 4 + 2;
+		return (prio + 1) * 3;
 	}
 
 	private void drawSprites(uint y, uint sub, bool clear_backdrop) @safe pure {
@@ -798,57 +808,61 @@ struct PPU {
 	}
 
 	private void drawBackgrounds(int y, bool sub) @safe pure {
-	// Top 4 bits contain the prio level, and bottom 4 bits the layer type.
-	// SPRITE_PRIO_TO_PRIO can be used to convert from obj prio to this prio.
-	// 15: BG3 tiles with priority 1 if bit 3 of $2105 is set
-	// 14: Sprites with priority 3 (4 * sprite_prio + 2)
-	// 12: BG1 tiles with priority 1
-	// 11: BG2 tiles with priority 1
-	// 10: Sprites with priority 2 (4 * sprite_prio + 2)
-	// 8: BG1 tiles with priority 0
-	// 7: BG2 tiles with priority 0
-	// 6: Sprites with priority 1 (4 * sprite_prio + 2)
-	// 3: BG3 tiles with priority 1 if bit 3 of $2105 is clear
-	// 2: Sprites with priority 0 (4 * sprite_prio + 2)
-	// 1: BG3 tiles with priority 0
-	// 0: backdrop
+		// Top 4 bits contain the prio level, and bottom 4 bits the layer num
+		// split into minimums and maximums
+		enum ushort[2][4][8] priorityTable = [
+			0: [[11, 8], [10, 7], [5, 2], [4, 1]],
+			1: [[11, 8], [10, 7], [12, 1], [0, 0]],
+			2: [[11, 5], [8, 2], [0, 0], [0, 0]],
+			3: [[11, 5], [8, 2], [0, 0], [0, 0]],
+			4: [[11, 5], [8, 2], [0, 0], [0, 0]],
+			5: [[11, 5], [8, 2], [0, 0], [0, 0]],
+			6: [[11, 5], [0, 0], [0, 0], [0, 0]],
+			7: [[11, 5], [0, 0], [0, 0], [0, 0]],
+		];
+		enum int[4][8] bgBPP = [
+			0: [2, 2, 2, 2],
+			1: [4, 4, 2, 0],
+			2: [4, 4, 0, 0],
+			3: [8, 4, 0, 0],
+			4: [8, 2, 0, 0],
+			5: [4, 2, 0, 0],
+			6: [4, 0, 0, 0],
+			7: [8, 0, 0, 0],
+		];
 
-		if (mode == 1) {
-			if (lineHasSprites) {
-				drawSprites(y, sub, true);
+		if (lineHasSprites) {
+			drawSprites(y, sub, mode != 7);
+		}
+		sw: switch (mode) {
+			static foreach (i; 0 .. 7) {
+				case i:
+					static foreach (layer; 0 .. 4) {{
+						enum bpp = bgBPP[i][layer];
+						static if (bpp > 0) {
+							enum priorityHigh = (priorityTable[i][layer][0] << 12) | (layer << 8);
+							enum priorityLow = (priorityTable[i][layer][1] << 12) | (layer << 8);
+							if (IS_MOSAIC_ENABLED(layer)) {
+								drawBackgroundMosaic!bpp(y, sub, layer, priorityHigh, priorityLow);
+							} else {
+								drawBackground!bpp(y, sub, layer, priorityHigh, priorityLow);
+							}
+						}
+					}}
+					break sw;
 			}
-
-			if (IS_MOSAIC_ENABLED(0)) {
-				drawBackgroundMosaic!4(y, sub, 0, 0xc000, 0x8000);
-			} else {
-				drawBackground!4(y, sub, 0, 0xc000, 0x8000);
-			}
-
-			if (IS_MOSAIC_ENABLED(1)) {
-				drawBackgroundMosaic!4(y, sub, 1, 0xb100, 0x7100);
-			} else {
-				drawBackground!4(y, sub, 1, 0xb100, 0x7100);
-			}
-
-			if (IS_MOSAIC_ENABLED(2)) {
-				drawBackgroundMosaic!2(y, sub, 2, 0xf200, 0x1200);
-			} else {
-				drawBackground!2(y, sub, 2, 0xf200, 0x1200);
-			}
-		} else {
-			// mode 7
-			drawBackgroundMode7(y, sub, 0xc000);
-			if (lineHasSprites) {
-				drawSprites(y, sub, false);
-			}
+			case 7:
+				drawBackgroundMode7(y, sub, 0xc000);
+				break;
+			default:
+				assert(0);
 		}
 	}
 
 	private void drawWholeLine(uint y) @safe pure {
 		if (forcedBlank) {
 			uint[] dst = renderBuffer[(y - 1) * renderPitch .. $];
-			size_t n = uint.sizeof * (256 + extraLeftRight * 2);
-			dst[0 .. n] = 0;
+			dst[] = 0;
 			return;
 		}
 
@@ -2231,6 +2245,8 @@ unittest {
 	runTest("mosaicm3");
 	//runTest("mosaicm5");
 	//runTest("ebswirl");
+	runTest("ebnorm");
+	runTest("ebspriteprio");
 	runTest("ebbattle");
 	//runTest("ebmeteor");
 	runTest("8x8BG1Map2BPP32x328PAL");
