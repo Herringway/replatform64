@@ -2255,12 +2255,14 @@ unittest {
 			}
 		}
 	}
+	// TODO: change all falses to true
 	runTest("helloworld", true, true);
 	runTest("mosaicm3", true, false);
 	runTest("mosaicm5", false, false);
 	runTest("ebswirl", false, false);
 	runTest("ebnorm", true, true);
 	runTest("ebspriteprio", true, true);
+	runTest("ebspriteprio2", true, false);
 	runTest("ebbattle", true, true);
 	runTest("ebmeteor", false, false);
 	runTest("8x8BG1Map2BPP32x328PAL", true, true);
