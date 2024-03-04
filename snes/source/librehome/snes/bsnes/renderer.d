@@ -67,6 +67,12 @@ align:
 		const ubyte* last = cast(const ubyte*)(&SETINI);
 		return first[0..(last-first+1)];
 	}
+	void writeRegister(ushort addr, ubyte val) @safe pure {
+
+	}
+	ubyte readRegister(ushort addr) @safe pure {
+		return 0;
+	}
 }
 
 

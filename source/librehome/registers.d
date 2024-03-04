@@ -22,12 +22,36 @@ mixin template RegisterRedirect(string name, string target) {
 	}
 }
 mixin template RegisterRedirect(string name, string target, ulong address) {
+	alias type = typeof(mixin(target, ".readRegister(0)"));
 	mixin("
-		typeof(", target, ".read(0)) ", name, "() {
-			return ", target, ".read(", address, ");
+		type ", name, "() {
+			return ", target, ".readRegister(", address, ");
 		}
-		void ", name, "(typeof(", target, ".read(0)) val) {
-			", target, ".write(", address, ", val);
+		void ", name, "(type val) {
+			", target, ".writeRegister(", address, ", val);
 		}
 	");
+}
+
+mixin template DoubleWriteRegisterRedirect(string name, string target, ulong address) {
+	mixin RegisterRedirect!(name, target, address);
+	alias doubleType = doubleSized!type;
+	mixin("
+		void ", name, "(doubleType val) {
+			", target, ".writeRegister(", address, ", val & ((1 << (type.sizeof * 8)) - 1));
+			", target, ".writeRegister(", address, ", val >> (type.sizeof * 8));
+		}
+	");
+}
+
+template doubleSized(T) {
+	static if (is(type == ubyte)) {
+		alias doubleSized = ushort;
+	} else static if (is(type == ushort)) {
+		alias doubleSized = uint;
+	} else static if (is(type == uint)) {
+		alias doubleSized = ulong;
+	} else {
+		static assert(0, "Unsupported");
+	}
 }

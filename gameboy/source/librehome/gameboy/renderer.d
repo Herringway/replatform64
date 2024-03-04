@@ -36,4 +36,10 @@ struct Renderer {
 	void waitNextFrame() {
 		backend.waitNextFrame();
 	}
+	ubyte readRegister(ushort addr) @safe pure {
+		return ppu.readRegister(addr);
+	}
+	void writeRegister(ushort addr, ubyte val) @safe pure {
+		ppu.writeRegister(addr, val);
+	}
 }

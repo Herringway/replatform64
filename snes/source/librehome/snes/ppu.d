@@ -27,6 +27,7 @@ SOFTWARE
 */
 
 import librehome.testhelpers;
+import librehome.snes.hardware;
 
 import std.algorithm.comparison;
 import std.algorithm.mutation;
@@ -1372,8 +1373,8 @@ struct PPU {
 		return (tilesLeft != tilesLeftOrg);
 	}
 
-	ubyte read(ubyte adr) @safe pure {
-		switch (adr) {
+	ubyte readRegister(ushort adr) @safe pure {
+		switch (adr & 0xFF) {
 			case 0x34:
 			case 0x35:
 			case 0x36:
@@ -1384,8 +1385,8 @@ struct PPU {
 		return 0xff;
 	}
 
-	void write(ubyte adr, ubyte val) @safe pure {
-		switch(adr) {
+	void writeRegister(ushort adr, ubyte val) @safe pure {
+		switch (adr & 0xFF) {
 			case 0x00: // INIDISP
 				brightness = val & 0xf;
 				forcedBlank = !!(val & 0x80);
@@ -1593,141 +1594,141 @@ struct PPU {
 	}
 
 	void INIDISP(ubyte val) @safe pure {
-		write(0x00, val);
+		writeRegister(0x00, val);
 	}
 	void OBSEL(ubyte val) @safe pure {
-		write(0x01, val);
+		writeRegister(0x01, val);
 	}
 	void BGMODE(ubyte val) @safe pure {
-		write(0x05, val);
+		writeRegister(0x05, val);
 	}
 	void MOSAIC(ubyte val) @safe pure {
-		write(0x06, val);
+		writeRegister(0x06, val);
 	}
 	void BG1SC(ubyte val) @safe pure {
-		write(0x07, val);
+		writeRegister(0x07, val);
 	}
 	void BG2SC(ubyte val) @safe pure {
-		write(0x08, val);
+		writeRegister(0x08, val);
 	}
 	void BG3SC(ubyte val) @safe pure {
-		write(0x09, val);
+		writeRegister(0x09, val);
 	}
 	void BG4SC(ubyte val) @safe pure {
-		write(0x0A, val);
+		writeRegister(0x0A, val);
 	}
 	void BG12NBA(ubyte val) @safe pure {
-		write(0x0B, val);
+		writeRegister(0x0B, val);
 	}
 	void BG34NBA(ubyte val) @safe pure {
-		write(0x0C, val);
+		writeRegister(0x0C, val);
 	}
 	void BG1HOFS(ushort val) @safe pure {
-		write(0x0D, val & 0xFF);
-		write(0x0D, val >> 8);
+		writeRegister(0x0D, val & 0xFF);
+		writeRegister(0x0D, val >> 8);
 	}
 	void BG1VOFS(ushort val) @safe pure {
-		write(0x0E, val & 0xFF);
-		write(0x0E, val >> 8);
+		writeRegister(0x0E, val & 0xFF);
+		writeRegister(0x0E, val >> 8);
 	}
 	void BG2HOFS(ushort val) @safe pure {
-		write(0x0F, val & 0xFF);
-		write(0x0F, val >> 8);
+		writeRegister(0x0F, val & 0xFF);
+		writeRegister(0x0F, val >> 8);
 	}
 	void BG2VOFS(ushort val) @safe pure {
-		write(0x10, val & 0xFF);
-		write(0x10, val >> 8);
+		writeRegister(0x10, val & 0xFF);
+		writeRegister(0x10, val >> 8);
 	}
 	void BG3HOFS(ushort val) @safe pure {
-		write(0x11, val & 0xFF);
-		write(0x11, val >> 8);
+		writeRegister(0x11, val & 0xFF);
+		writeRegister(0x11, val >> 8);
 	}
 	void BG3VOFS(ushort val) @safe pure {
-		write(0x12, val & 0xFF);
-		write(0x12, val >> 8);
+		writeRegister(0x12, val & 0xFF);
+		writeRegister(0x12, val >> 8);
 	}
 	void BG4HOFS(ushort val) @safe pure {
-		write(0x13, val & 0xFF);
-		write(0x13, val >> 8);
+		writeRegister(0x13, val & 0xFF);
+		writeRegister(0x13, val >> 8);
 	}
 	void BG4VOFS(ushort val) @safe pure {
-		write(0x14, val & 0xFF);
-		write(0x14, val >> 8);
+		writeRegister(0x14, val & 0xFF);
+		writeRegister(0x14, val >> 8);
 	}
 	void M7SEL(ubyte val) @safe pure {
-		write(0x1A, val);
+		writeRegister(0x1A, val);
 	}
 	void M7A(ushort val) @safe pure {
-		write(0x1B, val & 0xFF);
-		write(0x1B, val >> 8);
+		writeRegister(0x1B, val & 0xFF);
+		writeRegister(0x1B, val >> 8);
 	}
 	void M7B(ushort val) @safe pure {
-		write(0x1C, val & 0xFF);
-		write(0x1C, val >> 8);
+		writeRegister(0x1C, val & 0xFF);
+		writeRegister(0x1C, val >> 8);
 	}
 	void M7C(ushort val) @safe pure {
-		write(0x1D, val & 0xFF);
-		write(0x1D, val >> 8);
+		writeRegister(0x1D, val & 0xFF);
+		writeRegister(0x1D, val >> 8);
 	}
 	void M7D(ushort val) @safe pure {
-		write(0x1E, val & 0xFF);
-		write(0x1E, val >> 8);
+		writeRegister(0x1E, val & 0xFF);
+		writeRegister(0x1E, val >> 8);
 	}
 	void M7X(ushort val) @safe pure {
-		write(0x1F, val & 0xFF);
-		write(0x1F, val >> 8);
+		writeRegister(0x1F, val & 0xFF);
+		writeRegister(0x1F, val >> 8);
 	}
 	void M7Y(ushort val) @safe pure {
-		write(0x20, val & 0xFF);
-		write(0x20, val >> 8);
+		writeRegister(0x20, val & 0xFF);
+		writeRegister(0x20, val >> 8);
 	}
 	void W12SEL(ubyte val) @safe pure {
-		write(0x23, val);
+		writeRegister(0x23, val);
 	}
 	void W34SEL(ubyte val) @safe pure {
-		write(0x24, val);
+		writeRegister(0x24, val);
 	}
 	void WOBJSEL(ubyte val) @safe pure {
-		write(0x25, val);
+		writeRegister(0x25, val);
 	}
 	void WH0(ubyte val) @safe pure {
-		write(0x26, val);
+		writeRegister(0x26, val);
 	}
 	void WH1(ubyte val) @safe pure {
-		write(0x27, val);
+		writeRegister(0x27, val);
 	}
 	void WH2(ubyte val) @safe pure {
-		write(0x28, val);
+		writeRegister(0x28, val);
 	}
 	void WH3(ubyte val) @safe pure {
-		write(0x29, val);
+		writeRegister(0x29, val);
 	}
 	void WBGLOG(ubyte val) @safe pure {
-		write(0x2A, val);
+		writeRegister(0x2A, val);
 	}
 	void WOBJLOG(ubyte val) @safe pure {
-		write(0x2B, val);
+		writeRegister(0x2B, val);
 	}
 	void TM(ubyte val) @safe pure {
-		write(0x2C, val);
+		writeRegister(0x2C, val);
 	}
 	void TS(ubyte val) @safe pure {
-		write(0x2D, val);
+		writeRegister(0x2D, val);
 	}
 	void TMW(ubyte val) @safe pure {
-		write(0x2E, val);
+		writeRegister(0x2E, val);
 	}
 	void TSW(ubyte val) @safe pure {
-		write(0x2F, val);
+		writeRegister(0x2F, val);
 	}
 	void CGWSEL(ubyte val) @safe pure {
-		write(0x30, val);
+		writeRegister(0x30, val);
 	}
 	void CGADSUB(ubyte val) @safe pure {
-		write(0x31, val);
+		writeRegister(0x31, val);
 	}
 	void SETINI(ubyte val) @safe pure {
-		write(0x33, val);
+		writeRegister(0x33, val);
 	}
 	bool IS_SCREEN_ENABLED(uint sub, uint layer) @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
 	bool IS_SCREEN_WINDOWED(uint sub, uint layer) @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
@@ -1788,7 +1789,7 @@ unittest {
 		foreach (i; 0 .. height + 1) {
 			foreach (write; hdmaWrites) {
 				if (write.vcounter + 1 == i) {
-					ppu.write(write.addr, write.value);
+					ppu.writeRegister(write.addr, write.value);
 				}
 			}
 			ppu.runLine(i);
@@ -2223,9 +2224,9 @@ unittest {
 		ppu.TSW = TSW.raw;
 		ppu.CGWSEL = CGWSEL.raw;
 		ppu.CGADSUB = CGADSUB.raw;
-		ppu.write(0x32, COLDATAB | 0x80);
-		ppu.write(0x32, COLDATAG | 0x40);
-		ppu.write(0x32, COLDATAR | 0x20);
+		ppu.writeRegister(0x32, COLDATAB | 0x80);
+		ppu.writeRegister(0x32, COLDATAG | 0x40);
+		ppu.writeRegister(0x32, COLDATAR | 0x20);
 		ppu.SETINI = SETINI.raw;
 		return draw(ppu, hdma, flags);
 	}

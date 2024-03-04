@@ -1,5 +1,7 @@
 module librehome.gameboy.ppu;
 
+import librehome.gameboy.common;
+
 import librehome.testhelpers;
 
 import std.bitmanip : bitfields;
@@ -177,6 +179,73 @@ struct PPU {
 		beginDrawing(pixels, stride);
 		foreach (i; 0 .. height) {
 			runLine();
+		}
+	}
+	void writeRegister(ushort addr, ubyte val) @safe pure {
+		switch (addr) {
+			case GameBoyRegister.SCX:
+				registers.scx = val;
+				break;
+			case GameBoyRegister.SCY:
+				registers.scy = val;
+				break;
+			case GameBoyRegister.WX:
+				registers.wx = val;
+				break;
+			case GameBoyRegister.WY:
+				registers.wy = val;
+				break;
+			case GameBoyRegister.LY:
+				// read-only
+				break;
+			case GameBoyRegister.LYC:
+				registers.lyc = val;
+				break;
+			case GameBoyRegister.LCDC:
+				registers.lcdc = val;
+				break;
+			case GameBoyRegister.STAT:
+				registers.stat = val;
+				break;
+			case GameBoyRegister.BGP:
+				registers.bgp = val;
+				break;
+			case GameBoyRegister.OBP0:
+				registers.obp0 = val;
+				break;
+			case GameBoyRegister.OBP1:
+				registers.obp1 = val;
+				break;
+			default:
+				break;
+		}
+	}
+	ubyte readRegister(ushort addr) @safe pure {
+		switch (addr) {
+			case GameBoyRegister.SCX:
+				return registers.scx;
+			case GameBoyRegister.SCY:
+				return registers.scy;
+			case GameBoyRegister.WX:
+				return registers.wx;
+			case GameBoyRegister.WY:
+				return registers.wy;
+			case GameBoyRegister.LY:
+				return registers.ly;
+			case GameBoyRegister.LYC:
+				return registers.lyc;
+			case GameBoyRegister.LCDC:
+				return registers.lcdc;
+			case GameBoyRegister.STAT:
+				return registers.stat;
+			case GameBoyRegister.BGP:
+				return registers.bgp;
+			case GameBoyRegister.OBP0:
+				return registers.obp0;
+			case GameBoyRegister.OBP1:
+				return registers.obp1;
+			default:
+				return 0; // open bus, but we're not doing anything with that yet
 		}
 	}
 }

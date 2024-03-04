@@ -7,6 +7,7 @@ import librehome.nes.apu;
 import librehome.nes.ppu;
 import librehome.nes.renderer;
 import librehome.planet;
+import librehome.registers;
 import librehome.ui;
 
 import siryul;
@@ -141,102 +142,38 @@ struct NES {
 	}
 	// NES-specific features
 	private void commonNESDebugging(const UIState state) {}
-	void PPUCTRL(ubyte val) {
-		renderer.ppu.writeRegister(Register.PPUCTRL, val);
-	}
-	void PPUMASK(ubyte val) {
-		renderer.ppu.writeRegister(Register.PPUMASK, val);
-	}
-	void PPUSTATUS(ubyte val) {
-		renderer.ppu.writeRegister(Register.PPUSTATUS, val);
-	}
-	void OAMADDR(ubyte val) {
-		renderer.ppu.writeRegister(Register.OAMADDR, val);
-	}
-	void OAMDATA(ubyte val) {
-		renderer.ppu.writeRegister(Register.OAMDATA, val);
-	}
-	void PPUSCROLL(ubyte val) {
-		renderer.ppu.writeRegister(Register.PPUSCROLL, val);
-	}
-	void PPUADDR(ubyte val) {
-		renderer.ppu.writeRegister(Register.PPUADDR, val);
-	}
-	void PPUDATA(ubyte val) {
-		renderer.ppu.writeRegister(Register.PPUDATA, val);
-	}
-	void SQ1(ubyte val) {
-		apu.writeRegister(Register.SQ1, val);
-	}
-	void SQ1_VOL(ubyte val) {
-		apu.writeRegister(Register.SQ1_VOL, val);
-	}
-	void SQ1_SWEEP(ubyte val) {
-		apu.writeRegister(Register.SQ1_SWEEP, val);
-	}
-	void SQ1_LO(ubyte val) {
-		apu.writeRegister(Register.SQ1_LO, val);
-	}
-	void SQ1_HI(ubyte val) {
-		apu.writeRegister(Register.SQ1_HI, val);
-	}
-	void SQ2(ubyte val) {
-		apu.writeRegister(Register.SQ2, val);
-	}
-	void SQ2_VOL(ubyte val) {
-		apu.writeRegister(Register.SQ2_VOL, val);
-	}
-	void SQ2_SWEEP(ubyte val) {
-		apu.writeRegister(Register.SQ2_SWEEP, val);
-	}
-	void SQ2_LO(ubyte val) {
-		apu.writeRegister(Register.SQ2_LO, val);
-	}
-	void SQ2_HI(ubyte val) {
-		apu.writeRegister(Register.SQ2_HI, val);
-	}
-	void TRI(ubyte val) {
-		apu.writeRegister(Register.TRI, val);
-	}
-	void TRI_LINEAR(ubyte val) {
-		apu.writeRegister(Register.TRI_LINEAR, val);
-	}
-	void TRI_LO(ubyte val) {
-		apu.writeRegister(Register.TRI_LO, val);
-	}
-	void TRI_HI(ubyte val) {
-		apu.writeRegister(Register.TRI_HI, val);
-	}
-	void NOISE(ubyte val) {
-		apu.writeRegister(Register.NOISE, val);
-	}
-	void NOISE_VOL(ubyte val) {
-		apu.writeRegister(Register.NOISE_VOL, val);
-	}
-	void NOISE_LO(ubyte val) {
-		apu.writeRegister(Register.NOISE_LO, val);
-	}
-	void NOISE_HI(ubyte val) {
-		apu.writeRegister(Register.NOISE_HI, val);
-	}
-	void DMC(ubyte val) {
-		apu.writeRegister(Register.DMC, val);
-	}
-	void DMC_FREQ(ubyte val) {
-		apu.writeRegister(Register.DMC_FREQ, val);
-	}
-	void DMC_RAW(ubyte val) {
-		apu.writeRegister(Register.DMC_RAW, val);
-	}
-	void DMC_START(ubyte val) {
-		apu.writeRegister(Register.DMC_START, val);
-	}
-	void DMC_LEN(ubyte val) {
-		apu.writeRegister(Register.DMC_LEN, val);
-	}
-	void SND_CHN(ubyte val) {
-		apu.writeRegister(Register.SND_CHN, val);
-	}
+	mixin RegisterRedirect!("PPUCTRL", "renderer", Register.PPUCTRL);
+	mixin RegisterRedirect!("PPUMASK", "renderer", Register.PPUMASK);
+	mixin RegisterRedirect!("PPUSTATUS", "renderer", Register.PPUSTATUS);
+	mixin RegisterRedirect!("OAMADDR", "renderer", Register.OAMADDR);
+	mixin RegisterRedirect!("OAMDATA", "renderer", Register.OAMDATA);
+	mixin RegisterRedirect!("PPUSCROLL", "renderer", Register.PPUSCROLL);
+	mixin RegisterRedirect!("PPUADDR", "renderer", Register.PPUADDR);
+	mixin RegisterRedirect!("PPUDATA", "renderer", Register.PPUDATA);
+	mixin RegisterRedirect!("SQ1", "apu", Register.SQ1);
+	mixin RegisterRedirect!("SQ1_VOL", "apu", Register.SQ1_VOL);
+	mixin RegisterRedirect!("SQ1_SWEEP", "apu", Register.SQ1_SWEEP);
+	mixin RegisterRedirect!("SQ1_LO", "apu", Register.SQ1_LO);
+	mixin RegisterRedirect!("SQ1_HI", "apu", Register.SQ1_HI);
+	mixin RegisterRedirect!("SQ2", "apu", Register.SQ2);
+	mixin RegisterRedirect!("SQ2_VOL", "apu", Register.SQ2_VOL);
+	mixin RegisterRedirect!("SQ2_SWEEP", "apu", Register.SQ2_SWEEP);
+	mixin RegisterRedirect!("SQ2_LO", "apu", Register.SQ2_LO);
+	mixin RegisterRedirect!("SQ2_HI", "apu", Register.SQ2_HI);
+	mixin RegisterRedirect!("TRI", "apu", Register.TRI);
+	mixin RegisterRedirect!("TRI_LINEAR", "apu", Register.TRI_LINEAR);
+	mixin RegisterRedirect!("TRI_LO", "apu", Register.TRI_LO);
+	mixin RegisterRedirect!("TRI_HI", "apu", Register.TRI_HI);
+	mixin RegisterRedirect!("NOISE", "apu", Register.NOISE);
+	mixin RegisterRedirect!("NOISE_VOL", "apu", Register.NOISE_VOL);
+	mixin RegisterRedirect!("NOISE_LO", "apu", Register.NOISE_LO);
+	mixin RegisterRedirect!("NOISE_HI", "apu", Register.NOISE_HI);
+	mixin RegisterRedirect!("DMC", "apu", Register.DMC);
+	mixin RegisterRedirect!("DMC_FREQ", "apu", Register.DMC_FREQ);
+	mixin RegisterRedirect!("DMC_RAW", "apu", Register.DMC_RAW);
+	mixin RegisterRedirect!("DMC_START", "apu", Register.DMC_START);
+	mixin RegisterRedirect!("DMC_LEN", "apu", Register.DMC_LEN);
+	mixin RegisterRedirect!("SND_CHN", "apu", Register.SND_CHN);
 	void JOY1(ubyte val) {
 	}
 	void JOY2(ubyte val) {

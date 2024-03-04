@@ -33,7 +33,7 @@ immutable ushort[16] noiseTable = [
 
 /// Pulse waveform generator.
 struct Pulse {
-	this(ubyte channel) @safe {
+	this(ubyte channel) @safe pure {
 		enabled = false;
 		this.channel = channel;
 		lengthEnabled = false;
@@ -57,7 +57,7 @@ struct Pulse {
 		constantVolume = 0;
 	}
 
-	void writeControl(ubyte value) @safe {
+	void writeControl(ubyte value) @safe pure {
 		dutyMode = (value >> 6) & 3;
 		lengthEnabled = ((value >> 5) & 1) == 0;
 		envelopeLoop = ((value >> 5) & 1) == 1;
@@ -67,7 +67,7 @@ struct Pulse {
 		envelopeStart = true;
 	}
 
-	void writeSweep(ubyte value) @safe {
+	void writeSweep(ubyte value) @safe pure {
 		sweepEnabled = ((value >> 7) & 1) == 1;
 		sweepPeriod = ((value >> 4) & 7) + 1;
 		sweepNegate = ((value >> 3) & 1) == 1;
@@ -75,18 +75,18 @@ struct Pulse {
 		sweepReload = true;
 	}
 
-	void writeTimerLow(ubyte value) @safe {
+	void writeTimerLow(ubyte value) @safe pure {
 		timerPeriod = (timerPeriod & 0xff00) | cast(ushort)value;
 	}
 
-	void writeTimerHigh(ubyte value) @safe {
+	void writeTimerHigh(ubyte value) @safe pure {
 		lengthValue = lengthTable[value >> 3];
 		timerPeriod = (timerPeriod & 0xff) | (cast(ushort)(value & 7) << 8);
 		envelopeStart = true;
 		dutyValue = 0;
 	}
 
-	void stepTimer() @safe {
+	void stepTimer() @safe pure {
 		if (timerValue == 0) {
 			timerValue = timerPeriod;
 			dutyValue = (dutyValue + 1) % 8;
@@ -112,7 +112,7 @@ struct Pulse {
 		}
 	}
 
-	void stepSweep() @safe {
+	void stepSweep() @safe pure {
 		if (sweepReload) {
 			if (sweepEnabled && sweepValue == 0) {
 				sweep();
@@ -129,13 +129,13 @@ struct Pulse {
 		}
 	}
 
-	void stepLength() @safe {
+	void stepLength() @safe pure {
 		if (lengthEnabled && lengthValue > 0) {
 			lengthValue--;
 		}
 	}
 
-	void sweep() @safe {
+	void sweep() @safe pure {
 		ushort delta = timerPeriod >> sweepShift;
 		if (sweepNegate) {
 			timerPeriod -= delta;
@@ -147,7 +147,7 @@ struct Pulse {
 		}
 	}
 
-	ubyte output() @safe {
+	ubyte output() @safe pure {
 		if (!enabled) {
 			return 0;
 		}
@@ -193,23 +193,23 @@ private:
 
 /// Triangle waveform generator.
 struct Triangle {
-	void writeControl(ubyte value) @safe {
+	void writeControl(ubyte value) @safe pure {
 		lengthEnabled = ((value >> 7) & 1) == 0;
 		counterPeriod = value & 0x7f;
 	}
 
-	void writeTimerLow(ubyte value) @safe {
+	void writeTimerLow(ubyte value) @safe pure {
 		timerPeriod = (timerPeriod & 0xff00) | cast(ushort)value;
 	}
 
-	void writeTimerHigh(ubyte value) @safe {
+	void writeTimerHigh(ubyte value) @safe pure {
 		lengthValue = lengthTable[value >> 3];
 		timerPeriod = (timerPeriod & 0x00ff) | (cast(ushort)(value & 7) << 8);
 		timerValue = timerPeriod;
 		counterReload = true;
 	}
 
-	void stepTimer() @safe {
+	void stepTimer() @safe pure {
 		if (timerValue == 0) {
 			timerValue = timerPeriod;
 			if (lengthValue > 0 && counterValue > 0) {
@@ -220,13 +220,13 @@ struct Triangle {
 		}
 	}
 
-	void stepLength() @safe {
+	void stepLength() @safe pure {
 		if (lengthEnabled && lengthValue > 0) {
 			lengthValue--;
 		}
 	}
 
-	void stepCounter() @safe {
+	void stepCounter() @safe pure {
 		if (counterReload) {
 			counterValue = counterPeriod;
 		} else if (counterValue > 0) {
@@ -237,7 +237,7 @@ struct Triangle {
 		}
 	}
 
-	ubyte output() @safe {
+	ubyte output() @safe pure {
 		if (!enabled) {
 			return 0;
 		}
@@ -263,7 +263,7 @@ private:
 }
 
 struct Noise {
-	void writeControl(ubyte value) @safe {
+	void writeControl(ubyte value) @safe pure {
 		lengthEnabled = ((value >> 5) & 1) == 0;
 		envelopeLoop = ((value >> 5) & 1) == 1;
 		envelopeEnabled = ((value >> 4) & 1) == 0;
@@ -272,17 +272,17 @@ struct Noise {
 		envelopeStart = true;
 	}
 
-	void writePeriod(ubyte value) @safe {
+	void writePeriod(ubyte value) @safe pure {
 		mode = (value & 0x80) == 0x80;
 		timerPeriod = noiseTable[value & 0x0f];
 	}
 
-	void writeLength(ubyte value) @safe {
+	void writeLength(ubyte value) @safe pure {
 		lengthValue = lengthTable[value >> 3];
 		envelopeStart = true;
 	}
 
-	void stepTimer() @safe {
+	void stepTimer() @safe pure {
 		if (timerValue == 0) {
 			timerValue = timerPeriod;
 			ubyte shift;
@@ -300,7 +300,7 @@ struct Noise {
 		}
 	}
 
-	void stepEnvelope() @safe {
+	void stepEnvelope() @safe pure {
 		if (envelopeStart) {
 			envelopeVolume = 15;
 			envelopeValue = envelopePeriod;
@@ -317,13 +317,13 @@ struct Noise {
 		}
 	}
 
-	void stepLength() @safe {
+	void stepLength() @safe pure {
 		if (lengthEnabled && lengthValue > 0) {
 			lengthValue--;
 		}
 	}
 
-	ubyte output() @safe {
+	ubyte output() @safe pure {
 		if (!enabled) {
 			return 0;
 		}
@@ -358,9 +358,9 @@ private:
 }
 /// Audio processing unit emulator.
 struct APU {
-	bool delegate(ref APU) @safe playFrame;
+	bool delegate(ref APU) @safe pure playFrame;
 	/// Step the APU by one frame.
-	void stepFrame() @safe {
+	void stepFrame() @safe pure {
 		if (playFrame !is null) {
 			playFrame(this);
 		}
@@ -410,7 +410,7 @@ struct APU {
 		}
 	}
 
-	void output(ubyte[] buffer) @safe {
+	void output(ubyte[] buffer) @safe pure {
 		if (audioBufferLength == 0) {
 			stepFrame();
 		}
@@ -426,7 +426,10 @@ struct APU {
 		}
 	}
 
-	void writeRegister(ushort address, ubyte value) @safe {
+	ubyte readRegister(ushort address) @safe pure {
+		return 0;
+	}
+	void writeRegister(ushort address, ubyte value) @safe pure {
 		switch (address) {
 		case 0x4000:
 			pulse1.writeControl(value);
@@ -495,29 +498,29 @@ private:
 	Triangle triangle;
 	Noise noise;
 
-	ubyte getOutput() @safe {
+	ubyte getOutput() @safe pure {
 		double pulseOut = 0.00752 * (pulse1.output() + pulse2.output());
 		double tndOut = 0.00851 * triangle.output() + 0.00494 * noise.output();
 
 		return cast(ubyte)(floor(255.0 * (pulseOut + tndOut)));
 	}
-	void stepEnvelope() @safe {
+	void stepEnvelope() @safe pure {
 		pulse1.stepEnvelope();
 		pulse2.stepEnvelope();
 		triangle.stepCounter();
 		noise.stepEnvelope();
 	}
-	void stepSweep() @safe {
+	void stepSweep() @safe pure {
 		pulse1.stepSweep();
 		pulse2.stepSweep();
 	}
-	void stepLength() @safe {
+	void stepLength() @safe pure {
 		pulse1.stepLength();
 		pulse2.stepLength();
 		triangle.stepLength();
 		noise.stepLength();
 	}
-	void writeControl(ubyte value) @safe {
+	void writeControl(ubyte value) @safe pure {
 		pulse1.enabled = (value & 1) == 1;
 		pulse2.enabled = (value & 2) == 2;
 		triangle.enabled = (value & 4) == 4;

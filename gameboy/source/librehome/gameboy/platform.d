@@ -1,6 +1,7 @@
 module librehome.gameboy.platform;
 
 import librehome.gameboy.apu;
+import librehome.gameboy.common;
 import librehome.gameboy.ppu;
 import librehome.gameboy.renderer;
 
@@ -33,64 +34,6 @@ enum LCDYUpdateStrategy {
 	increasing,
 	constant,
 	random,
-}
-
-enum GameBoyRegister : ushort {
-	JOYP = 0xFF00,
-	SB = 0xFF01,
-	SC = 0xFF02,
-	DIV = 0xFF04,
-	TIMA = 0xFF05,
-	TMA = 0xFF06,
-	TAC = 0xFF07,
-	IF = 0xFF0F,
-	NR10 = 0xFF10,
-	NR11 = 0xFF11,
-	NR12 = 0xFF12,
-	NR13 = 0xFF13,
-	NR14 = 0xFF14,
-	NR21 = 0xFF16,
-	NR22 = 0xFF17,
-	NR23 = 0xFF18,
-	NR24 = 0xFF19,
-	NR30 = 0xFF1A,
-	NR31 = 0xFF1B,
-	NR32 = 0xFF1C,
-	NR33 = 0xFF1D,
-	NR34 = 0xFF1E,
-	NR41 = 0xFF20,
-	NR42 = 0xFF21,
-	NR43 = 0xFF22,
-	NR44 = 0xFF23,
-	NR50 = 0xFF24,
-	NR51 = 0xFF25,
-	NR52 = 0xFF26,
-	LCDC = 0xFF40,
-	STAT = 0xFF41,
-	SCY = 0xFF42,
-	SCX = 0xFF43,
-	LY = 0xFF44,
-	LYC = 0xFF45,
-	DMA = 0xFF46,
-	BGP = 0xFF47,
-	OBP0 = 0xFF48,
-	OBP1 = 0xFF49,
-	WY = 0xFF4A,
-	WX = 0xFF4B,
-	KEY1 = 0xFF4D,
-	VBK = 0xFF4F,
-	HDMA1 = 0xFF51,
-	HDMA2 = 0xFF52,
-	HDMA3 = 0xFF53,
-	HDMA4 = 0xFF54,
-	HDMA5 = 0xFF55,
-	RP = 0xFF56,
-	BCPS = 0xFF68,
-	BCPD = 0xFF69,
-	OCPS = 0xFF6A,
-	OCPD = 0xFF6B,
-	SVBK = 0xFF70,
-	IE = 0xFFFF,
 }
 
 enum GameBoyModel : ushort {
@@ -297,25 +240,25 @@ struct GameBoySimple {
 		static struct WaveRAM {
 			APU* apu;
 			void opIndexAssign(ubyte val, size_t offset) {
-				apu.write(cast(ushort)(0xFF30 + offset), val);
+				apu.writeRegister(cast(ushort)(0xFF30 + offset), val);
 			}
 			ubyte opIndex(size_t offset) {
-				return apu.read(cast(ushort)(0xFF30 + offset));
+				return apu.readRegister(cast(ushort)(0xFF30 + offset));
 			}
 		}
 		return WaveRAM(&apu);
 	}
-	mixin RegisterRedirect!("SCX", "renderer.ppu.registers.scx");
-	mixin RegisterRedirect!("SCY", "renderer.ppu.registers.scy");
-	mixin RegisterRedirect!("WX", "renderer.ppu.registers.wx");
-	mixin RegisterRedirect!("WY", "renderer.ppu.registers.wy");
-	mixin RegisterRedirect!("LY", "renderer.ppu.registers.ly");
-	mixin RegisterRedirect!("LYC", "renderer.ppu.registers.lyc");
-	mixin RegisterRedirect!("LCDC", "renderer.ppu.registers.lcdc");
-	mixin RegisterRedirect!("STAT", "renderer.ppu.registers.stat");
-	mixin RegisterRedirect!("BGP", "renderer.ppu.registers.bgp");
-	mixin RegisterRedirect!("OBP0", "renderer.ppu.registers.obp0");
-	mixin RegisterRedirect!("OBP1", "renderer.ppu.registers.obp1");
+	mixin RegisterRedirect!("SCX", "renderer", GameBoyRegister.SCX);
+	mixin RegisterRedirect!("SCY", "renderer", GameBoyRegister.SCY);
+	mixin RegisterRedirect!("WX", "renderer", GameBoyRegister.WX);
+	mixin RegisterRedirect!("WY", "renderer", GameBoyRegister.WY);
+	mixin RegisterRedirect!("LY", "renderer", GameBoyRegister.LY);
+	mixin RegisterRedirect!("LYC", "renderer", GameBoyRegister.LYC);
+	mixin RegisterRedirect!("LCDC", "renderer", GameBoyRegister.LCDC);
+	mixin RegisterRedirect!("STAT", "renderer", GameBoyRegister.STAT);
+	mixin RegisterRedirect!("BGP", "renderer", GameBoyRegister.BGP);
+	mixin RegisterRedirect!("OBP0", "renderer", GameBoyRegister.OBP0);
+	mixin RegisterRedirect!("OBP1", "renderer", GameBoyRegister.OBP1);
 	mixin RegisterRedirect!("NR10", "apu", GameBoyRegister.NR10);
 	mixin RegisterRedirect!("NR11", "apu", GameBoyRegister.NR11);
 	mixin RegisterRedirect!("NR12", "apu", GameBoyRegister.NR12);

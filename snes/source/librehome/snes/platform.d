@@ -4,6 +4,7 @@ import librehome.backend.common;
 import librehome.commonplatform;
 import librehome.dumping;
 import librehome.planet;
+import librehome.registers;
 import librehome.snes.audio;
 import librehome.snes.hardware;
 import librehome.snes.rendering;
@@ -88,9 +89,6 @@ struct SNES {
 			}
 		}
 	}
-	void wait() {
-		platform.wait();
-	}
 	immutable(ubyte)[] romData() {
 		if (!originalData) {
 			originalData = (cast(ubyte[])read(gameID~".sfc")).idup;
@@ -101,6 +99,9 @@ struct SNES {
 			}
 		}
 		return originalData;
+	}
+	void wait() {
+		platform.wait();
 	}
 	bool assetsExist() {
 		return platform.assetsExist();
@@ -227,31 +228,22 @@ struct SNES {
 		dmaCopy(cast(const(ubyte)*)a1t, dest, wrapAt, wrapTo, das, transferSize, srcAdjust, dstAdjust);
 	}
 	void setFixedColourData(ubyte val) {
-		const intensity = val & 0x1F;
-		if (val & 0x80) {
-			renderer.FIXED_COLOUR_DATA_B = intensity;
-		}
-		if (val & 0x40) {
-			renderer.FIXED_COLOUR_DATA_G = intensity;
-		}
-		if (val & 0x20) {
-			renderer.FIXED_COLOUR_DATA_R = intensity;
-		}
+		COLDATA = val;
 	}
 
 	void setBGOffsetX(ubyte layer, ushort x) {
 		switch (layer) {
 			case 1:
-				renderer.BG1HOFS = x;
+				BG1HOFS = x;
 				break;
 			case 2:
-				renderer.BG2HOFS = x;
+				BG2HOFS = x;
 				break;
 			case 3:
-				renderer.BG3HOFS = x;
+				BG3HOFS = x;
 				break;
 			case 4:
-				renderer.BG4HOFS = x;
+				BG4HOFS = x;
 				break;
 			default: assert(0);
 		}
@@ -259,16 +251,16 @@ struct SNES {
 	void setBGOffsetY(ubyte layer, ushort y) {
 		switch (layer) {
 			case 1:
-				renderer.BG1VOFS = y;
+				BG1VOFS = y;
 				break;
 			case 2:
-				renderer.BG2VOFS = y;
+				BG2VOFS = y;
 				break;
 			case 3:
-				renderer.BG3VOFS = y;
+				BG3VOFS = y;
 				break;
 			case 4:
-				renderer.BG4VOFS = y;
+				BG4VOFS = y;
 				break;
 			default: assert(0);
 		}
@@ -293,82 +285,40 @@ struct SNES {
 		if (platform.inputState.controllers[playerID] & ControllerMask.extra4) { result |= Pad.extra4; }
 		return result;
 	}
-	void BG1SC(ubyte val) {
-		renderer.BG1SC = val;
-	}
-	void BG2SC(ubyte val) {
-		renderer.BG2SC = val;
-	}
-	void BG3SC(ubyte val) {
-		renderer.BG3SC = val;
-	}
-	void BG4SC(ubyte val) {
-		renderer.BG4SC = val;
-	}
-	void BG12NBA(ubyte val) {
-		renderer.BG12NBA = val;
-	}
-	void BG34NBA(ubyte val) {
-		renderer.BG34NBA = val;
-	}
-	void INIDISP(ubyte val) {
-		renderer.INIDISP = val;
-	}
-	void OBSEL(ubyte val) {
-		renderer.OBSEL = val;
-	}
-	void BGMODE(ubyte val) {
-		renderer.BGMODE = val;
-	}
-	void MOSAIC(ubyte val) {
-		renderer.MOSAIC = val;
-	}
-	void W12SEL(ubyte val) {
-		renderer.W12SEL = val;
-	}
-	void W34SEL(ubyte val) {
-		renderer.W34SEL = val;
-	}
-	void WOBJSEL(ubyte val) {
-		renderer.WOBJSEL = val;
-	}
-	void WH0(ubyte val) {
-		renderer.WH0 = val;
-	}
-	void WH1(ubyte val) {
-		renderer.WH1 = val;
-	}
-	void WH2(ubyte val) {
-		renderer.WH2 = val;
-	}
-	void WH3(ubyte val) {
-		renderer.WH3 = val;
-	}
-	void WBGLOG(ubyte val) {
-		renderer.WBGLOG = val;
-	}
-	void WOBJLOG(ubyte val) {
-		renderer.WOBJLOG = val;
-	}
-	void TM(ubyte val) {
-		renderer.TM = val;
-	}
-	alias TS = TD;
-	void TD(ubyte val) {
-		renderer.TS = val;
-	}
-	void TMW(ubyte val) {
-		renderer.TMW = val;
-	}
-	void TSW(ubyte val) {
-		renderer.TSW = val;
-	}
-	void CGWSEL(ubyte val) {
-		renderer.CGWSEL = val;
-	}
-	void CGADSUB(ubyte val) {
-		renderer.CGADSUB = val;
-	}
+	mixin DoubleWriteRegisterRedirect!("BG1HOFS", "renderer", Register.BG1HOFS);
+	mixin DoubleWriteRegisterRedirect!("BG2HOFS", "renderer", Register.BG2HOFS);
+	mixin DoubleWriteRegisterRedirect!("BG3HOFS", "renderer", Register.BG3HOFS);
+	mixin DoubleWriteRegisterRedirect!("BG4HOFS", "renderer", Register.BG4HOFS);
+	mixin DoubleWriteRegisterRedirect!("BG1VOFS", "renderer", Register.BG1VOFS);
+	mixin DoubleWriteRegisterRedirect!("BG2VOFS", "renderer", Register.BG2VOFS);
+	mixin DoubleWriteRegisterRedirect!("BG3VOFS", "renderer", Register.BG3VOFS);
+	mixin DoubleWriteRegisterRedirect!("BG4VOFS", "renderer", Register.BG4VOFS);
+	mixin RegisterRedirect!("BG1SC", "renderer", Register.BG1SC);
+	mixin RegisterRedirect!("BG2SC", "renderer", Register.BG2SC);
+	mixin RegisterRedirect!("BG3SC", "renderer", Register.BG3SC);
+	mixin RegisterRedirect!("BG4SC", "renderer", Register.BG4SC);
+	mixin RegisterRedirect!("BG12NBA", "renderer", Register.BG12NBA);
+	mixin RegisterRedirect!("BG34NBA", "renderer", Register.BG34NBA);
+	mixin RegisterRedirect!("INIDISP", "renderer", Register.INIDISP);
+	mixin RegisterRedirect!("OBSEL", "renderer", Register.OBSEL);
+	mixin RegisterRedirect!("BGMODE", "renderer", Register.BGMODE);
+	mixin RegisterRedirect!("MOSAIC", "renderer", Register.MOSAIC);
+	mixin RegisterRedirect!("W12SEL", "renderer", Register.W12SEL);
+	mixin RegisterRedirect!("W34SEL", "renderer", Register.W34SEL);
+	mixin RegisterRedirect!("WOBJSEL", "renderer", Register.WOBJSEL);
+	mixin RegisterRedirect!("WH0", "renderer", Register.WH0);
+	mixin RegisterRedirect!("WH1", "renderer", Register.WH1);
+	mixin RegisterRedirect!("WH2", "renderer", Register.WH2);
+	mixin RegisterRedirect!("WH3", "renderer", Register.WH3);
+	mixin RegisterRedirect!("WBGLOG", "renderer", Register.WBGLOG);
+	mixin RegisterRedirect!("WOBJLOG", "renderer", Register.WOBJLOG);
+	mixin RegisterRedirect!("TM", "renderer", Register.TM);
+	mixin RegisterRedirect!("TD", "renderer", Register.TD);
+	mixin RegisterRedirect!("TMW", "renderer", Register.TMW);
+	mixin RegisterRedirect!("TSW", "renderer", Register.TSW);
+	mixin RegisterRedirect!("CGWSEL", "renderer", Register.CGWSEL);
+	mixin RegisterRedirect!("CGADSUB", "renderer", Register.CGADSUB);
+	mixin RegisterRedirect!("COLDATA", "renderer", Register.COLDATA);
 	void dumpSNESDebugData(string crashDir) {
 		dumpScreen(cast(ubyte[])renderer.getRGBA8888(), crashDir, renderer.width, renderer.height);
 		dumpVRAMToDir(crashDir);
@@ -459,14 +409,14 @@ struct SNES {
 			ImGui.TreePop();
 		}
 		if (ImGui.TreeNode("Layers")) {
-			const screenRegisters = [renderer.BG1SC, renderer.BG2SC, renderer.BG3SC, renderer.BG4SC];
-			const screenRegisters2 = [renderer.BG12NBA & 0xF, renderer.BG12NBA >> 4, renderer.BG34NBA & 0xF, renderer.BG34NBA >> 4];
+			const screenRegisters = [BG1SC, BG2SC, BG3SC, BG4SC];
+			const screenRegisters2 = [BG12NBA & 0xF, BG12NBA >> 4, BG34NBA & 0xF, BG34NBA >> 4];
 			static foreach (layer, label; ["BG1", "BG2", "BG3", "BG4"]) {{
 				if (ImGui.TreeNode(label)) {
 					ImGui.Text(format!"Tilemap address: $%04X"((screenRegisters[layer] & 0xFC) << 9));
 					ImGui.Text(format!"Tile base address: $%04X"(screenRegisters2[layer] << 13));
 					ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][screenRegisters[layer] & 3]));
-					ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(renderer.BGMODE >> (4 + layer))]));
+					ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(BGMODE >> (4 + layer))]));
 					//disabledCheckbox("Mosaic Enabled", !!((renderer.MOSAIC >> layer) & 1));
 					ImGui.TreePop();
 				}
@@ -499,40 +449,40 @@ struct SNES {
 			//ImGui.Image(createTexture(data[], texWidth, texHeight, ushort.sizeof * texWidth, nativeFormat), ImVec2(texWidth * 3, texHeight * 3));
 			ImGui.TreePop();
 		}
-		if (ImGui.TreeNode("Registers")) {
-			InputEditableR("INIDISP", renderer.INIDISP);
-			InputEditableR("OBSEL", renderer.OBSEL);
-			InputEditableR("OAMADDR", renderer.OAMADDR);
-			InputEditableR("BGMODE", renderer.BGMODE);
-			InputEditableR("MOSAIC", renderer.MOSAIC);
-			InputEditableR("BGxSC", renderer.BG1SC, renderer.BG2SC, renderer.BG3SC, renderer.BG4SC);
-			InputEditableR("BGxNBA", renderer.BG12NBA, renderer.BG34NBA);
-			InputEditableR("BG1xOFS", renderer.BG1HOFS, renderer.BG1VOFS);
-			InputEditableR("BG2xOFS", renderer.BG2HOFS, renderer.BG2VOFS);
-			InputEditableR("BG3xOFS", renderer.BG3HOFS, renderer.BG3VOFS);
-			InputEditableR("BG4xOFS", renderer.BG4HOFS, renderer.BG4VOFS);
-			InputEditableR("M7SEL", renderer.M7SEL);
-			InputEditableR("M7A", renderer.M7A);
-			InputEditableR("M7B", renderer.M7B);
-			InputEditableR("M7C", renderer.M7C);
-			InputEditableR("M7D", renderer.M7D);
-			InputEditableR("M7X", renderer.M7X);
-			InputEditableR("M7Y", renderer.M7Y);
-			InputEditableR("WxSEL", renderer.W12SEL, renderer.W34SEL);
-			InputEditableR("WOBJSEL", renderer.WOBJSEL);
-			InputEditableR("WHx", renderer.WH0, renderer.WH1, renderer.WH2, renderer.WH3);
-			InputEditableR("WBGLOG", renderer.WBGLOG);
-			InputEditableR("WOBJLOG", renderer.WOBJLOG);
-			InputEditableR("TM", renderer.TM);
-			InputEditableR("TS", renderer.TS);
-			InputEditableR("TMW", renderer.TMW);
-			InputEditableR("TSW", renderer.TSW);
-			InputEditableR("CGWSEL", renderer.CGWSEL);
-			InputEditableR("CGADSUB", renderer.CGADSUB);
-			InputEditableR("FIXED_COLOUR_DATA", renderer.FIXED_COLOUR_DATA_R, renderer.FIXED_COLOUR_DATA_G, renderer.FIXED_COLOUR_DATA_B);
-			InputEditableR("SETINI", renderer.SETINI);
-			ImGui.TreePop();
-		}
+		//if (ImGui.TreeNode("Registers")) {
+		//	InputEditableR("INIDISP", INIDISP);
+		//	InputEditableR("OBSEL", OBSEL);
+		//	InputEditableR("OAMADDR", OAMADDR);
+		//	InputEditableR("BGMODE", BGMODE);
+		//	InputEditableR("MOSAIC", MOSAIC);
+		//	InputEditableR("BGxSC", BG1SC, BG2SC, BG3SC, BG4SC);
+		//	InputEditableR("BGxNBA", BG12NBA, BG34NBA);
+		//	InputEditableR("BG1xOFS", BG1HOFS, BG1VOFS);
+		//	InputEditableR("BG2xOFS", BG2HOFS, BG2VOFS);
+		//	InputEditableR("BG3xOFS", BG3HOFS, BG3VOFS);
+		//	InputEditableR("BG4xOFS", BG4HOFS, BG4VOFS);
+		//	InputEditableR("M7SEL", M7SEL);
+		//	InputEditableR("M7A", M7A);
+		//	InputEditableR("M7B", M7B);
+		//	InputEditableR("M7C", M7C);
+		//	InputEditableR("M7D", M7D);
+		//	InputEditableR("M7X", M7X);
+		//	InputEditableR("M7Y", M7Y);
+		//	InputEditableR("WxSEL", W12SEL, W34SEL);
+		//	InputEditableR("WOBJSEL", WOBJSEL);
+		//	InputEditableR("WHx", WH0, WH1, WH2, WH3);
+		//	InputEditableR("WBGLOG", WBGLOG);
+		//	InputEditableR("WOBJLOG", WOBJLOG);
+		//	InputEditableR("TM", TM);
+		//	InputEditableR("TS", TS);
+		//	InputEditableR("TMW", TMW);
+		//	InputEditableR("TSW", TSW);
+		//	InputEditableR("CGWSEL", CGWSEL);
+		//	InputEditableR("CGADSUB", CGADSUB);
+		//	//InputEditableR("FIXED_COLOUR_DATA", renderer.FIXED_COLOUR_DATA_R, renderer.FIXED_COLOUR_DATA_G, renderer.FIXED_COLOUR_DATA_B);
+		//	InputEditableR("SETINI", SETINI);
+		//	ImGui.TreePop();
+		//}
 	}
 	void dumpPPU() {
 		const dir = prepareDumpDirectory();
