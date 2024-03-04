@@ -38,7 +38,7 @@ struct SNESRenderer {
 	private VideoBackend backend;
 
 	//void initialize(string title, WindowSettings settings, VideoBackend newBackend, Renderer renderer) {
-	void initialize(string title, VideoSettings settings, VideoBackend newBackend, RendererSettings rendererSettings, bool debugging) {
+	void initialize(string title, VideoBackend newBackend, RendererSettings rendererSettings) {
 		this.renderer = rendererSettings.engine;
 		PixelFormat textureType;
 		final switch (rendererSettings.engine) {
@@ -46,7 +46,6 @@ struct SNESRenderer {
 				textureType = PixelFormat.rgb555;
 				width = defaultWidth * 2;
 				height = defaultHeight * 2;
-				settings.uiZoom /= 2;
 				enforce(loadSnesDrawFrame(), "Could not load SnesDrawFrame");
 				enforce(initSnesDrawFrame(), "Could not initialize SnesDrawFrame");
 				info("SnesDrawFrame initialized");
@@ -59,20 +58,11 @@ struct SNESRenderer {
 				break;
 		}
 		WindowSettings window;
-		window.width = width;
-		window.height = height;
-		window.userSettings = settings;
-		window.debugging = debugging;
+		window.baseWidth = width;
+		window.baseHeight = height;
 		backend = newBackend;
-		backend.initialize();
 		backend.createWindow(title, window);
 		backend.createTexture(width, height, textureType);
-	}
-	void platformDebugFunc(const UIState) {
-		//if (ImGui.BeginMainMenuBar()) {
-		//	ImGui.Text("What?");
-		//	ImGui.EndMainMenuBar();
-		//}
 	}
 	void draw() {
 		backend.startFrame();
@@ -101,9 +91,6 @@ struct SNESRenderer {
 				}
 				break;
 		}
-	}
-	void waitNextFrame() {
-		backend.waitNextFrame();
 	}
 	ushort[] getFrameData() {
 		uint _;

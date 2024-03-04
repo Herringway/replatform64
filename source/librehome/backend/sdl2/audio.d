@@ -2,7 +2,7 @@ module librehome.backend.sdl2.audio;
 
 import librehome.backend.common;
 import librehome.backend.sdl2.common;
-import librehome.watchdog;
+import librehome.dumping;
 
 import std.logger;
 import std.string;
@@ -20,8 +20,17 @@ version(Windows) {
 }
 
 class SDL2Audio : AudioBackend {
-	void initialize(void* user, AudioCallback fun, uint sampleRate, uint channels, uint samples) @trusted {
+	private uint sampleRate;
+	private uint channels;
+	private uint samples;
+	void initialize(uint sampleRate, uint channels, uint samples) @trusted {
+		this.sampleRate = sampleRate;
+		this.channels = channels;
+		this.samples = samples;
 		enforceSDL(SDL_Init(SDL_INIT_AUDIO) == 0, "Error initializing SDL Audio");
+		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
+	}
+	void installCallback(void* user, AudioCallback fun) @trusted {
 		SDL_AudioSpec want, have;
 		want.freq = sampleRate;
 		want.format = AUDIO_S16;
@@ -33,7 +42,6 @@ class SDL2Audio : AudioBackend {
 		const dev = SDL_OpenAudioDevice(null, 0, &want, &have, 0);
 		enforceSDL(dev != 0, "Error opening audio device");
 		SDL_PauseAudioDevice(dev, 0);
-		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
 	}
 	void deinitialize() @safe {}
 	void loadWAV(const ubyte[] data) @safe {}
@@ -42,18 +50,20 @@ class SDL2Audio : AudioBackend {
 
 class SDL2AudioMixer : AudioBackend {
 	Mix_Chunk*[] loadedWAVs;
-	void initialize(void* user, AudioCallback fun, uint sampleRate, uint channels, uint samples) @trusted {
+	void initialize(uint sampleRate, uint channels, uint samples) @trusted {
 		assert(SDL_GetError !is null, "SDL is not loaded!");
 		enforceSDLLoaded!("SDL_Mixer", Mix_Linked_Version, libName)(loadSDLMixer());
 		enforceSDL(Mix_OpenAudio(sampleRate, AUDIO_S16, channels, samples) != -1, "Could not open audio");
-		callback = fun;
-		Mix_HookMusic(&callbackWrapper, user);
 		int finalSampleRate;
 		int finalChannels;
 		ushort finalFormat;
 		Mix_QuerySpec(&finalSampleRate, &finalFormat, &finalChannels);
 
 		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
+	}
+	void installCallback(void* user, AudioCallback fun) @trusted {
+		callback = fun;
+		Mix_HookMusic(&callbackWrapper, user);
 	}
 	void deinitialize() @safe {}
 	void loadWAV(const ubyte[] data) @trusted {

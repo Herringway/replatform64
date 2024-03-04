@@ -649,7 +649,7 @@ struct PPU {
 					w = IntMin(w, cast(int)dstz.length);
 					if (cast(uint)(xpos | ypos) > outside_value) {
 						if (!char_fill) {
-							continue;
+							break;
 						}
 						tile = 0;
 					} else {
@@ -671,7 +671,7 @@ struct PPU {
 				do {
 					if (cast(uint)(xpos | ypos) > outside_value) {
 						if (!char_fill) {
-							continue;
+							break;
 						}
 						tile = 0;
 					} else {
@@ -1760,7 +1760,7 @@ unittest {
 	import librehome.snes.hardware : HDMAWrite;
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;
-	import std.file : exists, read, readText;
+	import std.file : exists, mkdirRecurse, read, readText;
 	import std.format : format;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
@@ -2229,44 +2229,58 @@ unittest {
 		ppu.SETINI = SETINI.raw;
 		return draw(ppu, hdma, flags);
 	}
-	static void runTest(string name) {
+	static void runTest(string name, bool oldRenderer, bool newRenderer) {
 		HDMAWrite[] writes;
 		if (buildPath("testdata/snes", name~".hdma").exists) {
 			writes = parseHDMAWrites(name~".hdma");
 		}
-
-		const frame = renderMesen2State(name~".mss", writes, 0);
-		if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
-			dumpPNG(frame, name~".png", width, height);
-			assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+		{
+			const frame = renderMesen2State(name~".mss", writes, 0);
+			if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
+				mkdirRecurse("failed");
+				dumpPNG(frame, "failed/"~name~"-old.png", width, height);
+				assert(!oldRenderer, format!"Old renderer pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+			} else {
+				assert(oldRenderer, format!"Unexpected success in %s"(name));
+			}
+		}
+		{
+			const frame = renderMesen2State(name~".mss", writes, KPPURenderFlags.newRenderer);
+			if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
+				mkdirRecurse("failed");
+				dumpPNG(frame, "failed/"~name~"-new.png", width, height);
+				assert(!newRenderer, format!"New renderer pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+			} else {
+				assert(newRenderer, format!"Unexpected success in %s"(name));
+			}
 		}
 	}
-	runTest("helloworld");
-	runTest("mosaicm3");
-	//runTest("mosaicm5");
-	//runTest("ebswirl");
-	runTest("ebnorm");
-	runTest("ebspriteprio");
-	runTest("ebbattle");
-	//runTest("ebmeteor");
-	runTest("8x8BG1Map2BPP32x328PAL");
-	runTest("8x8BG2Map2BPP32x328PAL");
-	runTest("8x8BG3Map2BPP32x328PAL");
-	runTest("8x8BG4Map2BPP32x328PAL");
-	runTest("8x8BGMap4BPP32x328PAL");
-	runTest("8x8BGMap8BPP32x32");
-	runTest("8x8BGMap8BPP32x64");
-	runTest("8x8BGMap8BPP64x32");
-	runTest("8x8BGMap8BPP64x64");
-	runTest("8x8BGMapTileFlip");
-	runTest("HiColor575Myst");
-	runTest("HiColor1241DLair");
-	runTest("HiColor3840");
-	//runTest("InterlaceFont");
-	//runTest("InterlaceMystHDMA");
-	//runTest("Perspective");
-	runTest("Rings");
-	//runTest("RotZoom");
+	runTest("helloworld", true, true);
+	runTest("mosaicm3", true, false);
+	runTest("mosaicm5", false, false);
+	runTest("ebswirl", false, false);
+	runTest("ebnorm", true, true);
+	runTest("ebspriteprio", true, true);
+	runTest("ebbattle", true, true);
+	runTest("ebmeteor", false, false);
+	runTest("8x8BG1Map2BPP32x328PAL", true, true);
+	runTest("8x8BG2Map2BPP32x328PAL", true, false);
+	runTest("8x8BG3Map2BPP32x328PAL", true, false);
+	runTest("8x8BG4Map2BPP32x328PAL", true, false);
+	runTest("8x8BGMap4BPP32x328PAL", true, true);
+	runTest("8x8BGMap8BPP32x32", true, false);
+	runTest("8x8BGMap8BPP32x64", true, false);
+	runTest("8x8BGMap8BPP64x32", true, false);
+	runTest("8x8BGMap8BPP64x64", true, false);
+	runTest("8x8BGMapTileFlip", true, false);
+	runTest("HiColor575Myst", true, false);
+	runTest("HiColor1241DLair", true, false);
+	runTest("HiColor3840", true, false);
+	runTest("InterlaceFont", false, false);
+	runTest("InterlaceMystHDMA", false, false);
+	runTest("Perspective", false, false);
+	runTest("Rings", true, false);
+	runTest("RotZoom", false, false);
 }
 
 union INIDISPValue {

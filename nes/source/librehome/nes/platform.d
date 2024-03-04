@@ -1,14 +1,13 @@
 module librehome.nes.platform;
 
 import librehome.backend.common;
-import librehome.backend.sdl2;
 import librehome.common;
+import librehome.commonplatform;
 import librehome.nes.apu;
 import librehome.nes.ppu;
 import librehome.nes.renderer;
 import librehome.planet;
 import librehome.ui;
-import librehome.watchdog;
 
 import siryul;
 
@@ -18,8 +17,6 @@ import std.file;
 enum settingsFile = "settings.yaml";
 
 struct Settings {
-	VideoSettings video;
-	InputSettings input;
 	bool debugging;
 }
 
@@ -69,50 +66,39 @@ struct NES {
 	bool interruptsEnabled;
 
 	private Settings settings;
-	private PlatformBackend backend;
 	private APU apu;
 	private Renderer renderer;
 
-	void initialize() {
-		backend = new SDL2Platform;
-		backend.initialize();
-		backend.audio.initialize(&apu, &audioCallback, defaultFrequency, 2, AUDIO_BUFFER_LENGTH);
-		backend.input.initialize(settings.input);
-		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer, &commonNESDebugging);
+	private PlatformCommon platform;
+	T loadSettings(T)() {
+		auto allSettings = platform.loadSettings!(Settings, T)();
+		settings = allSettings.system;
+		return allSettings.game;
 	}
-	int run() {
+	void saveSettings(T)(T gameSettings) {
+		platform.saveSettings(settings, gameSettings);
+	}
+	void initialize() {
 		auto game = new Fiber({ entryPoint(); });
-		bool paused;
-
-		bool pauseWasPressed;
+		platform.initialize(game);
+		renderer.initialize(title, platform.backend.video);
+		platform.installAudioCallback(&apu, &audioCallback);
+		platform.debugMenu = debugMenuRenderer;
+		platform.platformDebugMenu = null;
+		platform.debugState = null;
+		platform.platformDebugState = null;
+	}
+	void run() {
+		if (settings.debugging) {
+			platform.enableDebuggingFeatures();
+		}
+		platform.showUI();
 		while (true) {
-			if (backend.processEvents()) {
+			if (platform.runFrame({ interruptHandler(); }, { renderer.draw(); })) {
 				break;
 			}
-			auto input = backend.input.getState();
-			//copyInputState(input);
-			if (!paused) {
-				if (auto t = game.call(Fiber.Rethrow.no)) {
-					writeDebugDump(t.msg, t.info);
-					return 1;
-				}
-				if (game.state == Fiber.State.TERM) {
-					break;
-				}
-				if (interruptsEnabled) {
-					interruptHandler();
-				}
-			}
-			renderer.draw();
-			if (input.pause && !pauseWasPressed) {
-				paused ^= true;
-			}
-			if (!input.fastForward) {
-				renderer.waitNextFrame();
-			}
-			pauseWasPressed = input.pause;
+			//copyInputState(platform.inputState);
 		}
-		return 0;
 	}
 	void wait() {
 		Fiber.yield();

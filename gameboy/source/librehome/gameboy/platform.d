@@ -5,8 +5,8 @@ import librehome.gameboy.ppu;
 import librehome.gameboy.renderer;
 
 import librehome.backend.common;
-import librehome.backend.sdl2;
 
+import librehome.commonplatform;
 import librehome.registers;
 import librehome.ui;
 
@@ -23,8 +23,6 @@ import std.stdio;
 import siryul;
 
 struct Settings {
-	VideoSettings video;
-	InputSettings input;
 	bool yamlSave;
 	bool debugging;
 }
@@ -118,7 +116,6 @@ struct GameBoySimple {
 	private Settings settings;
 	private Renderer renderer;
 	private APU apu;
-	private PlatformBackend backend;
 	private const(ubyte)[] originalData;
 	private ubyte[] sramBuffer;
 	private bool vramEditorActive;
@@ -127,28 +124,17 @@ struct GameBoySimple {
 	private MemoryEditor memoryEditorOAM;
 	alias width = renderer.ppu.width;
 	alias height = renderer.ppu.height;
+
+	private PlatformCommon platform;
 	T loadSettings(T)() {
-		static struct FullSettings {
-			Settings system;
-			T game;
-		}
-		if (!settingsFile.exists) {
-			FullSettings defaults;
-			defaults.system.input = getDefaultInputSettings();
-			defaults.toFile!YAML(settingsFile);
-		}
-		auto allSettings = fromFile!(FullSettings, YAML)(settingsFile);
+		auto allSettings = platform.loadSettings!(Settings, T)();
 		settings = allSettings.system;
 		return allSettings.game;
 	}
 	void saveSettings(T)(T gameSettings) {
-		static struct FullSettings {
-			Settings system;
-			T game;
-		}
-		FullSettings(settings, gameSettings).toFile!YAML(settingsFile);
+		platform.saveSettings(settings, gameSettings);
 	}
-	void run() {
+	void initialize() {
 		static void initMemoryEditor(ref MemoryEditor editor) {
 			editor.Cols = 8;
 			editor.OptShowOptions = false;
@@ -162,36 +148,25 @@ struct GameBoySimple {
 
 		auto game = new Fiber({ entryPoint(model); });
 
-		bool paused;
 		apu.initialize();
-		backend = new SDL2Platform;
-		backend.initialize();
-		backend.audio.initialize(&apu, &audioCallback, AUDIO_SAMPLE_RATE, 2, AUDIO_NSAMPLES);
-		backend.input.initialize(settings.input);
-		renderer.initialize(title, settings.video, backend.video, settings.debugging, debugMenuRenderer, &commonGBDebugging);
-
-		bool pauseWasPressed;
+		platform.initialize(game);
+		platform.installAudioCallback(&apu, &audioCallback);
+		renderer.initialize(title, platform.backend.video);
+		platform.debugMenu = debugMenuRenderer;
+		platform.platformDebugMenu = &commonGBDebugging;
+		platform.debugState = null;
+		platform.platformDebugState = null;
+	}
+	void run() {
+		if (settings.debugging) {
+			platform.enableDebuggingFeatures();
+		}
+		platform.showUI();
 		while (true) {
-			if (backend.processEvents()) {
+			if (platform.runFrame({ interruptHandler(); }, { renderer.draw(); })) {
 				break;
 			}
-			auto input = backend.input.getState();
-			copyInputState(input);
-			if (!paused) {
-				game.call(Fiber.Rethrow.yes);
-			}
-			if (game.state == Fiber.State.TERM) {
-				break;
-			}
-			interruptHandler();
-			renderer.draw();
-			if (input.pause && !pauseWasPressed) {
-				paused ^= true;
-			}
-			if (!input.fastForward) {
-				renderer.waitNextFrame();
-			}
-			pauseWasPressed = input.pause;
+			copyInputState(platform.inputState);
 		}
 	}
 	private void prepareSRAM(size_t size) {

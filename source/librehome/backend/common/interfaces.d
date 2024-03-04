@@ -6,14 +6,15 @@ import librehome.ui;
 alias AudioCallback = void function(void*, ubyte[]);
 alias DebugFunction = void delegate(const UIState);
 interface AudioBackend {
-	void initialize(void* data, AudioCallback callback, uint sampleRate, uint channels, uint samples) @safe;
+	void initialize(uint sampleRate, uint channels, uint samples) @safe;
+	void installCallback(void* data, AudioCallback callback) @safe;
 	void deinitialize() @safe;
 	void loadWAV(const ubyte[] data) @safe;
 	void playWAV(size_t id, int channel = 0) @safe;
 }
 
 interface VideoBackend {
-	void initialize() @safe;
+	void initialize(VideoSettings) @safe;
 	void setDebuggingFunctions(DebugFunction, DebugFunction, DebugFunction, DebugFunction) @safe;
 	void deinitialize() @safe;
 	void getDrawingTexture(out Texture texture) @safe;
@@ -25,6 +26,8 @@ interface VideoBackend {
 	void setTitle(scope const char[] title) @safe;
 	void hideUI() @safe;
 	void showUI() @safe;
+	void loadUIState(string str) @safe;
+	string getUIState() @safe;
 }
 interface InputBackend {
 	void initialize(InputSettings) @safe;
@@ -40,6 +43,19 @@ abstract class PlatformBackend {
 	bool processEvents() @safe;
 }
 
+struct AudioSettings {
+	ushort sampleRate = 32000;
+	ushort channels = 2;
+	ushort bufferSize = 4096;
+}
+
+struct BackendSettings {
+	AudioSettings audio;
+	VideoSettings video;
+	InputSettings input;
+	string ui;
+}
+
 struct VideoSettings {
 	WindowMode mode;
 	bool keepAspectRatio = true;
@@ -48,16 +64,54 @@ struct VideoSettings {
 }
 
 struct WindowSettings {
-	VideoSettings userSettings;
-	uint width;
-	uint height;
-	bool debugging;
+	uint baseWidth;
+	uint baseHeight;
 }
 
 struct InputSettings {
-	Controller[GamePadButton] gamepadMapping;
-	AxisMapping[GamePadAxis] gamepadAxisMapping;
-	Controller[KeyboardKey] keyboardMapping;
+	version(unittest) {
+		// workaround for https://issues.dlang.org/show_bug.cgi?id=24428
+		Controller[GamePadButton] gamepadMapping;
+		AxisMapping[GamePadAxis] gamepadAxisMapping;
+		Controller[KeyboardKey] keyboardMapping;
+	} else {
+		Controller[GamePadButton] gamepadMapping = [
+			GamePadButton.x : Controller.y,
+			GamePadButton.a : Controller.b,
+			GamePadButton.b : Controller.a,
+			GamePadButton.y : Controller.x,
+			GamePadButton.start : Controller.start,
+			GamePadButton.back : Controller.select,
+			GamePadButton.leftShoulder : Controller.l,
+			GamePadButton.rightShoulder : Controller.r,
+			GamePadButton.dpadUp : Controller.up,
+			GamePadButton.dpadDown : Controller.down,
+			GamePadButton.dpadLeft : Controller.left,
+			GamePadButton.dpadRight : Controller.right,
+		];
+		AxisMapping[GamePadAxis] gamepadAxisMapping = [
+			GamePadAxis.leftX: AxisMapping.leftRight,
+			GamePadAxis.leftY: AxisMapping.upDown,
+		];
+		Controller[KeyboardKey] keyboardMapping = [
+			KeyboardKey.s: Controller.b,
+			KeyboardKey.a: Controller.y,
+			KeyboardKey.x: Controller.select,
+			KeyboardKey.z: Controller.start,
+			KeyboardKey.up: Controller.up,
+			KeyboardKey.down: Controller.down,
+			KeyboardKey.left: Controller.left,
+			KeyboardKey.right: Controller.right,
+			KeyboardKey.d: Controller.a,
+			KeyboardKey.w: Controller.x,
+			KeyboardKey.q: Controller.l,
+			KeyboardKey.e: Controller.r,
+			KeyboardKey.p: Controller.pause,
+			KeyboardKey.backSlash: Controller.skipFrame,
+			KeyboardKey.grave: Controller.fastForward,
+			KeyboardKey.escape: Controller.exit
+		];
+	}
 }
 
 struct Texture {
@@ -90,43 +144,4 @@ struct InputState {
 	bool fastForward;
 }
 
-InputSettings getDefaultInputSettings() pure @safe {
-	InputSettings defaults;
-	defaults.gamepadAxisMapping = [
-		GamePadAxis.leftX: AxisMapping.leftRight,
-		GamePadAxis.leftY: AxisMapping.upDown,
-	];
-	defaults.gamepadMapping = [
-		GamePadButton.x : Controller.y,
-		GamePadButton.a : Controller.b,
-		GamePadButton.b : Controller.a,
-		GamePadButton.y : Controller.x,
-		GamePadButton.start : Controller.start,
-		GamePadButton.back : Controller.select,
-		GamePadButton.leftShoulder : Controller.l,
-		GamePadButton.rightShoulder : Controller.r,
-		GamePadButton.dpadUp : Controller.up,
-		GamePadButton.dpadDown : Controller.down,
-		GamePadButton.dpadLeft : Controller.left,
-		GamePadButton.dpadRight : Controller.right,
-	];
-	defaults.keyboardMapping = [
-		KeyboardKey.s: Controller.b,
-		KeyboardKey.a: Controller.y,
-		KeyboardKey.x: Controller.select,
-		KeyboardKey.z: Controller.start,
-		KeyboardKey.up: Controller.up,
-		KeyboardKey.down: Controller.down,
-		KeyboardKey.left: Controller.left,
-		KeyboardKey.right: Controller.right,
-		KeyboardKey.d: Controller.a,
-		KeyboardKey.w: Controller.x,
-		KeyboardKey.q: Controller.l,
-		KeyboardKey.e: Controller.r,
-		KeyboardKey.p: Controller.pause,
-		KeyboardKey.backSlash: Controller.skipFrame,
-		KeyboardKey.grave: Controller.fastForward,
-		KeyboardKey.escape: Controller.exit
-	];
-	return defaults;
-}
+private extern(C) ubyte internal;

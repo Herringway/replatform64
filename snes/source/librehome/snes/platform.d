@@ -1,16 +1,15 @@
 module librehome.snes.platform;
 import librehome.backend.common;
-import librehome.backend.sdl2;
-import librehome.common;
+//import librehome.common;
+import librehome.commonplatform;
 import librehome.dumping;
-import librehome.framestat;
+//import librehome.framestat;
 import librehome.planet;
 import librehome.snes.audio;
 import librehome.snes.hardware;
 import librehome.snes.rendering;
 import librehome.snes.sfcdma;
 import librehome.ui;
-import librehome.watchdog;
 
 import core.thread;
 import std.algorithm.comparison;
@@ -27,16 +26,10 @@ import std.stdio;
 import siryul;
 
 struct Settings {
-	static struct PlatformSettings {
-		RendererSettings renderer;
-		bool emulatedSPC700;
-	}
-	PlatformSettings snes;
-	VideoSettings video;
-	InputSettings input;
+	RendererSettings renderer;
+	bool emulatedSPC700;
 	bool debugging;
 }
-enum settingsFile = "settings.yaml";
 
 struct SNES {
 	void function() entryPoint;
@@ -44,8 +37,6 @@ struct SNES {
 	string title;
 	string gameID;
 	SNESRenderer renderer;
-	PlatformBackend backend;
-	InputState lastInputState;
 	DebugFunction debugMenuRenderer;
 	DebugFunction gameStateMenu;
 	CrashHandler gameStateDumper;
@@ -56,91 +47,48 @@ struct SNES {
 	private immutable(ubyte)[] originalData;
 	private SPC700Emulated spc700;
 	private ubyte[][uint] sramSlotBuffer;
+	private PlatformCommon platform;
 	T loadSettings(T)() {
-		static struct FullSettings {
-			Settings system;
-			T game;
-		}
-		if (!settingsFile.exists) {
-			FullSettings defaults;
-			defaults.system.input = getDefaultInputSettings();
-			defaults.toFile!YAML(settingsFile);
-		}
-		auto allSettings = fromFile!(FullSettings, YAML)(settingsFile);
+		auto allSettings = platform.loadSettings!(Settings, T)();
 		settings = allSettings.system;
 		return allSettings.game;
 	}
 	void saveSettings(T)(T gameSettings) {
-		static struct FullSettings {
-			Settings system;
-			T game;
-		}
-		FullSettings(settings, gameSettings).toFile!YAML(settingsFile);
+		platform.saveSettings(settings, gameSettings);
 	}
 	void initialize() {
-		backend = new SDL2Platform;
-		backend.initialize();
-		auto callback = &spc700Callback;
-		backend.input.initialize(settings.input);
-		renderer.initialize(title, settings.video, backend.video, settings.snes.renderer, settings.debugging);
-		backend.video.hideUI();
+		auto game = new Fiber({ entryPoint(); });
+
+		platform.initialize(game);
+		renderer.initialize(title, platform.backend.video, settings.renderer);
 		crashHandler = &dumpSNESDebugData;
+		platform.debugMenu = debugMenuRenderer;
+		platform.platformDebugMenu = &commonSNESDebugging;
+		platform.debugState = gameStateMenu;
+		platform.platformDebugState = &commonSNESDebuggingState;
 	}
 	void initializeAudio(T)(T* user, void function(T* user, ubyte[] buffer) callback) {
-		if (settings.snes.emulatedSPC700) {
+		if (settings.emulatedSPC700) {
 			initializeAudio();
 		} else {
-			backend.audio.initialize(user, cast(void function(void*, ubyte[]))callback, 32000, 2, 512);
+			platform.installAudioCallback(user, cast(void function(void*, ubyte[]))callback);
 		}
 	}
 	void initializeAudio() {
-		if (settings.snes.emulatedSPC700) {
-			backend.audio.initialize(&spc700, &spc700Callback, 32000, 2, 512);
+		if (settings.emulatedSPC700) {
+			platform.installAudioCallback(&spc700, &spc700Callback);
 		}
 	}
-	int run() {
-		auto game = new Fiber(entryPoint);
-		startWatchDog();
-		bool paused;
-		backend.video.setDebuggingFunctions(debugMenuRenderer, &commonSNESDebugging, gameStateMenu, &commonSNESDebuggingState);
-		backend.video.showUI();
-		while(true) {
-			// pet the dog each frame so it knows we're ok
-			watchDog.pet();
-			frameStatTracker.startFrame();
-			if (backend.processEvents()) {
-				break;
-			}
-			lastInputState = backend.input.getState();
-			frameStatTracker.checkpoint(FrameStatistic.events);
-			if (lastInputState.exit) {
-				break;
-			}
-
-			if (!paused || lastInputState.step) {
-				lastInputState.step = false;
-				Throwable t = game.call(Fiber.Rethrow.no);
-				if(t) {
-					writeDebugDump(t.msg, t.info);
-					return 1;
-				}
-				interruptHandler();
-			}
-			frameStatTracker.checkpoint(FrameStatistic.gameLogic);
-			renderer.draw();
-			frameStatTracker.checkpoint(FrameStatistic.ppu);
-
-			if (!lastInputState.fastForward) {
-				renderer.waitNextFrame();
-			}
-
-			if (lastInputState.pause) {
-				paused = !paused;
-				lastInputState.pause = false;
-			}
-			frameStatTracker.endFrame();
+	void run() {
+		if (settings.debugging) {
+			platform.enableDebuggingFeatures();
 		}
-		return 0;
+		platform.showUI();
+		while(true) {
+			if (platform.runFrame({ interruptHandler(); }, { renderer.draw(); })) {
+				break;
+			}
+		}
 	}
 	void wait() {
 		Fiber.yield();
@@ -284,22 +232,22 @@ struct SNES {
 	}
 	ushort getControllerState(ubyte playerID) @safe pure {
 		ushort result = 0;
-		if (lastInputState.controllers[playerID] & ControllerMask.y) { result |= Pad.y; }
-		if (lastInputState.controllers[playerID] & ControllerMask.b) { result |= Pad.b; }
-		if (lastInputState.controllers[playerID] & ControllerMask.x) { result |= Pad.x; }
-		if (lastInputState.controllers[playerID] & ControllerMask.a) { result |= Pad.a; }
-		if (lastInputState.controllers[playerID] & ControllerMask.r) { result |= Pad.r; }
-		if (lastInputState.controllers[playerID] & ControllerMask.l) { result |= Pad.l; }
-		if (lastInputState.controllers[playerID] & ControllerMask.start) { result |= Pad.start; }
-		if (lastInputState.controllers[playerID] & ControllerMask.select) { result |= Pad.select; }
-		if (lastInputState.controllers[playerID] & ControllerMask.up) { result |= Pad.up; }
-		if (lastInputState.controllers[playerID] & ControllerMask.down) { result |= Pad.down; }
-		if (lastInputState.controllers[playerID] & ControllerMask.left) { result |= Pad.left; }
-		if (lastInputState.controllers[playerID] & ControllerMask.right) { result |= Pad.right; }
-		if (lastInputState.controllers[playerID] & ControllerMask.extra1) { result |= Pad.extra1; }
-		if (lastInputState.controllers[playerID] & ControllerMask.extra2) { result |= Pad.extra2; }
-		if (lastInputState.controllers[playerID] & ControllerMask.extra3) { result |= Pad.extra3; }
-		if (lastInputState.controllers[playerID] & ControllerMask.extra4) { result |= Pad.extra4; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.y) { result |= Pad.y; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.b) { result |= Pad.b; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.x) { result |= Pad.x; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.a) { result |= Pad.a; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.r) { result |= Pad.r; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.l) { result |= Pad.l; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.start) { result |= Pad.start; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.select) { result |= Pad.select; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.up) { result |= Pad.up; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.down) { result |= Pad.down; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.left) { result |= Pad.left; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.right) { result |= Pad.right; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.extra1) { result |= Pad.extra1; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.extra2) { result |= Pad.extra2; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.extra3) { result |= Pad.extra3; }
+		if (platform.inputState.controllers[playerID] & ControllerMask.extra4) { result |= Pad.extra4; }
 		return result;
 	}
 	DMAChannel[8] dmaChannels; ///
@@ -598,16 +546,16 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 	void APUIO(ubyte port, ubyte val) {
-		if (settings.snes.emulatedSPC700) {
+		if (settings.emulatedSPC700) {
 			spc700.writePort(port, val);
-		} else if (spc700HLEWrite && !settings.snes.emulatedSPC700) {
-			spc700HLEWrite(port, val, backend.audio);
+		} else if (spc700HLEWrite && !settings.emulatedSPC700) {
+			spc700HLEWrite(port, val, platform.backend.audio);
 		}
 	}
 	ubyte APUIO(ubyte port) {
-		if (settings.snes.emulatedSPC700) {
+		if (settings.emulatedSPC700) {
 			return spc700.readPort(port);
-		} else if (spc700HLERead && !settings.snes.emulatedSPC700) {
+		} else if (spc700HLERead && !settings.emulatedSPC700) {
 			return spc700HLERead(port);
 		} else {
 			return 0;
@@ -626,7 +574,10 @@ struct SNES {
 		APUIO(3, val);
 	}
 	void extractAssets(ExtractFunction func) {
-		.extractAssets(func, backend, romData, ".");
+		.extractAssets(func, platform.backend, romData, ".");
+	}
+	void loadWAV(const(ubyte)[] data) {
+		platform.backend.audio.loadWAV(data);
 	}
 	private void prepareSRAM(uint slot, size_t size) {
 		sramSlotBuffer.require(slot, () {
