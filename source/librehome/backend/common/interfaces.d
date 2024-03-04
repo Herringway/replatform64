@@ -144,4 +144,4 @@ struct InputState {
 	bool fastForward;
 }
 
-private extern(C) ubyte internal;
+private extern(C) __gshared ubyte internal;

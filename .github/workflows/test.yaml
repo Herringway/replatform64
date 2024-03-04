@@ -1,0 +1,25 @@
+---
+name: Run tests
+"on":
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dlang-community/setup-dlang@v1
+        name: Setting up D compiler
+        with:
+          compiler: dmd-latest
+      - name: 'Run tests'
+        run: |
+          dub test
+          dub test :nes
+          dub test :snes
+          dub test :gameboy
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: failed
