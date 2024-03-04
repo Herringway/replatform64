@@ -350,26 +350,30 @@ struct PPU {
 			uint bits;
 			PpuZbufType z;
 			void DO_PIXEL(int i)() {
+				pixel = 0;
+				static foreach (plane; 0 .. bpp) {
+					pixel |= (bits >> (7 * plane + i)) & (1 << plane);
+				}
 				static if (bpp == 4) {
-					pixel = (bits >> i) & 1 | (bits >> (7 + i)) & 2 | (bits >> (14 + i)) & 4 | (bits >> (21 + i)) & 8;
 					if ((bits & (0x01010101 << i)) && z > dstz[i]) {
 						dstz[i] = cast(ushort)(z + pixel);
 					}
 				} else static if (bpp == 2) {
-					pixel = (bits >> i) & 1 | (bits >> (7 + i)) & 2;
 					if (pixel && z > dstz[i]) {
 						dstz[i] = cast(ushort)(z + pixel);
 					}
 				}
 			}
 			void DO_PIXEL_HFLIP(int i)() {
+				pixel = 0;
+				static foreach (plane; 0 .. bpp) {
+					pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
+				}
 				static if (bpp == 4) {
-					pixel = (bits >> (7 - i)) & 1 | (bits >> (14 - i)) & 2 | (bits >> (21 - i)) & 4 | (bits >> (28 - i)) & 8;
 					if ((bits & (0x80808080 >> i)) && z > dstz[i]) {
 						dstz[i] = cast(ushort)(z + pixel);
 					}
 				} else static if (bpp == 2) {
-					pixel = (bits >> (7 - i)) & 1 | (bits >> (14 - i)) & 2;
 					if (pixel && z > dstz[i]) {
 						dstz[i] = cast(ushort)(z + pixel);
 					}
