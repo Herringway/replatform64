@@ -71,6 +71,17 @@ enum KPPURenderFlags {
 	noSpriteLimits = 8,
 }
 
+struct Tile {
+	align(1):
+	mixin(bitfields!(
+		uint, "chr", 10,
+		uint, "palette", 3,
+		bool, "priority", 1,
+		bool, "hFlip", 1,
+		bool, "vFlip", 1,
+	));
+}
+
 struct PPU {
 	bool lineHasSprites;
 	ubyte lastBrightnessMult = 0xff;
@@ -303,13 +314,6 @@ struct PPU {
 	}
 	// Draw a whole line of a background layer into bgBuffers
 	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
-		static if (bpp == 2) {
-			enum kPaletteShift = 8;
-		} else static if (bpp == 4) {
-			enum kPaletteShift = 6;
-		} else static if (bpp == 8) {
-			enum kPaletteShift = 12;
-		}
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
 		}
@@ -321,10 +325,10 @@ struct PPU {
 		if ((y & 0x100) && bglayer.tilemapHigher) {
 			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
 		}
-		const(ushort)[] tps(uint i) {
+		const(Tile)[] tps(uint i) {
 			return [
-				vram[sc_offs & 0x7fff .. $],
-				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
+				cast(Tile[])vram[sc_offs & 0x7fff .. $],
+				cast(Tile[])vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
 		int tileadr = bgLayer[layer].tileAdr;
@@ -347,9 +351,9 @@ struct PPU {
 			uint x = win.edges[windex] + bglayer.hScroll;
 			uint w = win.edges[windex + 1] - win.edges[windex];
 			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
-			const(ushort)[] tp_start = tps(x >> 8 & 1);
-			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
-			const(ushort)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
+			const(Tile)[] tp_start = tps(x >> 8 & 1);
+			const(Tile)[] tp_next = tps((x >> 8 & 1) ^ 1);
+			const(Tile)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
 			ulong bits;
 			PpuZbufType z;
 			void DO_PIXEL(int i, bool flip) {
@@ -376,22 +380,23 @@ struct PPU {
 					tp = tp_next[0 .. 32];
 					swap(tp_next, tp_start);
 				}
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
+				int ta = tile.vFlip ? tileadr1 : tileadr0;
+				z = tile.priority ? zhi : zlo;
+				bits = READ_BITS(ta, tile.chr);
 				if (bits) {
-					z += ((tile & 0x1c00) >> kPaletteShift);
-					if (tile & 0x4000) {
-						bits >>= (x & 7), x += curw;
+					z += tile.palette << bpp;
+					if (tile.hFlip) {
+						bits >>= (x & 7);
+						x += curw;
 						do {
-							DO_PIXEL(0, !!(tile & 0x4000));
+							DO_PIXEL(0, tile.hFlip);
 							bits >>= 1;
 							dstz = dstz[1 .. $];
 						} while (--curw);
 					} else {
 						bits <<= (x & 7), x += curw;
 						do {
-							DO_PIXEL(0, !!(tile & 0x4000));
+							DO_PIXEL(0, tile.hFlip);
 							bits <<= 1;
 							dstz = dstz[1 .. $];
 						} while (--curw);
@@ -409,13 +414,13 @@ struct PPU {
 					tp = tp_next[0 .. 32];
 					swap(tp_next, tp_start);
 				}
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
+				int ta = tile.vFlip ? tileadr1 : tileadr0;
+				z = tile.priority ? zhi : zlo;
+				bits = READ_BITS(ta, tile.chr);
 				if (bits) {
-					z += ((tile & 0x1c00) >> kPaletteShift);
+					z += (tile.palette << bpp);
 					foreach (i; 0 .. 8) {
-						DO_PIXEL(i, !!(tile & 0x4000));
+						DO_PIXEL(i, tile.hFlip);
 					}
 				}
 				dstz = dstz[8 .. $];
@@ -424,20 +429,20 @@ struct PPU {
 			// Handle remaining clipped part
 			if (w) {
 				const tile = tp[0];
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
-				bits = READ_BITS(ta, tile & 0x3ff);
+				int ta = tile.vFlip ? tileadr1 : tileadr0;
+				z = tile.priority ? zhi : zlo;
+				bits = READ_BITS(ta, tile.chr);
 				if (bits) {
-					z += ((tile & 0x1c00) >> kPaletteShift);
-					if (tile & 0x4000) {
+					z += tile.palette << bpp;
+					if (tile.hFlip) {
 						do {
-							DO_PIXEL(0, !!(tile & 0x4000));
+							DO_PIXEL(0, tile.hFlip);
 							bits >>= 1;
 							dstz = dstz[1 .. $];
 						} while (--w);
 					} else {
 						do {
-							DO_PIXEL(0, !!(tile & 0x4000));
+							DO_PIXEL(0, tile.hFlip);
 							bits <<= 1;
 							dstz = dstz[1 .. $];
 						} while (--w);
