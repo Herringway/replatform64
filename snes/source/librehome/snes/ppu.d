@@ -332,7 +332,7 @@ struct PPU {
 		int tileadr1 = tileadr + 7 - (y & 0x7);
 		int tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
-		ulong READ_BITS(int ta, uint tile) {
+		ulong READ_BITS(uint ta, uint tile) {
 			ulong result;
 			addr = vram[(ta + tile * bpp * 4) & 0x7FFF .. $];
 			static foreach (plane; 0 .. bpp / 2) {
@@ -352,21 +352,16 @@ struct PPU {
 			const(ushort)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
 			ulong bits;
 			PpuZbufType z;
-			void DO_PIXEL(int i)() {
+			void DO_PIXEL(int i, bool flip) {
 				pixel = 0;
 				static foreach (plane; 0 .. bpp) {
-					pixel |= (bits >> (7 * plane + i)) & (1 << plane);
+					if (flip) {
+						pixel |= (bits >> (7 * plane + i)) & (1 << plane);
+					} else {
+						pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
+					}
 				}
 				if (pixel && (z > dstz[i])) {
-					dstz[i] = cast(ushort)(z + pixel);
-				}
-			}
-			void DO_PIXEL_HFLIP(int i)() {
-				pixel = 0;
-				static foreach (plane; 0 .. bpp) {
-					pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
-				}
-				if (pixel && z > dstz[i]) {
 					dstz[i] = cast(ushort)(z + pixel);
 				}
 			}
@@ -374,7 +369,7 @@ struct PPU {
 			if (x & 7) {
 				int curw = IntMin(8 - (x & 7), w);
 				w -= curw;
-				uint tile = tp[0];
+				const tile = tp[0];
 				if (tp.length > 1) {
 					tp = tp[1 .. $];
 				} else {
@@ -389,14 +384,14 @@ struct PPU {
 					if (tile & 0x4000) {
 						bits >>= (x & 7), x += curw;
 						do {
-							DO_PIXEL!(0);
+							DO_PIXEL(0, !!(tile & 0x4000));
 							bits >>= 1;
 							dstz = dstz[1 .. $];
 						} while (--curw);
 					} else {
 						bits <<= (x & 7), x += curw;
 						do {
-							DO_PIXEL_HFLIP!(0);
+							DO_PIXEL(0, !!(tile & 0x4000));
 							bits <<= 1;
 							dstz = dstz[1 .. $];
 						} while (--curw);
@@ -407,7 +402,7 @@ struct PPU {
 			}
 			// Handle full tiles in the middle
 			while (w >= 8) {
-				uint tile = tp[0];
+				const tile = tp[0];
 				if (tp.length > 1) {
 					tp = tp[1 .. $];
 				} else {
@@ -419,12 +414,8 @@ struct PPU {
 				bits = READ_BITS(ta, tile & 0x3ff);
 				if (bits) {
 					z += ((tile & 0x1c00) >> kPaletteShift);
-					if (tile & 0x4000) {
-						DO_PIXEL!(0); DO_PIXEL!(1); DO_PIXEL!(2); DO_PIXEL!(3);
-						DO_PIXEL!(4); DO_PIXEL!(5); DO_PIXEL!(6); DO_PIXEL!(7);
-					} else {
-						DO_PIXEL_HFLIP!(0); DO_PIXEL_HFLIP!(1); DO_PIXEL_HFLIP!(2); DO_PIXEL_HFLIP!(3);
-						DO_PIXEL_HFLIP!(4); DO_PIXEL_HFLIP!(5); DO_PIXEL_HFLIP!(6); DO_PIXEL_HFLIP!(7);
+					foreach (i; 0 .. 8) {
+						DO_PIXEL(i, !!(tile & 0x4000));
 					}
 				}
 				dstz = dstz[8 .. $];
@@ -432,7 +423,7 @@ struct PPU {
 			}
 			// Handle remaining clipped part
 			if (w) {
-				uint tile = tp[0];
+				const tile = tp[0];
 				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
 				z = (tile & 0x2000) ? zhi : zlo;
 				bits = READ_BITS(ta, tile & 0x3ff);
@@ -440,13 +431,13 @@ struct PPU {
 					z += ((tile & 0x1c00) >> kPaletteShift);
 					if (tile & 0x4000) {
 						do {
-							DO_PIXEL!(0);
+							DO_PIXEL(0, !!(tile & 0x4000));
 							bits >>= 1;
 							dstz = dstz[1 .. $];
 						} while (--w);
 					} else {
 						do {
-							DO_PIXEL_HFLIP!(0);
+							DO_PIXEL(0, !!(tile & 0x4000));
 							bits <<= 1;
 							dstz = dstz[1 .. $];
 						} while (--w);
@@ -505,16 +496,23 @@ struct PPU {
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
 			ulong bits;
-			void GET_PIXEL() {
+			PpuZbufType z;
+			void DO_PIXEL(int i)() {
 				pixel = 0;
 				static foreach (plane; 0 .. bpp) {
-					pixel |= (bits >> (7 * plane)) & (1 << plane);
+					pixel |= (bits >> (7 * plane + i)) & (1 << plane);
+				}
+				if (pixel && (z > dstz[i])) {
+					dstz[i] = cast(ushort)(z + pixel);
 				}
 			}
-			void GET_PIXEL_HFLIP() {
+			void DO_PIXEL_HFLIP(int i)() {
 				pixel = 0;
 				static foreach (plane; 0 .. bpp) {
-					pixel |= (bits >> (7 * (plane + 1))) & (1 << plane);
+					pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
+				}
+				if (pixel && z > dstz[i]) {
+					dstz[i] = cast(ushort)(z + pixel);
 				}
 			}
 			x &= 7;
@@ -523,14 +521,14 @@ struct PPU {
 				w = IntMin(w, cast(int)dstz.length);
 				uint tile = tp[0];
 				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				PpuZbufType z = (tile & 0x2000) ? zhi : zlo;
+				z = (tile & 0x2000) ? zhi : zlo;
 				bits = READ_BITS(ta, tile & 0x3ff);
 				if (tile & 0x4000) {
 					bits >>= x;
-					GET_PIXEL();
+					DO_PIXEL!(0);
 				} else {
 					bits <<= x;
-					GET_PIXEL_HFLIP();
+					DO_PIXEL_HFLIP!(0);
 				}
 				if (pixel) {
 					pixel += (tile & 0x1c00) >> kPaletteShift;
