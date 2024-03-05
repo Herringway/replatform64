@@ -301,12 +301,14 @@ struct PPU {
 		}
 		win.bits = w1_bits | w2_bits;
 	}
-	// Draw a whole line of a 4bpp background layer into bgBuffers
+	// Draw a whole line of a background layer into bgBuffers
 	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
-		static if (bpp == 4) {
-			enum kPaletteShift = 6;
-		} else {
+		static if (bpp == 2) {
 			enum kPaletteShift = 8;
+		} else static if (bpp == 4) {
+			enum kPaletteShift = 6;
+		} else static if (bpp == 8) {
+			enum kPaletteShift = 12;
 		}
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
@@ -325,22 +327,18 @@ struct PPU {
 				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
-		int tileadr = bgLayer[layer].tileAdr, pixel;
+		int tileadr = bgLayer[layer].tileAdr;
+		int pixel;
 		int tileadr1 = tileadr + 7 - (y & 0x7);
 		int tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
-		uint READ_BITS(int ta, uint tile) {
-			static if (bpp == 4) {
-				addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
-				return addr[0] | addr[8] << 16;
-			} else static if (bpp == 8) {
-				// TODO
-				addr = vram[((ta) + (tile) * 32) & 0x7fff .. $];
-				return addr[0] | addr[8] << 16;
-			} else static if (bpp == 2) {
-				addr = vram[(ta) + (tile) * 8 & 0x7fff .. $];
-				return addr[0];
+		ulong READ_BITS(int ta, uint tile) {
+			ulong result;
+			addr = vram[(ta + tile * bpp * 4) & 0x7FFF .. $];
+			static foreach (plane; 0 .. bpp / 2) {
+				result |= cast(ulong)addr[plane * 8] << (plane * 16);
 			}
+			return result;
 		}
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
@@ -352,38 +350,24 @@ struct PPU {
 			const(ushort)[] tp_start = tps(x >> 8 & 1);
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
-			uint bits;
+			ulong bits;
 			PpuZbufType z;
 			void DO_PIXEL(int i)() {
 				pixel = 0;
-				// TODO: 8BPP
-				static foreach (plane; 0 .. min(bpp, 4)) {
+				static foreach (plane; 0 .. bpp) {
 					pixel |= (bits >> (7 * plane + i)) & (1 << plane);
 				}
-				static if (bpp == 4) {
-					if ((bits & (0x01010101 << i)) && z > dstz[i]) {
-						dstz[i] = cast(ushort)(z + pixel);
-					}
-				} else static if (bpp == 2) {
-					if (pixel && z > dstz[i]) {
-						dstz[i] = cast(ushort)(z + pixel);
-					}
+				if (pixel && (z > dstz[i])) {
+					dstz[i] = cast(ushort)(z + pixel);
 				}
 			}
 			void DO_PIXEL_HFLIP(int i)() {
 				pixel = 0;
-				// TODO: 8BPP
-				static foreach (plane; 0 .. min(bpp, 4)) {
+				static foreach (plane; 0 .. bpp) {
 					pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
 				}
-				static if (bpp == 4) {
-					if ((bits & (0x80808080 >> i)) && z > dstz[i]) {
-						dstz[i] = cast(ushort)(z + pixel);
-					}
-				} else static if (bpp == 2) {
-					if (pixel && z > dstz[i]) {
-						dstz[i] = cast(ushort)(z + pixel);
-					}
+				if (pixel && z > dstz[i]) {
+					dstz[i] = cast(ushort)(z + pixel);
 				}
 			}
 			// Handle clipped pixels on left side
@@ -472,9 +456,15 @@ struct PPU {
 		}
 	}
 
-	// Draw a whole line of a 4bpp background layer into bgBuffers, with mosaic applied
+	// Draw a whole line of a background layer into bgBuffers, with mosaic applied
 	private void drawBackgroundMosaic(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
-		enum kPaletteShift = 6;
+		static if (bpp == 2) {
+			enum kPaletteShift = 8;
+		} else static if (bpp == 4) {
+			enum kPaletteShift = 6;
+		} else static if (bpp == 8) {
+			enum kPaletteShift = 12;
+		}
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
 		}
@@ -492,37 +482,18 @@ struct PPU {
 				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
-		int tileadr = bgLayer[layer].tileAdr, pixel;
-		uint bits;
+		int tileadr = bgLayer[layer].tileAdr;
+		int pixel;
 		int tileadr1 = tileadr + 7 - (y & 0x7);
 		int tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
-		void GET_PIXEL() {
-			static if (bpp == 4) {
-				pixel = (bits) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
-			} else static if (bpp == 2) {
-				pixel = (bits) & 1 | (bits >> 7) & 2;
+		ulong READ_BITS(uint ta, uint tile) {
+			ulong result;
+			addr = vram[(ta + tile * bpp * 4) & 0x7FFF .. $];
+			static foreach (plane; 0 .. bpp / 2) {
+				result |= cast(ulong)addr[plane * 8] << (plane * 16);
 			}
-		}
-		void GET_PIXEL_HFLIP() {
-			static if (bpp == 4) {
-				pixel = (bits >> 7) & 1 | (bits >> 14) & 2 | (bits >> 21) & 4 | (bits >> 28) & 8;
-			} else static if (bpp == 2) {
-				pixel = (bits >> 7) & 1 | (bits >> 14) & 2;
-			}
-		}
-		uint READ_BITS(uint ta, uint tile) {
-			static if (bpp == 4) {
-				addr = vram[((ta) + (tile) * 16) & 0x7fff .. $];
-				return addr[0] | addr[8] << 16;
-			} else static if (bpp == 8) {
-				// TODO
-				addr = vram[((ta) + (tile) * 32) & 0x7fff .. $];
-				return addr[0] | addr[8] << 16;
-			} else static if (bpp == 2) {
-				addr = vram[((ta) + (tile) * 8) & 0x7fff .. $];
-				return addr[0];
-			}
+			return result;
 		}
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
@@ -533,6 +504,19 @@ struct PPU {
 			uint x = sx + bglayer.hScroll;
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
+			ulong bits;
+			void GET_PIXEL() {
+				pixel = 0;
+				static foreach (plane; 0 .. bpp) {
+					pixel |= (bits >> (7 * plane)) & (1 << plane);
+				}
+			}
+			void GET_PIXEL_HFLIP() {
+				pixel = 0;
+				static foreach (plane; 0 .. bpp) {
+					pixel |= (bits >> (7 * (plane + 1))) & (1 << plane);
+				}
+			}
 			x &= 7;
 			int w = mosaicSize - (sx - mosaicModulo[sx]);
 			do {
@@ -2133,19 +2117,20 @@ unittest {
 	runTest("ebspriteprio2", true, false);
 	runTest("ebbattle", true, true);
 	runTest("ebmeteor", false, false);
+	runTest("ebgas", true, true);
 	runTest("8x8BG1Map2BPP32x328PAL", true, true);
 	runTest("8x8BG2Map2BPP32x328PAL", true, false);
 	runTest("8x8BG3Map2BPP32x328PAL", true, false);
 	runTest("8x8BG4Map2BPP32x328PAL", true, false);
 	runTest("8x8BGMap4BPP32x328PAL", true, true);
-	runTest("8x8BGMap8BPP32x32", true, false);
-	runTest("8x8BGMap8BPP32x64", true, false);
-	runTest("8x8BGMap8BPP64x32", true, false);
-	runTest("8x8BGMap8BPP64x64", true, false);
-	runTest("8x8BGMapTileFlip", true, false);
-	runTest("HiColor575Myst", true, false);
-	runTest("HiColor1241DLair", true, false);
-	runTest("HiColor3840", true, false);
+	runTest("8x8BGMap8BPP32x32", true, true);
+	runTest("8x8BGMap8BPP32x64", true, true);
+	runTest("8x8BGMap8BPP64x32", true, true);
+	runTest("8x8BGMap8BPP64x64", true, true);
+	runTest("8x8BGMapTileFlip", true, true);
+	runTest("HiColor575Myst", true, true);
+	runTest("HiColor1241DLair", true, true);
+	runTest("HiColor3840", true, true);
 	runTest("InterlaceFont", false, false);
 	runTest("InterlaceMystHDMA", false, false);
 	runTest("Perspective", false, false);
