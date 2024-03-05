@@ -1615,6 +1615,7 @@ unittest {
 	import std.file : exists, mkdirRecurse, read, readText;
 	import std.format : format;
 	import std.path : buildPath;
+	import std.stdio : writeln;
 	import std.string : lineSplitter;
 	enum width = 256;
 	enum height = 224;
@@ -2086,26 +2087,21 @@ unittest {
 		if (buildPath("testdata/snes", name~".hdma").exists) {
 			writes = parseHDMAWrites(name~".hdma");
 		}
-		{
-			const frame = renderMesen2State(name~".mss", writes, 0);
-			if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
+		static void compare(ubyte[] frame, bool expected, string renderName, string testName) {
+			if (const result = comparePNG(frame, "testdata/snes", testName~".png", width, height)) {
 				mkdirRecurse("failed");
-				dumpPNG(frame, "failed/"~name~"-old.png", width, height);
-				assert(!oldRenderer, format!"Old renderer pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+				dumpPNG(frame, "failed/"~testName~"-old.png", width, height);
+				if (!expected) {
+					writeln(format!"(Expected) %s pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(renderName, result.x, result.y, testName, result.got, result.expected));
+				} else {
+					assert(0, format!"%s pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(renderName, result.x, result.y, testName, result.got, result.expected));
+				}
 			} else {
-				assert(oldRenderer, format!"Unexpected success in %s"(name));
+				assert(expected, format!"Unexpected %s success in %s"(renderName, testName));
 			}
 		}
-		{
-			const frame = renderMesen2State(name~".mss", writes, KPPURenderFlags.newRenderer);
-			if (const result = comparePNG(frame, "testdata/snes", name~".png", width, height)) {
-				mkdirRecurse("failed");
-				dumpPNG(frame, "failed/"~name~"-new.png", width, height);
-				assert(!newRenderer, format!"New renderer pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
-			} else {
-				assert(newRenderer, format!"Unexpected success in %s"(name));
-			}
-		}
+		compare(renderMesen2State(name~".mss", writes, 0), oldRenderer, "Old renderer", name);
+		compare(renderMesen2State(name~".mss", writes, KPPURenderFlags.newRenderer), newRenderer, "New renderer", name);
 	}
 	// TODO: change all falses to true
 	runTest("helloworld", true, true);
