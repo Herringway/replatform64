@@ -2090,10 +2090,10 @@ unittest {
 		if (buildPath("testdata/snes", name~".hdma").exists) {
 			writes = parseHDMAWrites(name~".hdma");
 		}
-		static void compare(ubyte[] frame, bool expected, string renderName, string testName) {
+		static void compare(ubyte[] frame, bool expected, string renderName, string dumpSuffix, string testName) {
 			if (const result = comparePNG(frame, "testdata/snes", testName~".png", width, height)) {
 				mkdirRecurse("failed");
-				dumpPNG(frame, "failed/"~testName~"-old.png", width, height);
+				dumpPNG(frame, "failed/"~testName~"-"~dumpSuffix~".png", width, height);
 				if (!expected) {
 					writeln(format!"(Expected) %s pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(renderName, result.x, result.y, testName, result.got, result.expected));
 				} else {
@@ -2103,8 +2103,8 @@ unittest {
 				assert(expected, format!"Unexpected %s success in %s"(renderName, testName));
 			}
 		}
-		compare(renderMesen2State(name~".mss", writes, 0), oldRenderer, "Old renderer", name);
-		compare(renderMesen2State(name~".mss", writes, KPPURenderFlags.newRenderer), newRenderer, "New renderer", name);
+		compare(renderMesen2State(name~".mss", writes, 0), oldRenderer, "Old renderer", "old", name);
+		compare(renderMesen2State(name~".mss", writes, KPPURenderFlags.newRenderer), newRenderer, "New renderer", "new", name);
 	}
 	// TODO: change all falses to true
 	runTest("helloworld", true, true);
