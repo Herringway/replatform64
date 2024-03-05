@@ -37,7 +37,6 @@ struct SNESRenderer {
 	private Renderer renderer;
 	private VideoBackend backend;
 
-	//void initialize(string title, WindowSettings settings, VideoBackend newBackend, Renderer renderer) {
 	void initialize(string title, VideoBackend newBackend, RendererSettings rendererSettings) {
 		this.renderer = rendererSettings.engine;
 		PixelFormat textureType;
@@ -215,97 +214,6 @@ struct SNESRenderer {
 				break;
 		}
 	}
-	//private template Register(ubyte addr, string Reg) {
-	//	alias T = typeof(__traits(getMember, bsnesFrame, Reg));
-	//	static T remembered;
-	//	T Register() {
-	//		final switch (renderer) {
-	//			case Renderer.bsnes:
-	//				return __traits(getMember, bsnesFrame, Reg);
-	//			case Renderer.neo:
-	//				return remembered;
-	//		}
-	//	}
-	//	void Register(T newValue) {
-	//		final switch (renderer) {
-	//			case Renderer.bsnes:
-	//				__traits(getMember, bsnesFrame, Reg) = newValue;
-	//				break;
-	//			case Renderer.neo:
-	//				remembered = newValue;
-	//				static if (is(T : ubyte)) {
-	//					neoRenderer.write(addr, newValue);
-	//				} else {
-	//					neoRenderer.write(addr, newValue & 0xFF);
-	//					neoRenderer.write(addr, newValue >> 8);
-	//				}
-	//				break;
-	//		}
-	//	}
-	//}
-
-	//alias INIDISP = Register!(0x00, "INIDISP");
-	//alias OBSEL = Register!(0x01, "OBSEL");
-	//alias BGMODE = Register!(0x05, "BGMODE");
-	//ushort OAMADDR() {
-	//	return bsnesFrame.OAMADDR;
-	//}
-	//alias MOSAIC = Register!(0x06, "MOSAIC");
-	//alias BG1SC = Register!(0x07, "BG1SC");
-	//alias BG2SC = Register!(0x08, "BG2SC");
-	//alias BG3SC = Register!(0x09, "BG3SC");
-	//alias BG4SC = Register!(0x0A, "BG4SC");
-	//alias BG12NBA = Register!(0x0B, "BG12NBA");
-	//alias BG34NBA = Register!(0x0C, "BG34NBA");
-	//alias BG1HOFS = Register!(0x0D, "BG1HOFS");
-	//alias BG1VOFS = Register!(0x0E, "BG1VOFS");
-	//alias BG2HOFS = Register!(0x0F, "BG2HOFS");
-	//alias BG2VOFS = Register!(0x10, "BG2VOFS");
-	//alias BG3HOFS = Register!(0x11, "BG3HOFS");
-	//alias BG3VOFS = Register!(0x12, "BG3VOFS");
-	//alias BG4HOFS = Register!(0x13, "BG4HOFS");
-	//alias BG4VOFS = Register!(0x14, "BG4VOFS");
-	//alias M7SEL = Register!(0x1A, "M7SEL");
-	//alias M7A = Register!(0x1B, "M7A");
-	//alias M7B = Register!(0x1C, "M7B");
-	//alias M7C = Register!(0x1D, "M7C");
-	//alias M7D = Register!(0x1E, "M7D");
-	//alias M7X = Register!(0x1F, "M7X");
-	//alias M7Y = Register!(0x20, "M7Y");
-	//alias W12SEL = Register!(0x23, "W12SEL");
-	//alias W34SEL = Register!(0x24, "W34SEL");
-	//alias WOBJSEL = Register!(0x25, "WOBJSEL");
-	//alias WH0 = Register!(0x26, "WH0");
-	//alias WH1 = Register!(0x27, "WH1");
-	//alias WH2 = Register!(0x28, "WH2");
-	//alias WH3 = Register!(0x29, "WH3");
-	//alias WBGLOG = Register!(0x2A, "WBGLOG");
-	//alias WOBJLOG = Register!(0x2B, "WOBJLOG");
-	//alias TM = Register!(0x2C, "TM");
-	//alias TS = Register!(0x2D, "TS");
-	//alias TMW = Register!(0x2E, "TMW");
-	//alias TSW = Register!(0x2F, "TSW");
-	//alias CGWSEL = Register!(0x30, "CGWSEL");
-	//alias CGADSUB = Register!(0x31, "CGADSUB");
-	//alias SETINI = Register!(0x33, "SETINI");
-	//ubyte FIXED_COLOUR_DATA_B() {
-	//	return bsnesFrame.FIXED_COLOUR_DATA_B;
-	//}
-	//ubyte FIXED_COLOUR_DATA_G() {
-	//	return bsnesFrame.FIXED_COLOUR_DATA_G;
-	//}
-	//ubyte FIXED_COLOUR_DATA_R() {
-	//	return bsnesFrame.FIXED_COLOUR_DATA_R;
-	//}
-	//void FIXED_COLOUR_DATA_B(ubyte i) {
-	//	bsnesFrame.FIXED_COLOUR_DATA_B = i;
-	//}
-	//void FIXED_COLOUR_DATA_G(ubyte i) {
-	//	bsnesFrame.FIXED_COLOUR_DATA_G = i;
-	//}
-	//void FIXED_COLOUR_DATA_R(ubyte i) {
-	//	bsnesFrame.FIXED_COLOUR_DATA_R = i;
-	//}
 }
 
 immutable ushort[8] pixelPlaneMasks = [

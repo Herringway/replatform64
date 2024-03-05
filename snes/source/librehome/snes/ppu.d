@@ -1385,8 +1385,9 @@ struct PPU {
 		return 0xff;
 	}
 
-	void writeRegister(ushort adr, ubyte val) @safe pure {
-		switch (adr & 0xFF) {
+	void writeRegister(ushort address, ubyte val) @safe pure {
+		const adr = address & 0xFF;
+		switch (adr) {
 			case 0x00: // INIDISP
 				brightness = val & 0xf;
 				forcedBlank = !!(val & 0x80);
@@ -1592,143 +1593,9 @@ struct PPU {
 				break;
 		}
 	}
-
-	void INIDISP(ubyte val) @safe pure {
-		writeRegister(0x00, val);
-	}
-	void OBSEL(ubyte val) @safe pure {
-		writeRegister(0x01, val);
-	}
-	void BGMODE(ubyte val) @safe pure {
-		writeRegister(0x05, val);
-	}
-	void MOSAIC(ubyte val) @safe pure {
-		writeRegister(0x06, val);
-	}
-	void BG1SC(ubyte val) @safe pure {
-		writeRegister(0x07, val);
-	}
-	void BG2SC(ubyte val) @safe pure {
-		writeRegister(0x08, val);
-	}
-	void BG3SC(ubyte val) @safe pure {
-		writeRegister(0x09, val);
-	}
-	void BG4SC(ubyte val) @safe pure {
-		writeRegister(0x0A, val);
-	}
-	void BG12NBA(ubyte val) @safe pure {
-		writeRegister(0x0B, val);
-	}
-	void BG34NBA(ubyte val) @safe pure {
-		writeRegister(0x0C, val);
-	}
-	void BG1HOFS(ushort val) @safe pure {
-		writeRegister(0x0D, val & 0xFF);
-		writeRegister(0x0D, val >> 8);
-	}
-	void BG1VOFS(ushort val) @safe pure {
-		writeRegister(0x0E, val & 0xFF);
-		writeRegister(0x0E, val >> 8);
-	}
-	void BG2HOFS(ushort val) @safe pure {
-		writeRegister(0x0F, val & 0xFF);
-		writeRegister(0x0F, val >> 8);
-	}
-	void BG2VOFS(ushort val) @safe pure {
-		writeRegister(0x10, val & 0xFF);
-		writeRegister(0x10, val >> 8);
-	}
-	void BG3HOFS(ushort val) @safe pure {
-		writeRegister(0x11, val & 0xFF);
-		writeRegister(0x11, val >> 8);
-	}
-	void BG3VOFS(ushort val) @safe pure {
-		writeRegister(0x12, val & 0xFF);
-		writeRegister(0x12, val >> 8);
-	}
-	void BG4HOFS(ushort val) @safe pure {
-		writeRegister(0x13, val & 0xFF);
-		writeRegister(0x13, val >> 8);
-	}
-	void BG4VOFS(ushort val) @safe pure {
-		writeRegister(0x14, val & 0xFF);
-		writeRegister(0x14, val >> 8);
-	}
-	void M7SEL(ubyte val) @safe pure {
-		writeRegister(0x1A, val);
-	}
-	void M7A(ushort val) @safe pure {
-		writeRegister(0x1B, val & 0xFF);
-		writeRegister(0x1B, val >> 8);
-	}
-	void M7B(ushort val) @safe pure {
-		writeRegister(0x1C, val & 0xFF);
-		writeRegister(0x1C, val >> 8);
-	}
-	void M7C(ushort val) @safe pure {
-		writeRegister(0x1D, val & 0xFF);
-		writeRegister(0x1D, val >> 8);
-	}
-	void M7D(ushort val) @safe pure {
-		writeRegister(0x1E, val & 0xFF);
-		writeRegister(0x1E, val >> 8);
-	}
-	void M7X(ushort val) @safe pure {
-		writeRegister(0x1F, val & 0xFF);
-		writeRegister(0x1F, val >> 8);
-	}
-	void M7Y(ushort val) @safe pure {
-		writeRegister(0x20, val & 0xFF);
-		writeRegister(0x20, val >> 8);
-	}
-	void W12SEL(ubyte val) @safe pure {
-		writeRegister(0x23, val);
-	}
-	void W34SEL(ubyte val) @safe pure {
-		writeRegister(0x24, val);
-	}
-	void WOBJSEL(ubyte val) @safe pure {
-		writeRegister(0x25, val);
-	}
-	void WH0(ubyte val) @safe pure {
-		writeRegister(0x26, val);
-	}
-	void WH1(ubyte val) @safe pure {
-		writeRegister(0x27, val);
-	}
-	void WH2(ubyte val) @safe pure {
-		writeRegister(0x28, val);
-	}
-	void WH3(ubyte val) @safe pure {
-		writeRegister(0x29, val);
-	}
-	void WBGLOG(ubyte val) @safe pure {
-		writeRegister(0x2A, val);
-	}
-	void WOBJLOG(ubyte val) @safe pure {
-		writeRegister(0x2B, val);
-	}
-	void TM(ubyte val) @safe pure {
-		writeRegister(0x2C, val);
-	}
-	void TS(ubyte val) @safe pure {
-		writeRegister(0x2D, val);
-	}
-	void TMW(ubyte val) @safe pure {
-		writeRegister(0x2E, val);
-	}
-	void TSW(ubyte val) @safe pure {
-		writeRegister(0x2F, val);
-	}
-	void CGWSEL(ubyte val) @safe pure {
-		writeRegister(0x30, val);
-	}
-	void CGADSUB(ubyte val) @safe pure {
-		writeRegister(0x31, val);
-	}
-	void SETINI(ubyte val) @safe pure {
-		writeRegister(0x33, val);
+	void writeRegisterShort(ushort addr, ushort value) {
+		writeRegister(addr, value & 0xFF);
+		writeRegister(addr, value >> 8);
 	}
 	bool IS_SCREEN_ENABLED(uint sub, uint layer) @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
 	bool IS_SCREEN_WINDOWED(uint sub, uint layer) @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
@@ -2184,50 +2051,50 @@ unittest {
 				default: break;
 			}
 		});
-		ppu.INIDISP = INIDISP.raw;
-		ppu.OBSEL = OBSEL.raw;
-		ppu.BGMODE = BGMODE.raw;
-		ppu.MOSAIC = MOSAIC.raw;
-		ppu.BG1SC = BG1SC.raw;
-		ppu.BG2SC = BG2SC.raw;
-		ppu.BG3SC = BG3SC.raw;
-		ppu.BG4SC = BG4SC.raw;
-		ppu.BG12NBA = BG12NBA.raw;
-		ppu.BG34NBA = BG34NBA.raw;
-		ppu.BG1HOFS = BG1HOFS;
-		ppu.BG1VOFS = BG1VOFS;
-		ppu.BG2HOFS = BG2HOFS;
-		ppu.BG2VOFS = BG2VOFS;
-		ppu.BG3HOFS = BG3HOFS;
-		ppu.BG3VOFS = BG3VOFS;
-		ppu.BG4HOFS = BG4HOFS;
-		ppu.BG4VOFS = BG4VOFS;
-		ppu.M7SEL = M7SEL.raw;
-		ppu.M7A = M7A;
-		ppu.M7B = M7B;
-		ppu.M7C = M7C;
-		ppu.M7D = M7D;
-		ppu.M7X = M7X;
-		ppu.M7Y = M7Y;
-		ppu.W12SEL = W12SEL;
-		ppu.W34SEL = W34SEL;
-		ppu.WOBJSEL = WOBJSEL;
-		ppu.WH0 = WH0;
-		ppu.WH1 = WH1;
-		ppu.WH2 = WH2;
-		ppu.WH3 = WH3;
-		ppu.WBGLOG = WBGLOG;
-		ppu.WOBJLOG = WOBJLOG;
-		ppu.TM = TM.raw;
-		ppu.TS = TS.raw;
-		ppu.TMW = TMW.raw;
-		ppu.TSW = TSW.raw;
-		ppu.CGWSEL = CGWSEL.raw;
-		ppu.CGADSUB = CGADSUB.raw;
-		ppu.writeRegister(0x32, COLDATAB | 0x80);
-		ppu.writeRegister(0x32, COLDATAG | 0x40);
-		ppu.writeRegister(0x32, COLDATAR | 0x20);
-		ppu.SETINI = SETINI.raw;
+		ppu.writeRegister(Register.INIDISP, INIDISP.raw);
+		ppu.writeRegister(Register.OBSEL, OBSEL.raw);
+		ppu.writeRegister(Register.BGMODE, BGMODE.raw);
+		ppu.writeRegister(Register.MOSAIC, MOSAIC.raw);
+		ppu.writeRegister(Register.BG1SC, BG1SC.raw);
+		ppu.writeRegister(Register.BG2SC, BG2SC.raw);
+		ppu.writeRegister(Register.BG3SC, BG3SC.raw);
+		ppu.writeRegister(Register.BG4SC, BG4SC.raw);
+		ppu.writeRegister(Register.BG12NBA, BG12NBA.raw);
+		ppu.writeRegister(Register.BG34NBA, BG34NBA.raw);
+		ppu.writeRegisterShort(Register.BG1HOFS, BG1HOFS);
+		ppu.writeRegisterShort(Register.BG1VOFS, BG1VOFS);
+		ppu.writeRegisterShort(Register.BG2HOFS, BG2HOFS);
+		ppu.writeRegisterShort(Register.BG2VOFS, BG2VOFS);
+		ppu.writeRegisterShort(Register.BG3HOFS, BG3HOFS);
+		ppu.writeRegisterShort(Register.BG3VOFS, BG3VOFS);
+		ppu.writeRegisterShort(Register.BG4HOFS, BG4HOFS);
+		ppu.writeRegisterShort(Register.BG4VOFS, BG4VOFS);
+		ppu.writeRegister(Register.M7SEL, M7SEL.raw);
+		ppu.writeRegisterShort(Register.M7A, M7A);
+		ppu.writeRegisterShort(Register.M7B, M7B);
+		ppu.writeRegisterShort(Register.M7C, M7C);
+		ppu.writeRegisterShort(Register.M7D, M7D);
+		ppu.writeRegisterShort(Register.M7X, M7X);
+		ppu.writeRegisterShort(Register.M7Y, M7Y);
+		ppu.writeRegister(Register.W12SEL, W12SEL);
+		ppu.writeRegister(Register.W34SEL, W34SEL);
+		ppu.writeRegister(Register.WOBJSEL, WOBJSEL);
+		ppu.writeRegister(Register.WH0, WH0);
+		ppu.writeRegister(Register.WH1, WH1);
+		ppu.writeRegister(Register.WH2, WH2);
+		ppu.writeRegister(Register.WH3, WH3);
+		ppu.writeRegister(Register.WBGLOG, WBGLOG);
+		ppu.writeRegister(Register.WOBJLOG, WOBJLOG);
+		ppu.writeRegister(Register.TM, TM.raw);
+		ppu.writeRegister(Register.TS, TS.raw);
+		ppu.writeRegister(Register.TMW, TMW.raw);
+		ppu.writeRegister(Register.TSW, TSW.raw);
+		ppu.writeRegister(Register.CGWSEL, CGWSEL.raw);
+		ppu.writeRegister(Register.CGADSUB, CGADSUB.raw);
+		ppu.writeRegister(Register.COLDATA, COLDATAB | 0x80);
+		ppu.writeRegister(Register.COLDATA, COLDATAG | 0x40);
+		ppu.writeRegister(Register.COLDATA, COLDATAR | 0x20);
+		ppu.writeRegister(Register.SETINI, SETINI.raw);
 		return draw(ppu, hdma, flags);
 	}
 	static void runTest(string name, bool oldRenderer, bool newRenderer) {
