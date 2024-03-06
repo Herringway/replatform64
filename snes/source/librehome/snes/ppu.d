@@ -347,18 +347,8 @@ struct PPU {
 		const tilemaps = getBackgroundTilemaps(layer);
 		y = mosaicModulo[y] + bglayer.vScroll;
 		int tileadr = bgLayer[layer].tileAdr;
-		int pixel;
 		int tileadr1 = tileadr + 7 - (y & 0x7);
 		int tileadr0 = tileadr + (y & 0x7);
-		const(ushort)[] addr;
-		ulong READ_BITS(uint ta, uint tile) {
-			ulong result;
-			addr = vram[(ta + tile * bpp * 4) & 0x7FFF .. $];
-			static foreach (plane; 0 .. bpp / 2) {
-				result |= cast(ulong)addr[plane * 8] << (plane * 16);
-			}
-			return result;
-		}
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
 				continue; // layer is disabled for this window part
@@ -371,12 +361,15 @@ struct PPU {
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w * 8);
 			void renderTile(Tile tile, const uint start, uint end) {
 				int ta = tile.vFlip ? tileadr1 : tileadr0;
-				PpuZbufType z = tile.priority ? zhi : zlo;
-				ulong bits = READ_BITS(ta, tile.chr);
+				const z = cast(ushort)((tile.priority ? zhi : zlo) + (tile.palette << bpp));
+				ulong bits;
+				const addr = vram[(ta + tile.chr * bpp * 4) & 0x7FFF .. $];
+				static foreach (plane; 0 .. bpp / 2) {
+					bits |= cast(ulong)addr[plane * 8] << (plane * 16);
+				}
 				if (bits) {
-					z += tile.palette << bpp;
 					foreach (i; 8 - start .. end) {
-						pixel = 0;
+						int pixel = 0;
 						static foreach (plane; 0 .. bpp) {
 							if (tile.hFlip) {
 								pixel |= (bits >> (7 * plane + i)) & (1 << plane);
@@ -389,15 +382,16 @@ struct PPU {
 						}
 					}
 				}
+			}
+			while (w >= 8) {
+				const start = 8 - (x & 7);
+				const tile = tp[0];
+				const end = 8;
+				renderTile(tp[0], start, 8);
 				dstz = dstz[start .. $];
 				tp = tp[1 .. $];
 				w -= start;
-			}
-			if (x & 7) {
-				renderTile(tp[0], 8 - (x & 7), 8);
-			}
-			while (w >= 8) {
-				renderTile(tp[0], 8, 8);
+				x += start;
 			}
 			if (w & 7) {
 				renderTile(tp[0], 8, w & 7);
