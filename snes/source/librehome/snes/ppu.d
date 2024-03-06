@@ -26,6 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 */
 
+import librehome.common;
 import librehome.testhelpers;
 import librehome.snes.hardware;
 
@@ -312,6 +313,23 @@ struct PPU {
 		}
 		win.bits = w1_bits | w2_bits;
 	}
+	private Array2D!(const Tile)[4] getBackgroundTilemaps(uint layer) const return @safe pure {
+		static immutable tilemapOffsets = [
+			[0x000, 0x000, 0x000, 0x000],
+			[0x000, 0x400, 0x000, 0x400],
+			[0x000, 0x000, 0x400, 0x400],
+			[0x000, 0x400, 0x800, 0xC00],
+		];
+		alias Tilemap = Array2D!(const Tile);
+		const base = bgLayer[layer].tilemapAdr;
+		const offsets = tilemapOffsets[bgLayer[layer].tilemapWider + bgLayer[layer].tilemapHigher * 2];
+		return [
+			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[0] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[1] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[2] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[3] .. $][0 .. 32 * 32]),
+		];
+	}
 	// Draw a whole line of a background layer into bgBuffers
 	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
@@ -320,17 +338,8 @@ struct PPU {
 		PpuWindows win;
 		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
 		BGLayer *bglayer = &bgLayer[layer];
-		y += bglayer.vScroll;
-		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
-		if ((y & 0x100) && bglayer.tilemapHigher) {
-			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
-		}
-		const(Tile)[] tps(uint i) {
-			return [
-				cast(Tile[])vram[sc_offs & 0x7fff .. $],
-				cast(Tile[])vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
-			][i];
-		}
+		const tilemaps = getBackgroundTilemaps(layer);
+		y = mosaicModulo[y] + bglayer.vScroll;
 		int tileadr = bgLayer[layer].tileAdr;
 		int pixel;
 		int tileadr1 = tileadr + 7 - (y & 0x7);
@@ -351,8 +360,8 @@ struct PPU {
 			uint x = win.edges[windex] + bglayer.hScroll;
 			uint w = win.edges[windex + 1] - win.edges[windex];
 			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
-			const(Tile)[] tp_start = tps(x >> 8 & 1);
-			const(Tile)[] tp_next = tps((x >> 8 & 1) ^ 1);
+			const(Tile)[] tp_start = tilemaps[(x >> 8 & 1) + ((y >> 8) & 1) * 2][0 .. $, (y / 8) % 32];
+			const(Tile)[] tp_next = tilemaps[((x >> 8 & 1) ^ 1) + ((y >> 8) & 1) * 2][0 .. $, (y / 8) % 32];
 			const(Tile)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
 			ulong bits;
 			PpuZbufType z;

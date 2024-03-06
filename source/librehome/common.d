@@ -46,6 +46,7 @@ struct DebugState {
 
 // from D documentation
 struct Array2D(E) {
+	import std.format : format;
 	import std.traits : isMutable;
 	E[] impl;
 	int stride;
@@ -64,7 +65,12 @@ struct Array2D(E) {
 	}
 
 	// Array slicing, e.g., arr[1..2, 1..2], arr[2, 0..$], arr[0..$, 1].
-	Array2D opIndex(int[2] r1, int[2] r2) {
+	Array2D opIndex(int[2] r1, int[2] r2) inout
+		in(r1[0] <= width, format!"slice [%s..%s] extends beyond array of width %s"(r1[0], r1[1], width))
+		in(r1[1] <= width, format!"slice [%s..%s] extends beyond array of width %s"(r1[0], r1[1], width))
+		in(r2[0] <= height, format!"slice [%s..%s] extends beyond array of height %s"(r2[0], r2[1], height))
+		in(r2[1] <= height, format!"slice [%s..%s] extends beyond array of height %s"(r2[0], r2[1], height))
+	{
 		Array2D result;
 
 		auto startOffset = r1[0] + r2[0] * stride;
@@ -77,10 +83,10 @@ struct Array2D(E) {
 
 		return result;
 	}
-	auto opIndex(int[2] r1, int j) {
-		return opIndex(r1, [j, j + 1]);
+	auto opIndex(int[2] r1, int j) inout {
+		return opIndex(r1, [j, j + 1]).impl;
 	}
-	auto opIndex(int i, int[2] r2) {
+	auto opIndex(int i, int[2] r2) inout {
 		return opIndex([i, i + 1], r2);
 	}
 	auto opIndex() inout {
@@ -93,7 +99,7 @@ struct Array2D(E) {
 	}
 
 	// Support for `x..y` notation in slicing operator for the given dimension.
-	int[2] opSlice(size_t dim)(int start, int end)
+	int[2] opSlice(size_t dim)(int start, int end) const
 	if (dim >= 0 && dim < 2)
 	in(start >= 0 && end <= this.opDollar!dim)
 	{
@@ -101,10 +107,10 @@ struct Array2D(E) {
 	}
 
 	// Support `$` in slicing notation, e.g., arr[1..$, 0..$-1].
-	int opDollar(size_t dim : 0)() {
+	int opDollar(size_t dim : 0)() const {
 		return width;
 	}
-	int opDollar(size_t dim : 1)() {
+	int opDollar(size_t dim : 1)() const {
 		return height;
 	}
 }
