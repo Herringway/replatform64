@@ -33,6 +33,7 @@ import librehome.snes.hardware;
 import std.algorithm.comparison;
 import std.algorithm.mutation;
 import std.bitmanip;
+import std.range;
 
 struct BGLayer {
 	ushort hScroll = 0;
@@ -360,103 +361,41 @@ struct PPU {
 			uint x = win.edges[windex] + bglayer.hScroll;
 			uint w = win.edges[windex + 1] - win.edges[windex];
 			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
-			const(Tile)[] tp_start = tilemaps[(x >> 8 & 1) + ((y >> 8) & 1) * 2][0 .. $, (y / 8) % 32];
-			const(Tile)[] tp_next = tilemaps[((x >> 8 & 1) ^ 1) + ((y >> 8) & 1) * 2][0 .. $, (y / 8) % 32];
-			const(Tile)[] tp = tp_start[(x >> 3) & 0x1f .. 32];
-			ulong bits;
-			PpuZbufType z;
-			void DO_PIXEL(int i, bool flip) {
-				pixel = 0;
-				static foreach (plane; 0 .. bpp) {
-					if (flip) {
-						pixel |= (bits >> (7 * plane + i)) & (1 << plane);
-					} else {
-						pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
+			const tileLine = (y / 8) % 32;
+			const tileMap = ((y >> 8) & 1) * 2;
+			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w * 8);
+			void renderTile(Tile tile, const uint start, uint end) {
+				int ta = tile.vFlip ? tileadr1 : tileadr0;
+				PpuZbufType z = tile.priority ? zhi : zlo;
+				ulong bits = READ_BITS(ta, tile.chr);
+				if (bits) {
+					z += tile.palette << bpp;
+					foreach (i; 8 - start .. end) {
+						pixel = 0;
+						static foreach (plane; 0 .. bpp) {
+							if (tile.hFlip) {
+								pixel |= (bits >> (7 * plane + i)) & (1 << plane);
+							} else {
+								pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
+							}
+						}
+						if (pixel && (z > dstz[i - (8 - start)])) {
+							dstz[i - (8 - start)] = cast(ushort)(z + pixel);
+						}
 					}
 				}
-				if (pixel && (z > dstz[i])) {
-					dstz[i] = cast(ushort)(z + pixel);
-				}
+				dstz = dstz[start .. $];
+				tp = tp[1 .. $];
+				w -= start;
 			}
-			// Handle clipped pixels on left side
 			if (x & 7) {
-				int curw = IntMin(8 - (x & 7), w);
-				w -= curw;
-				const tile = tp[0];
-				if (tp.length > 1) {
-					tp = tp[1 .. $];
-				} else {
-					tp = tp_next[0 .. 32];
-					swap(tp_next, tp_start);
-				}
-				int ta = tile.vFlip ? tileadr1 : tileadr0;
-				z = tile.priority ? zhi : zlo;
-				bits = READ_BITS(ta, tile.chr);
-				if (bits) {
-					z += tile.palette << bpp;
-					if (tile.hFlip) {
-						bits >>= (x & 7);
-						x += curw;
-						do {
-							DO_PIXEL(0, tile.hFlip);
-							bits >>= 1;
-							dstz = dstz[1 .. $];
-						} while (--curw);
-					} else {
-						bits <<= (x & 7), x += curw;
-						do {
-							DO_PIXEL(0, tile.hFlip);
-							bits <<= 1;
-							dstz = dstz[1 .. $];
-						} while (--curw);
-					}
-				} else {
-					dstz = dstz[curw .. $];
-				}
+				renderTile(tp[0], 8 - (x & 7), 8);
 			}
-			// Handle full tiles in the middle
 			while (w >= 8) {
-				const tile = tp[0];
-				if (tp.length > 1) {
-					tp = tp[1 .. $];
-				} else {
-					tp = tp_next[0 .. 32];
-					swap(tp_next, tp_start);
-				}
-				int ta = tile.vFlip ? tileadr1 : tileadr0;
-				z = tile.priority ? zhi : zlo;
-				bits = READ_BITS(ta, tile.chr);
-				if (bits) {
-					z += (tile.palette << bpp);
-					foreach (i; 0 .. 8) {
-						DO_PIXEL(i, tile.hFlip);
-					}
-				}
-				dstz = dstz[8 .. $];
-				w -= 8;
+				renderTile(tp[0], 8, 8);
 			}
-			// Handle remaining clipped part
-			if (w) {
-				const tile = tp[0];
-				int ta = tile.vFlip ? tileadr1 : tileadr0;
-				z = tile.priority ? zhi : zlo;
-				bits = READ_BITS(ta, tile.chr);
-				if (bits) {
-					z += tile.palette << bpp;
-					if (tile.hFlip) {
-						do {
-							DO_PIXEL(0, tile.hFlip);
-							bits >>= 1;
-							dstz = dstz[1 .. $];
-						} while (--w);
-					} else {
-						do {
-							DO_PIXEL(0, tile.hFlip);
-							bits <<= 1;
-							dstz = dstz[1 .. $];
-						} while (--w);
-					}
-				}
+			if (w & 7) {
+				renderTile(tp[0], 8, w & 7);
 			}
 		}
 	}
