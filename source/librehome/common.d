@@ -113,4 +113,14 @@ struct Array2D(E) {
 	int opDollar(size_t dim : 1)() const {
 		return height;
 	}
+	void toString(R)(ref R sink) const {
+		import std.format : formattedWrite;
+		foreach (row; 0 .. height) {
+			sink.formattedWrite!"%s\n"(this[0 .. $, row]);
+		}
+	}
+}
+
+auto array2D(T)(return T[] array, int width, int height) {
+	return Array2D!T(width, height, array);
 }

@@ -82,6 +82,10 @@ struct Tile {
 		bool, "hFlip", 1,
 		bool, "vFlip", 1,
 	));
+	void toString(R)(ref R sink) const {
+		import std.format : formattedWrite;
+		sink.formattedWrite!"%s%s%s%s%03X"(vFlip ? "V" : "v", hFlip ? "H" : "h", priority ? "P" : "p", palette, chr);
+	}
 }
 
 struct PPU {
@@ -96,6 +100,7 @@ struct PPU {
 	ubyte extraLeftRight = 0;
 	ubyte extraBottomCur = 0;
 	float mode7PerspectiveLow, mode7PerspectiveHigh;
+	bool interlacing;
 
 	// TMW / TSW etc
 	ubyte[2] screenEnabled;
@@ -1520,8 +1525,8 @@ struct PPU {
 					fixedColorR = val & 0x1f;
 				}
 				break;
-			case 0x33:
-				//assert(val == 0);
+			case 0x33: //SETINI
+				interlacing = !!(val & 0b00000010);
 				m7extBg_always_zero = !!(val & 0x40);
 				break;
 			default:
