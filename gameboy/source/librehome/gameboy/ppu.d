@@ -2,9 +2,12 @@ module librehome.gameboy.ppu;
 
 import librehome.gameboy.common;
 
+import librehome.common;
 import librehome.testhelpers;
 
 import std.bitmanip : bitfields;
+
+import pixelatrix.bpp2;
 
 enum LCDCFlags {
 	bgEnabled = 1 << 0,
@@ -62,23 +65,22 @@ struct PPU {
 	ubyte[] vram;
 	immutable(ushort)[] gbPalette = pocketPalette;
 
-	private ubyte scanline;
-	private ubyte[] pixels;
-	private size_t stride;
+	private Array2D!ushort pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
 		const baseX = registers.scx;
-		const baseY = registers.scy + scanline;
-		auto pixelRow = cast(ushort[])(pixels[scanline * stride .. (scanline + 1) * stride]);
+		const baseY = registers.scy + registers.ly;
+		auto pixelRow = pixels[0 .. $, registers.ly];
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
 		lineLoop: foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
+			// first, find a sprite at these coords with a non-transparent pixel
 			foreach (idx, sprite; oamSorted) {
-				if (scanline.inRange(sprite.y - 16, sprite.y - ((registers.lcdc & LCDCFlags.tallSprites) ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
+				if (registers.ly.inRange(sprite.y - 16, sprite.y - ((registers.lcdc & LCDCFlags.tallSprites) ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
 					auto xpos = x - (sprite.x - 8);
-					auto ypos = (scanline - (sprite.y - 16));
+					auto ypos = (registers.ly - (sprite.y - 16));
 					if (sprite.flags & OAMFlags.xFlip) {
 						xpos = 7 - xpos;
 					}
@@ -86,34 +88,36 @@ struct PPU {
 						ypos = 7 - ypos;
 					}
 					// ignore transparent pixels
-					if (getPixel(getTile(cast(short)(sprite.tile + ypos / 8), false)[ypos % 8], xpos) == 0) {
+					if (getTile(cast(short)(sprite.tile + ypos / 8), false)[xpos, ypos % 8] == 0) {
 						continue;
 					}
 					if (sprite.x - 8 < highestX) {
 						highestX = sprite.x - 8;
 						highestMatchingSprite = idx;
 						version(assumeOAMImmutableDiscarded) {
+							// it's sorted according to priority already, so we can stop at the first sprite
 							break;
 						}
 					}
 				}
 			}
 			ushort prospectivePixel;
-			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (scanline >= registers.wy)) {
+			// grab pixel from background or window
+			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (registers.ly >= registers.wy)) {
 				const finalX = x - (registers.wx - 7);
-				const finalY = scanline - registers.wy;
+				const finalY = registers.ly - registers.wy;
 				const windowTilemapBase = (finalY / 8) * 32;
 				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-				prospectivePixel = getPixel(getTile(windowTilemapRow[finalX / 8], true)[finalY % 8], finalX % 8);
+				prospectivePixel = getTile(windowTilemapRow[finalX / 8], true)[finalX % 8, finalY % 8];
 			} else {
 				const finalX = baseX + x;
-				prospectivePixel = getPixel(getTile(tilemapRow[(finalX / 8) % 32], true)[baseY % 8], finalX % 8);
+				prospectivePixel = getTile(tilemapRow[(finalX / 8) % 32], true)[finalX % 8, baseY % 8];
 			}
-
+			// decide between sprite pixel and background pixel using priority settings
 			if (highestMatchingSprite != size_t.max) {
 				const sprite = oamSorted[highestMatchingSprite];
 				auto xpos = x - (sprite.x - 8);
-				auto ypos = (scanline - (sprite.y - 16));
+				auto ypos = (registers.ly - (sprite.y - 16));
 				if (sprite.flags & OAMFlags.xFlip) {
 					xpos = 7 - xpos;
 				}
@@ -121,7 +125,7 @@ struct PPU {
 					ypos = 7 - ypos;
 				}
 				if (!(sprite.flags & OAMFlags.priority) || (prospectivePixel == 0)) {
-					const pixel = getPixel(getTile(cast(short)(sprite.tile + ypos / 8), false)[ypos % 8], xpos);
+					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false)[xpos, ypos % 8];
 					if (pixel != 0) {
 						prospectivePixel = pixel;
 					}
@@ -129,7 +133,7 @@ struct PPU {
 			}
 			pixelRow[x] = getColour(prospectivePixel);
 		}
-		scanline++;
+		registers.ly++;
 	}
 	ubyte[] bgScreen() @safe pure {
 		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
@@ -159,9 +163,9 @@ struct PPU {
 		const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
 		return gbPalette[paletteMap];
 	}
-	ushort[8] getTile(short id, bool useLCDC) @safe pure {
+	Intertwined2BPP getTile(short id, bool useLCDC) @safe pure {
 		const tileBlock = (id > 127) ? tileBlockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? tileBlockC : tileBlockA));
-		return (cast(const(ushort[8])[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
+		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
@@ -171,9 +175,8 @@ struct PPU {
 			import std.algorithm.sorting : sort;
 			sort!((a, b) => a.x < b.x)(oamSorted);
 		}
-		scanline = 0;
-		this.pixels = pixels;
-		this.stride = stride;
+		registers.ly = 0;
+		this.pixels = Array2D!ushort(width, height, cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
 	}
 	void drawFullFrame(ubyte[] pixels, size_t stride) @safe pure {
 		beginDrawing(pixels, stride);
