@@ -30,6 +30,8 @@ import librehome.common;
 import librehome.testhelpers;
 import librehome.snes.hardware;
 
+import pixelatrix;
+
 import std.algorithm.comparison;
 import std.algorithm.mutation;
 import std.bitmanip;

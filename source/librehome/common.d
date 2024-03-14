@@ -49,14 +49,20 @@ struct Array2D(E) {
 	import std.format : format;
 	import std.traits : isMutable;
 	E[] impl;
-	int stride;
-	int width, height;
+	private int stride;
+	private int width, height;
 
-	this(int width, int height, E[] initialData = []) {
+	this(int width, int height, inout E[] initialData) inout {
+		this(width, height, width, initialData);
+	}
+
+	this(int width, int height, int stride, inout E[] initialData) inout
+		in(initialData.length == stride * height, format!"Base array has invalid length %s, expecting %s"(initialData.length, stride * height))
+	{
 		impl = initialData;
-		this.stride = this.width = width;
+		this.stride = stride;
+		this.width = width;
 		this.height = height;
-		impl.length = width * height;
 	}
 
 	// Index a single element, e.g., arr[0, 1]
@@ -65,23 +71,16 @@ struct Array2D(E) {
 	}
 
 	// Array slicing, e.g., arr[1..2, 1..2], arr[2, 0..$], arr[0..$, 1].
-	Array2D opIndex(int[2] r1, int[2] r2) inout
+	inout(Array2D) opIndex(int[2] r1, int[2] r2) inout
 		in(r1[0] <= width, format!"slice [%s..%s] extends beyond array of width %s"(r1[0], r1[1], width))
 		in(r1[1] <= width, format!"slice [%s..%s] extends beyond array of width %s"(r1[0], r1[1], width))
 		in(r2[0] <= height, format!"slice [%s..%s] extends beyond array of height %s"(r2[0], r2[1], height))
 		in(r2[1] <= height, format!"slice [%s..%s] extends beyond array of height %s"(r2[0], r2[1], height))
 	{
-		Array2D result;
-
 		auto startOffset = r1[0] + r2[0] * stride;
 		auto endOffset = r1[1] + (r2[1] - 1) * stride;
-		result.impl = this.impl[startOffset .. endOffset];
 
-		result.stride = this.stride;
-		result.width = r1[1] - r1[0];
-		result.height = r2[1] - r2[0];
-
-		return result;
+		return (inout Array2D)(r1[1] - r1[0], r2[1] - r2[0], stride, this.impl[startOffset .. (endOffset / stride + !!(endOffset % stride)) * stride]);
 	}
 	auto opIndex(int[2] r1, int j) inout {
 		return opIndex(r1, [j, j + 1]).impl;
@@ -119,6 +118,20 @@ struct Array2D(E) {
 			sink.formattedWrite!"%s\n"(this[0 .. $, row]);
 		}
 	}
+}
+
+@safe pure unittest {
+	import std.array : array;
+	import std.range : iota;
+	auto tmp = Array2D!int(5, 6, iota(5*6).array);
+	assert(tmp[2, 1] == 7);
+	assert(tmp[$ - 1, $ - 1] == 29);
+	assert(tmp[0 .. $, 0] == [0, 1, 2, 3, 4]);
+	assert(tmp[0 .. $, 5] == [25, 26, 27, 28, 29]);
+	assert(tmp[0, 0 .. $][0, 2] == 10);
+
+	tmp = 42;
+	assert(tmp[2, 1] == 42);
 }
 
 auto array2D(T)(return T[] array, int width, int height) {
