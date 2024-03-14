@@ -45,7 +45,7 @@ enum GameBoyModel : ushort {
 
 struct GameBoySimple {
 	void function(ushort) entryPoint;
-	void function() interruptHandler;
+	void function() interruptHandlerVBlank;
 	DebugFunction debugMenuRenderer;
 	string title;
 	string sourceFile;
@@ -104,7 +104,7 @@ struct GameBoySimple {
 		}
 		platform.showUI();
 		while (true) {
-			if (platform.runFrame({ interruptHandler(); }, { renderer.draw(); })) {
+			if (platform.runFrame({ interruptHandlerVBlank(); }, { renderer.draw(); })) {
 				break;
 			}
 			copyInputState(platform.inputState);
@@ -159,6 +159,12 @@ struct GameBoySimple {
 		platform.commitSRAM();
 	}
 	// GB-specific features
+	void interruptHandlerSTAT(void function() fun) {
+		renderer.statInterrupt = fun;
+	}
+	void interruptHandlerTimer(void function() fun) {}
+	void interruptHandlerSerial(void function() fun) {}
+	void interruptHandlerJoypad(void function() fun) {}
 	void updateReadableRegisters() {
 		final switch (lcdYUpdateStrategy) {
 			case LCDYUpdateStrategy.constant:
