@@ -131,8 +131,11 @@ struct GameBoySimple {
 	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
 		platform.registerHook(id, hook, settings);
 	}
-	void extractAssets(ExtractFunction func) {
-		.extractAssets(func, platform.backend, romData, ".");
+	void extractAssets(Modules...)(ExtractFunction func) {
+		platform.extractAssets!Modules(func, romData);
+	}
+	void loadAssets(Modules...)(LoadFunction func) {
+		platform.loadAssets!Modules(func);
 	}
 	void loadWAV(const(ubyte)[] data) {
 		platform.backend.audio.loadWAV(data);

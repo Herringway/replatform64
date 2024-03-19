@@ -121,8 +121,11 @@ struct SNES {
 	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
 		platform.registerHook(id, hook, settings);
 	}
-	void extractAssets(ExtractFunction func) {
-		.extractAssets(func, platform.backend, romData, ".");
+	void extractAssets(Modules...)(ExtractFunction func) {
+		platform.extractAssets!Modules(func, romData);
+	}
+	void loadAssets(Modules...)(LoadFunction func) {
+		platform.loadAssets!Modules(func);
 	}
 	void loadWAV(const(ubyte)[] data) {
 		platform.backend.audio.loadWAV(data);
@@ -577,6 +580,7 @@ struct DummySNES {
 	ref T sram(T)(uint) { return *(new T); }
 	void deleteSlot(uint) {}
 	void commitSRAM() {}
+	void loadWAV(const(ubyte)[]) {}
 }
 
 unittest {

@@ -1,13 +1,18 @@
 module librehome.commonplatform;
 
+import librehome.assets;
 import librehome.backend.common;
 import librehome.dumping;
 import librehome.framestat;
 import librehome.planet;
+import librehome.ui;
 import librehome.watchdog;
 
+import core.stdc.stdlib;
 import core.thread;
 import std.algorithm.mutation;
+import std.concurrency;
+import std.conv;
 import std.file;
 import std.format;
 import std.logger;
@@ -111,6 +116,82 @@ struct PlatformCommon {
 	}
 	void saveAssets(PlanetArchive archive) {
 		archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
+	}
+	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data) {
+		void extractAllData(Tid main, immutable(ubyte)[] rom) {
+		    PlanetArchive archive;
+		    send(main, "Loading ROM");
+		    const(char)[] last;
+
+		    //handle data that can just be copied as-is
+		    static foreach (asset; SymbolData!Modules) {{
+		        static foreach (i, element; asset.sources) {
+			        if (last != asset.name) {
+			            last = asset.name;
+			            immutable str = text("Extracting ", asset.name);
+			            send(main, str);
+			        }
+			        infof("Extracting %s", asset.name);
+			        archive.addFile(asset.name, rom[element.offset .. element.offset + element.length]);
+		        }
+		    }}
+
+		    // extract extra game data that needs special handling
+			extractor(archive, (str) { send(main, str); }, rom);
+
+		    // write the archive
+		    saveAssets(archive);
+
+		    // done
+		    send(main, true);
+		}
+		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data);
+		bool extractionDone;
+		string lastMessage = "Initializing";
+		void renderExtractionUI() {
+			ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, ImVec2(0.5f, 0.5f));
+			ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse);
+				Spinner("##spinning", 15, 6,  ImGui.GetColorU32(ImGuiCol.ButtonHovered));
+				ImGui.SameLine();
+				ImGui.Text("Extracting assets. Please wait.");
+				ImGui.Text(lastMessage);
+			ImGui.End();
+		}
+		while (!extractionDone) {
+			receiveTimeout(0.seconds,
+				(bool) { extractionDone = true; },
+				(string msg) { lastMessage = msg; }
+			);
+			assert(backend);
+			if (backend.processEvents() || backend.input.getState().exit) {
+				exit(0);
+			}
+			backend.video.startFrame();
+			renderExtractionUI();
+			backend.video.finishFrame();
+			backend.video.waitNextFrame();
+		}
+	}
+	void loadAssets(Modules...)(LoadFunction func) {
+		const archive = assets;
+		tracef("Loaded %s assets", archive.entries.length);
+		foreach (asset; archive.entries) {
+			const data = archive.getData(asset);
+		    sw: switch (asset.name) {
+		        static foreach (Symbol; SymbolData!Modules) {
+		            case Symbol.name:
+		                static if (Symbol.array) {
+		                    Symbol.data ~= cast(typeof(Symbol.data[0]))data;
+		                } else {
+		                    Symbol.data = cast(typeof(Symbol.data))(data);
+		                }
+		                break sw;
+		        }
+		        default:
+		            func(archive, asset);
+		            break;
+		    }
+		}
 	}
 	void runHook(string id) {
 		if (auto matchingHooks = id in hooks) {

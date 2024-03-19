@@ -7,9 +7,12 @@ import core.stdc.stdlib;
 import core.time;
 import std.bitmanip;
 import std.concurrency;
+import std.string;
 import std.traits;
 
-alias ExtractFunction = void function(Tid, immutable(ubyte)[], string);
+alias ProgressUpdateFunction = void delegate(scope const string);
+alias ExtractFunction = void function(scope ref PlanetArchive, scope ProgressUpdateFunction, immutable(ubyte)[]);
+alias LoadFunction = void function(const PlanetArchive, const scope PlanetArchive.Entry);
 
 struct PlanetArchive {
 	static struct Header {
@@ -22,9 +25,12 @@ struct PlanetArchive {
 	}
 	static struct Entry {
 		align(8):
-		char[256] name = '\0';
+		char[256] _name = '\0';
 		ulong offset;
 		ulong size;
+		const(char)[] name() const return @safe pure {
+			return _name.fromStringz;
+		}
 	}
 	Header header;
 	Entry[] entries;
@@ -72,38 +78,13 @@ struct PlanetArchive {
 		header.entries++;
 		header.dataOffset = Header.sizeof + header.entries * Entry.sizeof;
 		Entry entry;
-		entry.name[0 .. name.length] = name;
+		entry._name[0 .. name.length] = name;
 		entry.offset = offset;
 		entry.size = data.length;
 		entries ~= entry;
 		this.data ~= data;
 	}
-}
-
-void extractAssets(ExtractFunction extractor, scope PlatformBackend backend, immutable(ubyte)[] data, string baseDir) {
-	auto extractorThread = spawn(extractor, thisTid, data, baseDir);
-	bool extractionDone;
-	string lastMessage = "Initializing";
-	void renderExtractionUI() {
-		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, ImVec2(0.5f, 0.5f));
-		ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse);
-			Spinner("##spinning", 15, 6,  ImGui.GetColorU32(ImGuiCol.ButtonHovered));
-			ImGui.SameLine();
-			ImGui.Text("Extracting assets. Please wait.");
-			ImGui.Text(lastMessage);
-		ImGui.End();
-	}
-	while (!extractionDone) {
-		receiveTimeout(0.seconds,
-			(bool) { extractionDone = true; },
-			(string msg) { lastMessage = msg; }
-		);
-		if (backend.processEvents() || backend.input.getState().exit) {
-			exit(0);
-		}
-		backend.video.startFrame();
-		renderExtractionUI();
-		backend.video.finishFrame();
-		backend.video.waitNextFrame();
+	const(ubyte)[] getData(const Entry entry) const @safe pure {
+		return data[entry.offset .. entry.offset + entry.size];
 	}
 }

@@ -345,12 +345,17 @@ struct PPU {
 		}
 		PpuWindows win;
 		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
-		BGLayer *bglayer = &bgLayer[layer];
+		BGLayer* bglayer = &bgLayer[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
+		static if (bpp == 2) {
+			alias TileType = Intertwined2BPP;
+		} else static if (bpp == 4) {
+			alias TileType = Intertwined4BPP;
+		} else static if (bpp == 8) {
+			alias TileType = Intertwined8BPP;
+		}
+		auto tiles = (cast(const(TileType)[])vram).cycle[(bgLayer[layer].tileAdr * 2) / TileType.sizeof .. (bgLayer[layer].tileAdr * 2) / TileType.sizeof + 0x400];
 		y = mosaicModulo[y] + bglayer.vScroll;
-		int tileadr = bgLayer[layer].tileAdr;
-		int tileadr1 = tileadr + 7 - (y & 0x7);
-		int tileadr0 = tileadr + (y & 0x7);
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
 				continue; // layer is disabled for this window part
@@ -362,26 +367,19 @@ struct PPU {
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w * 8);
 			void renderTile(Tile tile, const uint start, uint end) {
-				int ta = tile.vFlip ? tileadr1 : tileadr0;
 				const z = cast(ushort)((tile.priority ? zhi : zlo) + (tile.palette << bpp));
-				ulong bits;
-				const addr = vram[(ta + tile.chr * bpp * 4) & 0x7FFF .. $];
-				static foreach (plane; 0 .. bpp / 2) {
-					bits |= cast(ulong)addr[plane * 8] << (plane * 16);
-				}
-				if (bits) {
-					foreach (i; 8 - start .. end) {
-						int pixel = 0;
-						static foreach (plane; 0 .. bpp) {
-							if (tile.hFlip) {
-								pixel |= (bits >> (7 * plane + i)) & (1 << plane);
-							} else {
-								pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
-							}
-						}
-						if (pixel && (z > dstz[i - (8 - start)])) {
-							dstz[i - (8 - start)] = cast(ushort)(z + pixel);
-						}
+				foreach (i; 8 - start .. end) {
+					ubyte tileX = cast(ubyte)i;
+					ubyte tileY = y % 8;
+					if (tile.hFlip) {
+						tileX = cast(ubyte)(7 - tileX);
+					}
+					if (tile.vFlip) {
+						tileY = cast(ubyte)(7 - tileY);
+					}
+					const pixel = tiles[tile.chr][tileX, tileY];
+					if (pixel && (z > dstz[i - (8 - start)])) {
+						dstz[i - (8 - start)] = cast(ushort)(z + pixel);
 					}
 				}
 			}
@@ -721,10 +719,6 @@ struct PPU {
 					dst[pitch * 1 .. pitch * 1 + 4][] = color;
 					dst[pitch * 2 .. pitch * 2 + 4][] = color;
 					dst[pitch * 3 .. pitch * 3 + 4][] = color;
-					//(cast(uint *)dst)[3] = (cast(uint *)dst)[2] = (cast(uint *)dst)[1] = (cast(uint *)dst)[0] = color;
-					//(cast(uint *)(dst + pitch * 1))[3] = (cast(uint *)(dst + pitch * 1))[2] = (cast(uint *)(dst + pitch * 1))[1] = (cast(uint *)(dst + pitch * 1))[0] = color;
-					//(cast(uint *)(dst + pitch * 2))[3] = (cast(uint *)(dst + pitch * 2))[2] = (cast(uint *)(dst + pitch * 2))[1] = (cast(uint *)(dst + pitch * 2))[0] = color;
-					//(cast(uint *)(dst + pitch * 3))[3] = (cast(uint *)(dst + pitch * 3))[2] = (cast(uint *)(dst + pitch * 3))[1] = (cast(uint *)(dst + pitch * 3))[0] = color;
 				}
 			}
 		}
