@@ -385,6 +385,7 @@ unittest {
 	runTest("everythingok");
 	runTest("ffl2");
 	runTest("m2");
+	runTest("w2");
 }
 
 immutable ushort[] pixelBitmasks = [
