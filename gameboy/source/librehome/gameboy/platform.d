@@ -77,7 +77,7 @@ struct GameBoySimple {
 	void saveSettings(T)(T gameSettings) {
 		platform.saveSettings(settings, gameSettings);
 	}
-	void initialize() {
+	void initialize(Backend backendType = Backend.autoSelect) {
 		static void initMemoryEditor(ref MemoryEditor editor) {
 			editor.Cols = 8;
 			editor.OptShowOptions = false;
@@ -90,7 +90,7 @@ struct GameBoySimple {
 		renderer.ppu.vram = new ubyte[](0x10000);
 
 		apu.initialize();
-		platform.initialize({ entryPoint(model); });
+		platform.initialize({ entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
 		renderer.initialize(title, platform.backend.video);
 		platform.debugMenu = debugMenuRenderer;
@@ -111,7 +111,7 @@ struct GameBoySimple {
 		}
 	}
 	void wait() {
-		platform.wait();
+		platform.wait({ interruptHandlerVBlank(); });
 	}
 	bool assetsExist() {
 		return platform.assetsExist();

@@ -47,13 +47,11 @@ struct SNESRenderer {
 				height = defaultHeight * 2;
 				enforce(loadSnesDrawFrame(), "Could not load SnesDrawFrame");
 				enforce(initSnesDrawFrame(), "Could not initialize SnesDrawFrame");
-				info("SnesDrawFrame initialized");
 				break;
 			case Renderer.neo:
 				textureType = PixelFormat.argb8888;
 				neoRenderer.extraLeftRight = (defaultWidth - 256) / 2;
 				neoRenderer.setExtraSideSpace((defaultWidth - 256) / 2, (defaultWidth - 256) / 2, (defaultHeight - 224) / 2);
-				info("Neo initialized");
 				break;
 		}
 		WindowSettings window;

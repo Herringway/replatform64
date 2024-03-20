@@ -57,9 +57,9 @@ struct SNES {
 	void saveSettings(T)(T gameSettings) {
 		platform.saveSettings(settings, gameSettings);
 	}
-	void initialize() {
-		platform.initialize({ entryPoint(); });
-		renderer.initialize(title, platform.backend.video, settings.renderer);
+	void initialize(Backend backendType = Backend.autoSelect) {
+		platform.initialize({ entryPoint(); }, backendType);
+		renderer.initialize(title, platform.backend.video, backendType == Backend.none ? RendererSettings(engine: Renderer.neo) : settings.renderer);
 		crashHandler = &dumpSNESDebugData;
 		platform.debugMenu = debugMenuRenderer;
 		platform.platformDebugMenu = &commonSNESDebugging;
@@ -101,7 +101,7 @@ struct SNES {
 		return originalData;
 	}
 	void wait() {
-		platform.wait();
+		platform.wait({ interruptHandler(); });
 	}
 	bool assetsExist() {
 		return platform.assetsExist();
@@ -524,63 +524,6 @@ struct SNES {
 	void APUIO3(ubyte val) {
 		APUIO(3, val);
 	}
-}
-
-struct DummySNES {
-	void function() interruptHandler;
-	ubyte INIDISP;
-	ubyte HDMAEN;
-	ubyte MOSAIC;
-	ubyte WH0;
-	ubyte WH1;
-	ubyte WH2;
-	ubyte WH3;
-	ubyte TM;
-	ubyte TD;
-	alias TS = TD;
-	ubyte TMW;
-	ubyte TSW;
-	ubyte WOBJLOG;
-	ubyte WBGLOG;
-	ubyte WOBJSEL;
-	ubyte OBSEL;
-	ubyte W12SEL;
-	ubyte W34SEL;
-	ubyte BG1SC;
-	ubyte BG2SC;
-	ubyte BG3SC;
-	ubyte BG4SC;
-	ubyte BG12NBA;
-	ubyte BG34NBA;
-	ubyte STAT78;
-	ubyte APUIO0;
-	ubyte APUIO1;
-	ubyte APUIO2;
-	ubyte APUIO3;
-	ubyte HVBJOY;
-	ubyte NMITIMEN;
-	ubyte BGMODE;
-	ubyte CGWSEL;
-	ubyte CGADSUB;
-	DMAChannel[8] dmaChannels; ///
-
-	void wait() { interruptHandler(); }
-	void runHook(string) {}
-	void registerHook(string id, void function() hook, HookSettings settings = HookSettings.init) {}
-	void registerHook(string id, void delegate() hook, HookSettings settings = HookSettings.init) {}
-	void saveAssets(PlanetArchive) {}
-	ushort getControllerState(ubyte) @safe pure { return 0; }
-	void setBGOffsetX(ubyte, ushort) {}
-	void setBGOffsetY(ubyte, ushort) {}
-	void handleOAMDMA(ubyte, ubyte, const(void)*, ushort, ushort) {}
-	void handleCGRAMDMA(ubyte, ubyte, const(void)*, ushort, ushort) {}
-	void handleVRAMDMA(ubyte, ubyte, const(void)*, ushort, ushort, ubyte) {}
-	void handleHDMA() {}
-	void setFixedColourData(ubyte) {}
-	ref T sram(T)(uint) { return *(new T); }
-	void deleteSlot(uint) {}
-	void commitSRAM() {}
-	void loadWAV(const(ubyte)[]) {}
 }
 
 unittest {

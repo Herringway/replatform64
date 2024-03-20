@@ -145,3 +145,7 @@ struct InputState {
 }
 
 private extern(C) __gshared ubyte internal;
+
+struct BackendID {
+	string id;
+}

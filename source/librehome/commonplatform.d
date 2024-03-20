@@ -34,6 +34,7 @@ struct PlatformCommon {
 	DebugFunction platformDebugState;
 	private HookState[][string] hooks;
 	private ubyte[][uint] sramSlotBuffer;
+	private bool inFiber;
 	auto loadSettings(SystemSettings, GameSettings)() {
 		alias Settings = FullSettings!(SystemSettings, GameSettings);
 		if (!settingsFile.exists) {
@@ -50,9 +51,9 @@ struct PlatformCommon {
 		settings.ui = backend.video.getUIState();
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
-	void initialize(void delegate() dg) {
+	void initialize(void delegate() dg, Backend backendType = Backend.autoSelect) {
 		this.game = new Fiber(dg);
-		backend = loadBackend(settings);
+		backend = loadBackend(backendType, settings);
 		backend.video.hideUI();
 		//startWatchDog();
 	}
@@ -66,6 +67,10 @@ struct PlatformCommon {
 		backend.video.showUI();
 	}
 	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
+		inFiber = true;
+		scope(exit) {
+			inFiber = false;
+		}
 		// pet the dog each frame so it knows we're ok
 		watchDog.pet();
 		frameStatTracker.startFrame();
@@ -102,8 +107,12 @@ struct PlatformCommon {
 		frameStatTracker.endFrame();
 		return false;
 	}
-	void wait() {
-		Fiber.yield();
+	void wait(scope void delegate() interrupt) {
+		if (inFiber) {
+			Fiber.yield();
+		} else {
+			interrupt();
+		}
 	}
 	bool assetsExist() {
 		return (gameID~".planet").exists;

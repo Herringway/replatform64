@@ -83,8 +83,8 @@ struct NES {
 	void saveSettings(T)(T gameSettings) {
 		platform.saveSettings(settings, gameSettings);
 	}
-	void initialize() {
-		platform.initialize({ entryPoint(); });
+	void initialize(Backend backendType = Backend.autoSelect) {
+		platform.initialize({ entryPoint(); }, backendType);
 		renderer.initialize(title, platform.backend.video);
 		platform.installAudioCallback(&apu, &audioCallback);
 		platform.debugMenu = debugMenuRenderer;
@@ -105,7 +105,7 @@ struct NES {
 		}
 	}
 	void wait() {
-		platform.wait();
+		platform.wait({ interruptHandler(); });
 	}
 	bool assetsExist() {
 		return platform.assetsExist();
