@@ -135,35 +135,35 @@ struct PPU {
 		}
 		registers.ly++;
 	}
-	ubyte[] bgScreen() @safe pure {
+	inout(ubyte)[] bgScreen() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
 	}
-	ubyte[] tileBlockA() @safe pure {
+	inout(ubyte)[] tileBlockA() inout @safe pure {
 		return vram[0x8000 .. 0x8800];
 	}
-	ubyte[] tileBlockB() @safe pure {
+	inout(ubyte)[] tileBlockB() inout @safe pure {
 		return vram[0x8800 .. 0x9000];
 	}
-	ubyte[] tileBlockC() @safe pure {
+	inout(ubyte)[] tileBlockC() inout @safe pure {
 		return vram[0x9000 .. 0x9800];
 	}
-	ubyte[] screenA() @safe pure {
+	inout(ubyte)[] screenA() inout @safe pure {
 		return vram[0x9800 .. 0x9C00];
 	}
-	ubyte[] screenB() @safe pure {
+	inout(ubyte)[] screenB() inout @safe pure {
 		return vram[0x9C00 .. 0xA000];
 	}
-	ubyte[] oam() @safe pure {
+	inout(ubyte)[] oam() inout @safe pure {
 		return vram[0xFE00 .. 0xFE00 + 40 * OAMEntry.sizeof];
 	}
-	ubyte[] windowScreen() @safe pure {
+	inout(ubyte)[] windowScreen() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenB : screenA;
 	}
-	ushort getColour(int b) @safe pure {
+	ushort getColour(int b) const @safe pure {
 		const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
 		return gbPalette[paletteMap];
 	}
-	Intertwined2BPP getTile(short id, bool useLCDC) @safe pure {
+	Intertwined2BPP getTile(short id, bool useLCDC) const @safe pure {
 		const tileBlock = (id > 127) ? tileBlockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? tileBlockC : tileBlockA));
 		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
@@ -182,6 +182,40 @@ struct PPU {
 		beginDrawing(pixels, stride);
 		foreach (i; 0 .. height) {
 			runLine();
+		}
+	}
+	void drawFullBackground(ubyte[] pixels, size_t stride) const @safe pure {
+		auto buffer = Array2D!ushort(256, 256, cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, bgScreen)) {
+			const tile = getTile(tileID, true);
+			foreach (subPixelX; 0 .. 8) {
+				foreach (subPixelY; 0 .. 8) {
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
+				}
+			}
+		}
+	}
+	void drawFullWindow(ubyte[] pixels, size_t stride) @safe pure {
+		auto buffer = Array2D!ushort(256, 256, cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, windowScreen)) {
+			const tile = getTile(tileID, true);
+			foreach (subPixelX; 0 .. 8) {
+				foreach (subPixelY; 0 .. 8) {
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
+				}
+			}
+		}
+	}
+	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
+		auto buffer = Array2D!ushort(8, 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites)), cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		const oamEntry = (cast(OAMEntry[])oam)[sprite];
+		const tile = getTile(oamEntry.tile, false);
+		foreach (x; 0 .. 8) {
+			foreach (y; 0 .. 8) {
+				const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
+				const tileY = oamEntry.flags & OAMFlags.yFlip ? 7 - y : y;
+				buffer[x, y] = getColour(tile[tileX, tileY]);
+			}
 		}
 	}
 	void writeRegister(ushort addr, ubyte val) @safe pure {

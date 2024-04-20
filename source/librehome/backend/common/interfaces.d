@@ -1,6 +1,7 @@
 module librehome.backend.common.interfaces;
 
 public import librehome.backend.common.inputconstants;
+import librehome.common;
 import librehome.ui;
 
 alias AudioCallback = void function(void*, ubyte[]);
@@ -20,6 +21,8 @@ interface VideoBackend {
 	void getDrawingTexture(out Texture texture) @safe;
 	void createWindow(string title, WindowSettings settings) @safe;
 	void createTexture(uint width, uint height, PixelFormat format) @safe;
+	void* createSurface(size_t width, size_t height, size_t stride, PixelFormat format) @safe;
+	void setSurfacePixels(void* surface, ubyte[] buffer) @safe;
 	void startFrame() @safe;
 	void finishFrame() @safe;
 	void waitNextFrame() @safe;
@@ -119,6 +122,7 @@ struct Texture {
 	uint pitch;
 	uint width;
 	uint height;
+	void* surface;
 	void delegate() @safe nothrow @nogc cleanup;
 	~this() {
 		cleanup();

@@ -49,14 +49,14 @@ struct Array2D(E) {
 	import std.format : format;
 	import std.traits : isMutable;
 	E[] impl;
-	private int stride;
-	private int width, height;
+	private size_t stride;
+	private size_t width, height;
 
-	this(int width, int height, inout E[] initialData) inout {
+	this(size_t width, size_t height, inout E[] initialData) inout {
 		this(width, height, width, initialData);
 	}
 
-	this(int width, int height, int stride, inout E[] initialData) inout
+	this(size_t width, size_t height, size_t stride, inout E[] initialData) inout
 		in(initialData.length == stride * height, format!"Base array has invalid length %s, expecting %s"(initialData.length, stride * height))
 	{
 		impl = initialData;
@@ -66,12 +66,12 @@ struct Array2D(E) {
 	}
 
 	// Index a single element, e.g., arr[0, 1]
-	ref inout(E) opIndex(int i, int j) inout {
+	ref inout(E) opIndex(size_t i, size_t j) inout {
 		return impl[i + stride * j];
 	}
 
 	// Array slicing, e.g., arr[1..2, 1..2], arr[2, 0..$], arr[0..$, 1].
-	inout(Array2D) opIndex(int[2] r1, int[2] r2) inout
+	inout(Array2D) opIndex(size_t[2] r1, size_t[2] r2) inout
 		in(r1[0] <= width, format!"slice [%s..%s] extends beyond array of width %s"(r1[0], r1[1], width))
 		in(r1[1] <= width, format!"slice [%s..%s] extends beyond array of width %s"(r1[0], r1[1], width))
 		in(r2[0] <= height, format!"slice [%s..%s] extends beyond array of height %s"(r2[0], r2[1], height))
@@ -82,10 +82,10 @@ struct Array2D(E) {
 
 		return (inout Array2D)(r1[1] - r1[0], r2[1] - r2[0], stride, this.impl[startOffset .. (endOffset / stride + !!(endOffset % stride)) * stride]);
 	}
-	auto opIndex(int[2] r1, int j) inout {
-		return opIndex(r1, [j, j + 1]).impl;
+	auto opIndex(size_t[2] r1, size_t j) inout {
+		return opIndex(r1, [j, j + 1]).impl[0 .. stride];
 	}
-	auto opIndex(int i, int[2] r2) inout {
+	auto opIndex(size_t i, size_t[2] r2) inout {
 		return opIndex([i, i + 1], r2);
 	}
 	auto opIndex() inout {
@@ -95,10 +95,13 @@ struct Array2D(E) {
 		auto opAssign(E element) {
 			impl[] = element;
 		}
+		void opIndexAssign(E elem, size_t i, size_t j) {
+			impl[i + stride * j] = elem;
+		}
 	}
 
 	// Support for `x..y` notation in slicing operator for the given dimension.
-	int[2] opSlice(size_t dim)(int start, int end) const
+	size_t[2] opSlice(size_t dim)(size_t start, size_t end) const
 	if (dim >= 0 && dim < 2)
 	in(start >= 0 && end <= this.opDollar!dim)
 	{
@@ -106,10 +109,10 @@ struct Array2D(E) {
 	}
 
 	// Support `$` in slicing notation, e.g., arr[1..$, 0..$-1].
-	int opDollar(size_t dim : 0)() const {
+	size_t opDollar(size_t dim : 0)() const {
 		return width;
 	}
-	int opDollar(size_t dim : 1)() const {
+	size_t opDollar(size_t dim : 1)() const {
 		return height;
 	}
 	void toString(R)(ref R sink) const {
@@ -117,6 +120,17 @@ struct Array2D(E) {
 		foreach (row; 0 .. height) {
 			sink.formattedWrite!"%s\n"(this[0 .. $, row]);
 		}
+	}
+	int opApply(scope int delegate(size_t x, size_t y, ref E element) @safe pure dg) {
+		foreach (iterY; 0 .. height) {
+			foreach (iterX, ref elem; this[0 .. $, iterY][]) {
+				auto result = dg(iterX, iterY, elem);
+				if (result) {
+					return result;
+				}
+			}
+		}
+		return 0;
 	}
 }
 

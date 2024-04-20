@@ -1,6 +1,7 @@
 module librehome.snes.platform;
 
 import librehome.backend.common;
+import librehome.common;
 import librehome.commonplatform;
 import librehome.dumping;
 import librehome.planet;

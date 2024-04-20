@@ -186,13 +186,15 @@ class SDL2Video : VideoBackend {
 	void createTexture(uint width, uint height, PixelFormat format) @trusted {
 		assert(width > 0, "Zero width is invalid");
 		assert(height > 0, "Zero height is invalid");
-		uint fmt;
-		final switch (format) {
-			case PixelFormat.rgb555: fmt = SDL_PIXELFORMAT_RGB555; break;
-			case PixelFormat.argb8888: fmt = SDL_PIXELFORMAT_ARGB8888; break;
-		}
+		const fmt = getFormat(format);
 		drawTexture = SDL_CreateTexture(renderer, fmt, SDL_TEXTUREACCESS_STREAMING, width, height);
 		enforceSDL(drawTexture !is null, "Error creating SDL texture");
+	}
+	uint getFormat(PixelFormat format) @safe {
+		final switch (format) {
+			case PixelFormat.rgb555: return SDL_PIXELFORMAT_RGB555; break;
+			case PixelFormat.argb8888: return SDL_PIXELFORMAT_ARGB8888; break;
+		}
 	}
 	void getDrawingTexture(out Texture result) @trusted {
 		ubyte* drawBuffer;
@@ -203,6 +205,23 @@ class SDL2Video : VideoBackend {
 		result.height = window.baseHeight;
 		result.buffer = drawBuffer[0 .. window.baseHeight * result.pitch];
 		result.cleanup = &freeTexture;
+	}
+	void* createSurface(size_t width, size_t height, size_t stride, PixelFormat format) @trusted {
+		assert(renderer, "No renderer");
+		int bpp;
+		uint redMask, greenMask, blueMask, alphaMask;
+		const fmt = getFormat(format);
+		auto tex = SDL_CreateTexture(renderer, fmt, SDL_TEXTUREACCESS_STREAMING, cast(int)width, cast(int)height);
+		enforceSDL(tex != null, "Failed to create texture");
+		return tex;
+	}
+	void setSurfacePixels(void* surface, ubyte[] buffer) @trusted {
+		auto texture = cast(SDL_Texture*)surface;
+		ubyte* drawBuffer;
+		int pitch;
+		enforceSDL(SDL_LockTexture(texture, null, cast(void**)&drawBuffer, &pitch) == 0, "Failed to lock surface");
+		drawBuffer[0 .. buffer.length] = buffer;
+		SDL_UnlockTexture(texture);
 	}
 	void freeTexture() @trusted nothrow @nogc {
 		if (drawTexture) {

@@ -257,7 +257,7 @@ struct PPU {
 		win.bits = 0;
 	}
 
-	private void windowsCalc(ref PpuWindows win, uint layer) @safe pure {
+	private void windowsCalc(ref PpuWindows win, uint layer) const @safe pure {
 		// Evaluate which spans to render based on the window settings.
 		// There are at most 5 windows.
 		// Algorithm from Snes9x
@@ -345,7 +345,7 @@ struct PPU {
 		}
 		PpuWindows win;
 		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
-		BGLayer* bglayer = &bgLayer[layer];
+		const bglayer = &bgLayer[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
 		static if (bpp == 2) {
 			alias TileType = Intertwined2BPP;
@@ -1527,10 +1527,10 @@ struct PPU {
 		writeRegister(addr, value & 0xFF);
 		writeRegister(addr, value >> 8);
 	}
-	bool IS_SCREEN_ENABLED(uint sub, uint layer) @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
-	bool IS_SCREEN_WINDOWED(uint sub, uint layer) @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
-	bool IS_MOSAIC_ENABLED(uint layer) @safe pure { return !!(mosaicEnabled & (1 << layer)); }
-	bool GET_WINDOW_FLAGS(uint layer) @safe pure { return !!(windowsel >> (layer * 4)); }
+	bool IS_SCREEN_ENABLED(uint sub, uint layer) const @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
+	bool IS_SCREEN_WINDOWED(uint sub, uint layer) const @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
+	bool IS_MOSAIC_ENABLED(uint layer) const @safe pure { return !!(mosaicEnabled & (1 << layer)); }
+	bool GET_WINDOW_FLAGS(uint layer) const @safe pure { return !!(windowsel >> (layer * 4)); }
 }
 
 immutable ubyte[2][8] kSpriteSizes = [
