@@ -2,6 +2,7 @@ module librehome.backend.sdl2.input;
 
 import librehome.backend.common;
 import librehome.backend.sdl2.common;
+import librehome.common;
 import librehome.ui;
 
 import bindbc.sdl;

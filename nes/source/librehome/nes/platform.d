@@ -143,6 +143,9 @@ struct NES {
 	void deleteSlot(uint slot) {
 		platform.deleteSlot(slot);
 	}
+	void playbackDemo(const RecordedInputState[] demo) @safe pure {
+		platform.playbackDemo(demo);
+	}
 	// NES-specific features
 	private void commonNESDebugging(const UIState state) {}
 	mixin RegisterRedirect!("PPUCTRL", "renderer", Register.PPUCTRL);

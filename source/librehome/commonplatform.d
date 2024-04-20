@@ -2,6 +2,7 @@ module librehome.commonplatform;
 
 import librehome.assets;
 import librehome.backend.common;
+import librehome.common;
 import librehome.dumping;
 import librehome.framestat;
 import librehome.planet;
@@ -32,9 +33,14 @@ struct PlatformCommon {
 	DebugFunction platformDebugMenu;
 	DebugFunction debugState;
 	DebugFunction platformDebugState;
+	private const(RecordedInputState)[] inputPlayback;
+	private uint inputPlaybackFrameCounter;
 	private HookState[][string] hooks;
 	private ubyte[][uint] sramSlotBuffer;
 	private bool inFiber;
+	void playbackDemo(const RecordedInputState[] demo) @safe pure {
+		inputPlayback = demo;
+	}
 	auto loadSettings(SystemSettings, GameSettings)() {
 		alias Settings = FullSettings!(SystemSettings, GameSettings);
 		if (!settingsFile.exists) {
@@ -77,7 +83,7 @@ struct PlatformCommon {
 		if (backend.processEvents()) {
 			return true;
 		}
-		inputState = backend.input.getState();
+		updateInput();
 		frameStatTracker.checkpoint(FrameStatistic.events);
 		if (inputState.exit) {
 			return true;
@@ -106,6 +112,17 @@ struct PlatformCommon {
 		}
 		frameStatTracker.endFrame();
 		return false;
+	}
+	void updateInput() @safe {
+		if (inputPlayback.length > 0) {
+			inputState = inputPlayback[0].state;
+			if (inputPlaybackFrameCounter == inputPlayback[0].frames) {
+				inputPlaybackFrameCounter = 0;
+				inputPlayback = inputPlayback[1 .. $];
+			}
+		} else {
+			inputState = backend.input.getState();
+		}
 	}
 	void wait(scope void delegate() interrupt) {
 		if (inFiber) {

@@ -151,3 +151,15 @@ struct Array2D(E) {
 auto array2D(T)(return T[] array, int width, int height) {
 	return Array2D!T(width, height, array);
 }
+struct InputState {
+	ushort[2] controllers;
+	bool exit;
+	bool pause;
+	bool step;
+	bool fastForward;
+}
+
+struct RecordedInputState {
+	InputState state;
+	uint frames;
+}

@@ -163,6 +163,9 @@ struct GameBoySimple {
 	void disableSRAM() {
 		platform.commitSRAM();
 	}
+	void playbackDemo(const RecordedInputState[] demo) @safe pure {
+		platform.playbackDemo(demo);
+	}
 	// GB-specific features
 	void interruptHandlerSTAT(void function() fun) {
 		renderer.statInterrupt = fun;

@@ -140,6 +140,9 @@ struct SNES {
 	void deleteSlot(uint slot) {
 		platform.deleteSlot(slot);
 	}
+	void playbackDemo(const RecordedInputState[] demo) @safe pure {
+		platform.playbackDemo(demo);
+	}
 	// SNES-specific functions
 	void handleHDMA() {
 		import std.algorithm.sorting : sort;

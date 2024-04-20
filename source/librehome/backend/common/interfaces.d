@@ -140,14 +140,6 @@ enum WindowMode {
 	fullscreenExclusive,
 }
 
-struct InputState {
-	ushort[2] controllers;
-	bool exit;
-	bool pause;
-	bool step;
-	bool fastForward;
-}
-
 private extern(C) __gshared ubyte internal;
 
 struct BackendID {
