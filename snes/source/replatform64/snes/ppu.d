@@ -156,6 +156,7 @@ struct PPU {
 	BGLayer[4] bgLayer;
 	ubyte scrollPrev = 0;
 	ubyte scrollPrev2 = 0;
+	bool bg3Priority;
 
 	// mode 7
 	short[8] m7matrix; // a, b, c, d, x, y, h, v
@@ -746,15 +747,15 @@ struct PPU {
 	private void drawBackgrounds(int y, bool sub) @safe pure {
 		// Top 4 bits contain the prio level, and bottom 4 bits the layer num
 		// split into minimums and maximums
-		enum ushort[2][4][8] priorityTable = [
-			0: [[11, 8], [10, 7], [5, 2], [4, 1]],
-			1: [[11, 8], [10, 7], [12, 1], [0, 0]],
-			2: [[11, 5], [8, 2], [0, 0], [0, 0]],
-			3: [[11, 5], [8, 2], [0, 0], [0, 0]],
-			4: [[11, 5], [8, 2], [0, 0], [0, 0]],
-			5: [[11, 5], [8, 2], [0, 0], [0, 0]],
-			6: [[11, 5], [0, 0], [0, 0], [0, 0]],
-			7: [[11, 5], [0, 0], [0, 0], [0, 0]],
+		enum ushort[2][4][2][8] priorityTable = [
+			0: [[[11, 8], [10, 7], [5, 2], [4, 1]], [[11, 8], [10, 7], [5, 2], [4, 1]]],
+			1: [[[11, 8], [10, 7], [2, 1], [0, 0]], [[11, 8], [10, 7], [12, 5], [0, 0]]],
+			2: [[[11, 5], [8, 2], [0, 0], [0, 0]], [[11, 5], [8, 2], [0, 0], [0, 0]]],
+			3: [[[11, 5], [8, 2], [0, 0], [0, 0]], [[11, 5], [8, 2], [0, 0], [0, 0]]],
+			4: [[[11, 5], [8, 2], [0, 0], [0, 0]], [[11, 5], [8, 2], [0, 0], [0, 0]]],
+			5: [[[11, 5], [8, 2], [0, 0], [0, 0]], [[11, 5], [8, 2], [0, 0], [0, 0]]],
+			6: [[[11, 5], [0, 0], [0, 0], [0, 0]], [[11, 5], [0, 0], [0, 0], [0, 0]]],
+			7: [[[11, 5], [0, 0], [0, 0], [0, 0]], [[11, 5], [0, 0], [0, 0], [0, 0]]],
 		];
 		enum int[4][8] bgBPP = [
 			0: [2, 2, 2, 2],
@@ -776,8 +777,8 @@ struct PPU {
 					static foreach (layer; 0 .. 4) {{
 						enum bpp = bgBPP[i][layer];
 						static if (bpp > 0) {
-							enum priorityHigh = (priorityTable[i][layer][0] << 12) | (layer << 8);
-							enum priorityLow = (priorityTable[i][layer][1] << 12) | (layer << 8);
+							const priorityHigh = cast(ushort)((priorityTable[i][bg3Priority][layer][0] << 12) | (layer << 8));
+							const priorityLow = cast(ushort)((priorityTable[i][bg3Priority][layer][1] << 12) | (layer << 8));
 							if (IS_MOSAIC_ENABLED(layer)) {
 								drawBackgroundMosaic!bpp(y, sub, layer, priorityHigh, priorityLow);
 							} else {
@@ -1345,10 +1346,8 @@ struct PPU {
 				oamSecondWrite = !oamSecondWrite;
 				break;
 			case 0x05: // BGMODE
-				mode = val & 0x7;
-				//assert(val == 7 || val == 9);
-				//assert(mode == 1 || mode == 7);
-				//assert((val & 0xf0) == 0);
+				mode = val & 0b00000111;
+				bg3Priority = !!(val & 0b00001000);
 				break;
 			case 0x06: // MOSAIC
 				mosaicSize = (val >> 4) + 1;
