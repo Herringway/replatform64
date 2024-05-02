@@ -37,7 +37,6 @@ struct PlatformCommon {
 	private uint inputPlaybackFrameCounter;
 	private HookState[][string] hooks;
 	private ubyte[][uint] sramSlotBuffer;
-	private bool inFiber;
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
 		inputPlayback = demo;
 	}
@@ -66,17 +65,13 @@ struct PlatformCommon {
 	void installAudioCallback(void* data, AudioCallback callback) @safe {
 		backend.audio.installCallback(data, callback);
 	}
-	void enableDebuggingFeatures() {
+	void enableDebuggingFeatures() @safe {
 		backend.video.setDebuggingFunctions(debugMenu, platformDebugMenu, debugState, platformDebugState);
 	}
 	void showUI() {
 		backend.video.showUI();
 	}
 	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
-		inFiber = true;
-		scope(exit) {
-			inFiber = false;
-		}
 		// pet the dog each frame so it knows we're ok
 		watchDog.pet();
 		frameStatTracker.startFrame();
@@ -125,7 +120,7 @@ struct PlatformCommon {
 		}
 	}
 	void wait(scope void delegate() interrupt) {
-		if (inFiber) {
+		if (Fiber.getThis) {
 			Fiber.yield();
 		} else {
 			interrupt();
