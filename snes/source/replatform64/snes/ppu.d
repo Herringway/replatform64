@@ -47,6 +47,7 @@ struct BGLayer {
 	bool tilemapWider = false;
 	bool tilemapHigher = false;
 	ushort tilemapAdr = 0;
+	bool doubleTileSize;
 	ushort tileAdr = 0;
 }
 
@@ -1346,6 +1347,10 @@ struct PPU {
 			case 0x05: // BGMODE
 				mode = val & 0b00000111;
 				bg3Priority = !!(val & 0b00001000);
+				bgLayer[0].doubleTileSize = !!(val & 0b00010000);
+				bgLayer[1].doubleTileSize = !!(val & 0b00100000);
+				bgLayer[2].doubleTileSize = !!(val & 0b01000000);
+				bgLayer[3].doubleTileSize = !!(val & 0b10000000);
 				break;
 			case 0x06: // MOSAIC
 				mosaicSize = (val >> 4) + 1;
