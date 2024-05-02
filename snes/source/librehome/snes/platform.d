@@ -23,7 +23,6 @@ import std.stdio;
 
 struct Settings {
 	RendererSettings renderer;
-	bool emulatedSPC700;
 	bool debugging;
 }
 
@@ -36,11 +35,12 @@ struct SNES {
 	DebugFunction gameStateMenu;
 	CrashHandler gameStateDumper;
 	string matchingInternalID;
-	void delegate(ubyte port, ubyte value, AudioBackend backend) spc700HLEWrite;
-	ubyte delegate(ubyte port) spc700HLERead;
+	HLEWriteCallback spc700HLEWrite;
+	HLEReadCallback spc700HLERead;
 	private Settings settings;
 	private immutable(ubyte)[] originalData;
 	private SPC700Emulated spc700;
+	private bool useHLEAudio;
 	private PlatformCommon platform;
 	DMAChannel[8] dmaChannels; ///
 	ubyte HDMAEN;
@@ -67,17 +67,18 @@ struct SNES {
 		platform.debugState = gameStateMenu;
 		platform.platformDebugState = &commonSNESDebuggingState;
 	}
-	void initializeAudio(T)(T* user, void function(T* user, ubyte[] buffer) callback) {
-		if (settings.emulatedSPC700) {
-			initializeAudio();
-		} else {
-			platform.installAudioCallback(user, cast(void function(void*, ubyte[]))callback);
+	void initializeAudio(T)(T* user, void function(T* user, ubyte[] buffer) callback, HLEWriteCallback writeCallback, HLEReadCallback readCallback) {
+		platform.installAudioCallback(user, cast(void function(void*, ubyte[]))callback);
+		spc700HLEWrite = writeCallback;
+		spc700HLERead = readCallback;
+		static if (__traits(compiles, user.backend = platform.backend.audio)) {
+			user.backend = platform.backend.audio;
 		}
+		useHLEAudio = true;
 	}
 	void initializeAudio() {
-		if (settings.emulatedSPC700) {
-			platform.installAudioCallback(&spc700, &spc700Callback);
-		}
+		platform.installAudioCallback(&spc700, &spc700Callback);
+		useHLEAudio = false;
 	}
 	void run() {
 		if (settings.debugging) {
@@ -501,19 +502,17 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 	void APUIO(ubyte port, ubyte val) {
-		if (settings.emulatedSPC700) {
-			spc700.writePort(port, val);
-		} else if (spc700HLEWrite && !settings.emulatedSPC700) {
+		if (useHLEAudio) {
 			spc700HLEWrite(port, val, platform.backend.audio);
+		} else {
+			spc700.writePort(port, val);
 		}
 	}
 	ubyte APUIO(ubyte port) {
-		if (settings.emulatedSPC700) {
-			return spc700.readPort(port);
-		} else if (spc700HLERead && !settings.emulatedSPC700) {
+		if (useHLEAudio) {
 			return spc700HLERead(port);
 		} else {
-			return 0;
+			return spc700.readPort(port);
 		}
 	}
 	void APUIO0(ubyte val) {

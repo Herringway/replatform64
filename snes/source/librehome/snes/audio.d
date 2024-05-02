@@ -6,6 +6,9 @@ import librehome.common;
 import spc700;
 import nspcplay;
 
+alias HLEWriteCallback = void delegate(ubyte port, ubyte value, AudioBackend backend);
+alias HLEReadCallback = ubyte delegate(ubyte port);
+
 struct SPC700Emulated {
 	SNES_SPC snes_spc;
 	SPC_Filter filter;
@@ -53,6 +56,9 @@ struct NSPC {
 	NSPCPlayer player;
 	Song[] loadedSongs;
 	bool initialized;
+	HLEWriteCallback writePortCallback;
+	HLEReadCallback readPortCallback;
+	AudioBackend backend;
 	void changeSong(ubyte track) {
 		initialized = false;
 		player.loadSong(loadedSongs[track]);
@@ -66,10 +72,25 @@ struct NSPC {
 	void loadSong(const(ubyte)[] data) {
 		loadedSongs ~= loadNSPCFile(data);
 	}
-	void callback(ubyte[] stream) {
-		if (initialized) {
-			player.fillBuffer(cast(short[2][])stream);
+	void loadWAV(const ubyte[] data) {
+		assert(backend, "No backend loaded");
+		backend.loadWAV(data);
+	}
+	static void callback(NSPC* user, ubyte[] stream) {
+		if (user.initialized) {
+			user.player.fillBuffer(cast(short[2][])stream);
 		}
+	}
+	void writeCallback(ubyte port, ubyte value, AudioBackend backend) {
+		if (writePortCallback !is null) {
+			writePortCallback(port, value, backend);
+		}
+	}
+	ubyte readCallback(ubyte port) {
+		if (readPortCallback !is null) {
+			return readPortCallback(port);
+		}
+		return 0;
 	}
 }
 void spc700Callback(void* user, ubyte[] stream) {

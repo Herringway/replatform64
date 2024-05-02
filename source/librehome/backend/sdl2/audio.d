@@ -53,13 +53,13 @@ class SDL2AudioMixer : AudioBackend {
 	void initialize(uint sampleRate, uint channels, uint samples) @trusted {
 		assert(SDL_GetError !is null, "SDL is not loaded!");
 		enforceSDLLoaded!("SDL_Mixer", Mix_Linked_Version, libName)(loadSDLMixer());
-		enforceSDL(Mix_OpenAudio(sampleRate, AUDIO_S16, channels, samples) != -1, "Could not open audio");
+		enforceSDL(Mix_OpenAudio(sampleRate, AUDIO_S16, channels, samples / channels) != -1, "Could not open audio");
 		int finalSampleRate;
 		int finalChannels;
 		ushort finalFormat;
 		Mix_QuerySpec(&finalSampleRate, &finalFormat, &finalChannels);
 
-		infof("SDL audio subsystem initialized (%s)", SDL_GetCurrentAudioDriver().fromStringz);
+		infof("SDL audio subsystem initialized (%s, %s channels, %sHz)", SDL_GetCurrentAudioDriver().fromStringz, finalChannels, finalSampleRate);
 	}
 	void installCallback(void* user, AudioCallback fun) @trusted {
 		callback = fun;
@@ -75,7 +75,7 @@ class SDL2AudioMixer : AudioBackend {
 				SDLError("Could not fade out");
 			}
 		} else {
-			if(Mix_PlayChannel(channel, loadedWAVs[id], 0) == -1) {
+			if(Mix_PlayChannel(channel, loadedWAVs[id - 1], 0) == -1) {
 				SDLError("Could not play sound effect");
 			}
 		}

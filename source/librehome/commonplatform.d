@@ -63,7 +63,7 @@ struct PlatformCommon {
 		backend.video.hideUI();
 		//startWatchDog();
 	}
-	void installAudioCallback(void* data, AudioCallback callback) {
+	void installAudioCallback(void* data, AudioCallback callback) @safe {
 		backend.audio.installCallback(data, callback);
 	}
 	void enableDebuggingFeatures() {
