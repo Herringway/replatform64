@@ -39,6 +39,7 @@ class SDL2Video : VideoBackend {
 		// ImGui
 		IMGUI_CHECKVERSION();
 		context = ImGui.CreateContext();
+		ImGui.LoadIniSettingsFromMemory(settings.ui);
 		ImGuiIO* io = &ImGui.GetIO();
 		io.IniFilename = "";
 
@@ -53,7 +54,9 @@ class SDL2Video : VideoBackend {
 		this.gameStateDebugging = gameStateMenu;
 		this.platformStateDebugging = platformStateMenu;
 		debuggingEnabled = true;
-		resetWindowSize(true);
+		if (settings.width == settings.width.max) {
+			resetWindowSize(true);
+		}
 	}
 	void resetWindowSize(bool debugMode) @trusted {
 		SDL_SetWindowSize(sdlWindow,
@@ -69,14 +72,16 @@ class SDL2Video : VideoBackend {
 		this.window = window;
 		sdlWindow = SDL_CreateWindow(
 			title.toStringz,
-			SDL_WINDOWPOS_CENTERED,
-			SDL_WINDOWPOS_CENTERED,
-			window.baseWidth * max(1, settings.uiZoom, settings.zoom),
-			window.baseHeight * max(1, settings.uiZoom, settings.zoom),
-			windowFlags
+			settings.x < settings.x.max ? settings.x : SDL_WINDOWPOS_UNDEFINED,
+			settings.y < settings.y.max ? settings.y : SDL_WINDOWPOS_UNDEFINED,
+			settings.width < settings.width.max ? settings.width : (window.baseWidth * max(1, settings.uiZoom, settings.zoom)),
+			settings.height < settings.height.max ? settings.height : (window.baseHeight * max(1, settings.uiZoom, settings.zoom)),
+			windowFlags | (settings.mode == WindowMode.maximized ? SDL_WINDOW_MAXIMIZED : 0)
 		);
 		final switch (settings.mode) {
 			case WindowMode.windowed:
+				break;
+			case WindowMode.maximized:
 				break;
 			case WindowMode.fullscreen:
 				SDL_SetWindowFullscreen(sdlWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -220,6 +225,9 @@ class SDL2Video : VideoBackend {
 		ubyte* drawBuffer;
 		int pitch;
 		enforceSDL(SDL_LockTexture(texture, null, cast(void**)&drawBuffer, &pitch) == 0, "Failed to lock surface");
+		int height;
+		SDL_QueryTexture(texture, null, null, null, &height);
+		assert(buffer.length <= pitch * height, format!"Expected at least %s bytes in texture, got %s"(buffer.length, pitch * height));
 		drawBuffer[0 .. buffer.length] = buffer;
 		SDL_UnlockTexture(texture);
 	}
@@ -235,6 +243,27 @@ class SDL2Video : VideoBackend {
 		}
 	}
 	void handleUIEvent(SDL_Event* event) {
+		if (event.type == SDL_WINDOWEVENT) {
+			switch (event.window.event) {
+				case SDL_WINDOWEVENT_MOVED:
+					settings.x = event.window.data1;
+					settings.y = event.window.data2;
+					break;
+				case SDL_WINDOWEVENT_MAXIMIZED:
+					settings.mode = WindowMode.maximized;
+					break;
+				case SDL_WINDOWEVENT_RESTORED:
+				case SDL_WINDOWEVENT_MINIMIZED:
+					settings.mode = WindowMode.windowed;
+					break;
+				case SDL_WINDOWEVENT_RESIZED:
+				case SDL_WINDOWEVENT_SIZE_CHANGED:
+					settings.width = event.window.data1;
+					settings.height = event.window.data2;
+					break;
+				default: break;
+			}
+		}
 		ImGui_ImplSDL2_ProcessEvent(event);
 	}
 	void setTitle(scope const char[] title) @trusted {
@@ -246,10 +275,8 @@ class SDL2Video : VideoBackend {
 	void hideUI() @safe {
 		renderUI = false;
 	}
-	void loadUIState(string str) @trusted {
-		ImGui.LoadIniSettingsFromMemory(str);
-	}
-	string getUIState() @trusted {
-		return ImGui.SaveIniSettingsToMemory();
+	VideoSettings getUIState() @trusted {
+		settings.ui = ImGui.SaveIniSettingsToMemory();
+		return settings;
 	}
 }

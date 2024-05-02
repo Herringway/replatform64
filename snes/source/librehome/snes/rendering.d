@@ -212,18 +212,17 @@ struct SNESRenderer {
 				break;
 		}
 	}
+	void debugUI(const UIState state, VideoBackend video) {
+		final switch (renderer) {
+			case Renderer.bsnes:
+				return bsnesFrame.debugUI(state, video);
+				break;
+			case Renderer.neo:
+				return neoRenderer.debugUI(state, video);
+				break;
+		}
+	}
 }
-
-immutable ushort[8] pixelPlaneMasks = [
-	0b1000000010000000,
-	0b0100000001000000,
-	0b0010000000100000,
-	0b0001000000010000,
-	0b0000100000001000,
-	0b0000010000000100,
-	0b0000001000000010,
-	0b0000000100000001,
-];
 
 void writePalettedTilesPNG(string path, ushort[] data, ushort[] palette, uint tileWidth, uint tileHeight) {
 	const imageWidth = tileWidth * 8;

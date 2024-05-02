@@ -29,8 +29,7 @@ interface VideoBackend {
 	void setTitle(scope const char[] title) @safe;
 	void hideUI() @safe;
 	void showUI() @safe;
-	void loadUIState(string str) @safe;
-	string getUIState() @safe;
+	VideoSettings getUIState() @safe;
 }
 interface InputBackend {
 	void initialize(InputSettings) @safe;
@@ -56,7 +55,6 @@ struct BackendSettings {
 	AudioSettings audio;
 	VideoSettings video;
 	InputSettings input;
-	string ui;
 }
 
 struct VideoSettings {
@@ -64,6 +62,11 @@ struct VideoSettings {
 	bool keepAspectRatio = true;
 	uint zoom = 1;
 	uint uiZoom = 1;
+	uint x = uint.max;
+	uint y = uint.max;
+	uint width = uint.max;
+	uint height = uint.max;
+	string ui;
 }
 
 struct WindowSettings {
@@ -136,6 +139,7 @@ enum PixelFormat {
 
 enum WindowMode {
 	windowed,
+	maximized,
 	fullscreen,
 	fullscreenExclusive,
 }

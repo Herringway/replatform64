@@ -28,9 +28,8 @@ class NullVideo : VideoBackend {
 	void setTitle(scope const char[] title) @safe {}
 	void hideUI() @safe {}
 	void showUI() @safe {}
-	void loadUIState(string str) @safe {}
-	string getUIState() @safe {
-		return "";
+	VideoSettings getUIState() @safe {
+		return VideoSettings.init;
 	}
 }
 class NullInput : InputBackend {

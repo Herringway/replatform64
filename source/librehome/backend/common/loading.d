@@ -19,7 +19,6 @@ PlatformBackend loadBackend(Backend backend, BackendSettings settings) @safe {
 	result.audio.initialize(settings.audio.sampleRate, settings.audio.channels, settings.audio.sampleRate);
 	result.input.initialize(settings.input);
 	result.video.initialize(settings.video);
-	result.video.loadUIState(settings.ui);
 	return result;
 }
 

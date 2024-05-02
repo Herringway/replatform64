@@ -52,9 +52,9 @@ struct PlatformCommon {
 		return result;
 	}
 
-	void saveSettings(SystemSettings, GameSettings)(SystemSettings systemSettings, GameSettings gameSettings) {
+	void saveSettings(SystemSettings, GameSettings)(SystemSettings systemSettings, GameSettings gameSettings) @safe {
 		alias Settings = FullSettings!(SystemSettings, GameSettings);
-		settings.ui = backend.video.getUIState();
+		settings.video = backend.video.getUIState();
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
 	void initialize(void delegate() dg, Backend backendType = Backend.autoSelect) {

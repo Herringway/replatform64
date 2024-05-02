@@ -391,72 +391,7 @@ struct SNES {
 		//		layersDisabled = cast(ubyte)((layersDisabled & ~mask) | (!layerEnabled * mask));
 		//	}
 		//}
-		if (ImGui.TreeNode("Sprites")) {
-			foreach (id, entry; renderer.oam1) {
-				const uint upperX = !!(renderer.oam2[id/4] & (1 << ((id % 4) * 2)));
-				const size = !!(renderer.oam2[id/4] & (1 << ((id % 4) * 2 + 1)));
-				if (entry.yCoord < 0xE0) {
-					if (ImGui.TreeNode(format!"Sprite %s"(id))) {
-						ImGui.BeginDisabled();
-						ImGui.Text(format!"Tile Offset: %s"(entry.startingTile));
-						ImGui.Text(format!"Coords: (%s, %s)"(entry.xCoord + (upperX << 8), entry.yCoord));
-						ImGui.Text(format!"Palette: %s"(entry.palette));
-						bool boolean = entry.flipVertical;
-						ImGui.Checkbox("Vertical flip", &boolean);
-						boolean = entry.flipHorizontal;
-						ImGui.Checkbox("Horizontal flip", &boolean);
-						ImGui.Text(format!"Priority: %s"(entry.priority));
-						ImGui.Text(format!"Priority: %s"(entry.nameTable));
-						boolean = size;
-						ImGui.Checkbox("Use alt size", &boolean);
-						ImGui.EndDisabled();
-						ImGui.TreePop();
-					}
-				}
-			}
-			ImGui.TreePop();
-		}
-		if (ImGui.TreeNode("Layers")) {
-			const screenRegisters = [BG1SC, BG2SC, BG3SC, BG4SC];
-			const screenRegisters2 = [BG12NBA & 0xF, BG12NBA >> 4, BG34NBA & 0xF, BG34NBA >> 4];
-			static foreach (layer, label; ["BG1", "BG2", "BG3", "BG4"]) {{
-				if (ImGui.TreeNode(label)) {
-					ImGui.Text(format!"Tilemap address: $%04X"((screenRegisters[layer] & 0xFC) << 9));
-					ImGui.Text(format!"Tile base address: $%04X"(screenRegisters2[layer] << 13));
-					ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][screenRegisters[layer] & 3]));
-					ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(BGMODE >> (4 + layer))]));
-					//disabledCheckbox("Mosaic Enabled", !!((renderer.MOSAIC >> layer) & 1));
-					ImGui.TreePop();
-				}
-			}}
-			ImGui.TreePop();
-		}
-		if (ImGui.TreeNode("VRAM")) {
-			static int paletteID = 0;
-			if (ImGui.InputInt("Palette", &paletteID)) {
-				paletteID = clamp(paletteID, 0, 16);
-			}
-			const texWidth = 16 * 8;
-			const texHeight = 0x8000 / 16 / 16 * 8;
-			static ubyte[2 * texWidth * texHeight] data;
-			auto pixels = cast(ushort[])(data[]);
-			ushort[16] palette = renderer.cgram[paletteID * 16 .. (paletteID + 1) * 16];
-			palette[] &= 0x7FFF;
-			foreach (idx, tile; (cast(ushort[])renderer.vram).chunks(16).enumerate) {
-				const base = (idx % 16) * 8 + (idx / 16) * texWidth * 8;
-				foreach (p; 0 .. 8 * 8) {
-					const px = p % 8;
-					const py = p / 8;
-					const plane01 = tile[py] & pixelPlaneMasks[px];
-					const plane23 = tile[py + 8] & pixelPlaneMasks[px];
-					const s = 7 - px;
-					const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
-					pixels[base + px + py * texWidth] = palette[pixel];
-				}
-			}
-			//ImGui.Image(createTexture(data[], texWidth, texHeight, ushort.sizeof * texWidth, nativeFormat), ImVec2(texWidth * 3, texHeight * 3));
-			ImGui.TreePop();
-		}
+		renderer.debugUI(state, platform.backend.video);
 		//if (ImGui.TreeNode("Registers")) {
 		//	InputEditableR("INIDISP", INIDISP);
 		//	InputEditableR("OBSEL", OBSEL);
