@@ -44,11 +44,9 @@ import std.range;
 struct BGLayer {
 	ushort hScroll = 0;
 	ushort vScroll = 0;
-	// -- snapshot starts here
 	bool tilemapWider = false;
 	bool tilemapHigher = false;
 	ushort tilemapAdr = 0;
-	// -- snapshot ends here
 	ushort tileAdr = 0;
 }
 
@@ -1357,7 +1355,6 @@ struct PPU {
 			case 0x08: // BG2SC
 			case 0x09: // BG3SC
 			case 0x0a: //BG4SC
-				// small tilemaps are used in attract intro
 				bgLayer[adr - 7].tilemapWider = val & 0x1;
 				bgLayer[adr - 7].tilemapHigher = !!(val & 0x2);
 				bgLayer[adr - 7].tilemapAdr = (val & 0xfc) << 8;
