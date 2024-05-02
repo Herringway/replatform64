@@ -90,28 +90,29 @@ enum Pad {
 
 ///
 struct OAMEntry {
+	align(1):
 	ubyte xCoord; ///
 	ubyte yCoord; ///
 	ubyte startingTile; ///
 	ubyte flags; ///
 	///
-	bool flipVertical() const {
+	bool flipVertical() const @safe pure {
 		return !!(flags & 0b10000000);
 	}
 	///
-	bool flipHorizontal() const {
+	bool flipHorizontal() const @safe pure {
 		return !!(flags & 0b01000000);
 	}
 	///
-	ubyte priority() const {
+	ubyte priority() const @safe pure {
 		return (flags & 0b00110000) >> 4;
 	}
 	///
-	ubyte palette() const {
+	ubyte palette() const @safe pure {
 		return (flags & 0b00001110) >> 1;
 	}
 	///
-	bool nameTable() const {
+	bool nameTable() const @safe pure {
 		return !!(flags & 0b00000001);
 	}
 }

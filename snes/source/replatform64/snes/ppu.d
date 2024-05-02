@@ -168,7 +168,8 @@ struct PPU {
 	int m7startX = 0;
 	int m7startY = 0;
 
-	ushort[0x110] oam;
+	OAMEntry[128] oam;
+	ushort[0x10] oamHigh;
 
 	// store 31 extra entries to remove the need for clamp
 	ubyte[32 + 31] brightnessMult;
@@ -1242,19 +1243,19 @@ struct PPU {
 		int tilesLeftOrg = tilesLeft;
 
 		do {
-			int yy = oam[index] >> 8;
-			if (yy == 0xf0) {
+			int yy = oam[index].yCoord;
+			if (yy == 240) {
 				continue; // this works for zelda because sprites are always 8 or 16.
 			}
 			// check if the sprite is on this line and get the sprite size
 			int row = (line - yy) & 0xff;
-			int highOam = oam[0x100 + (index >> 4)] >> (index & 15);
+			int highOam = oamHigh[(index >> 3)] >> ((index << 1) & 15);
 			int spriteSize = spriteSizes[(highOam >> 1) & 1];
 			if (row >= spriteSize) {
 				continue;
 			}
 			// in y-range, get the x location, using the high bit as well
-			int x = (oam[index] & 0xff) + (highOam & 1) * 256;
+			int x = oam[index].xCoord + (highOam & 1) * 256;
 			x -= (x >= 256 + extra_left_right) * 512;
 			// if in x-range
 			if (x <= -(spriteSize + extra_left_right)) {
@@ -1265,14 +1266,13 @@ struct PPU {
 				break;
 			}
 			// get some data for the sprite and y-flip row if needed
-			int oam1 = oam[index + 1];
-			int objAdr = (oam1 & 0x100) ? objTileAdr2 : objTileAdr1;
-			if (oam1 & 0x8000) {
+			int objAdr = oam[index].nameTable ? objTileAdr2 : objTileAdr1;
+			if (oam[index].flipVertical) {
 				row = spriteSize - 1 - row;
 			}
 			// fetch all tiles in x-range
-			int paletteBase = 0x80 + 16 * ((oam1 & 0xe00) >> 9);
-			int prio = SPRITE_PRIO_TO_PRIO((oam1 & 0x3000) >> 12, (oam1 & 0x800) == 0);
+			int paletteBase = 0x80 + 16 * oam[index].palette;
+			int prio = SPRITE_PRIO_TO_PRIO(oam[index].priority, (oam[index].palette & 8) == 0);
 			PpuZbufType z = cast(ushort)(paletteBase + (prio << 8));
 
 			for (int col = 0; col < spriteSize; col += 8) {
@@ -1282,8 +1282,8 @@ struct PPU {
 						return true;
 					}
 					// figure out which tile this uses, looping within 16x16 pages, and get it's data
-					int usedCol = oam1 & 0x4000 ? spriteSize - 1 - col : col;
-					int usedTile = ((((oam1 & 0xff) >> 4) + (row >> 3)) << 4) | (((oam1 & 0xf) + (usedCol >> 3)) & 0xf);
+					int usedCol = oam[index].flipHorizontal ? spriteSize - 1 - col : col;
+					int usedTile = (((oam[index].startingTile >> 4) + (row >> 3)) << 4) | (((oam[index].startingTile & 0xf) + (usedCol >> 3)) & 0xf);
 					ushort[] addr = vram[(objAdr + usedTile * 16 + (row & 0x7)) & 0x7fff .. $];
 					uint plane = addr[0] | addr[8] << 16;
 					// go over each pixel
@@ -1292,7 +1292,7 @@ struct PPU {
 					PpuZbufType[] dst = objBuffer.data[col + x + px_left + kPpuExtraLeftRight .. $];
 
 					for (int px = px_left; px < px_right; px++, dst = dst[1 .. $]) {
-						int shift = oam1 & 0x4000 ? px : 7 - px;
+						int shift = oam[index].flipHorizontal ? px : 7 - px;
 						uint bits = plane >> shift;
 						int pixel = (bits >> 0) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
 						// draw it in the buffer if there is a pixel here, and the buffer there is still empty
@@ -1302,7 +1302,7 @@ struct PPU {
 					}
 				}
 			}
-		} while ((index = (index + 2) & 0xff) != index_end);
+		} while ((index = (index + 1) & 0x7f) != index_end);
 		return (tilesLeft != tilesLeftOrg);
 	}
 
@@ -1343,8 +1343,9 @@ struct PPU {
 				if (!oamSecondWrite) {
 					oamBuffer = val;
 				} else {
-					if (oamAdr < 0x110)
-						oam[oamAdr++] = (val << 8) | oamBuffer;
+					if (oamAdr < 0x110) {
+						(cast(ushort[])oam)[oamAdr++] = (val << 8) | oamBuffer;
+					}
 				}
 				oamSecondWrite = !oamSecondWrite;
 				break;
@@ -1541,8 +1542,8 @@ struct PPU {
 			ImGui.TreePop();
 		}
 		if (ImGui.TreeNode("Sprites")) {
-			const oam2 = cast(ubyte[])(oam[0x100 .. $]);
-			foreach (id, entry; cast(OAMEntry[])(oam[0 .. 0x100])) {
+			const oam2 = cast(ubyte[])(oamHigh[]);
+			foreach (id, entry; oam[]) {
 				const uint upperX = !!(oam2[id/4] & (1 << ((id % 4) * 2)));
 				const size = !!(oam2[id/4] & (1 << ((id % 4) * 2 + 1)));
 				if (entry.yCoord < 0xE0) {
@@ -2068,7 +2069,8 @@ unittest {
 					ppu.vram[] = cast(const(ushort)[])data;
 					break;
 				case "ppu.oamRam":
-					ppu.oam[] = cast(const(ushort)[])data;
+					ppu.oam[] = cast(const(OAMEntry)[])data[0 .. 0x200];
+					ppu.oamHigh[] = cast(const(ushort)[])data[0x200 .. 0x220];
 					break;
 				case "ppu.cgram":
 					ppu.cgram[] = cast(const(ushort)[])data;
