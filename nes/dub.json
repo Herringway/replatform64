@@ -6,7 +6,7 @@
 	"description": "Console port helper library - NES support",
 	"license": "BSL-1.0",
 	"dependencies": {
-		"librehome": "*"
+		"replatform64": "*"
 	},
 	"name": "nes"
 }

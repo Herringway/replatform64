@@ -6,7 +6,7 @@
 	"description": "Console port helper library - Gameboy support",
 	"license": "BSL-1.0",
 	"dependencies": {
-		"librehome": "*"
+		"replatform64": "*"
 	},
 	"name": "gameboy"
 }

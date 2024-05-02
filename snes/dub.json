@@ -6,7 +6,7 @@
 	"description": "Console port helper library - SNES support",
 	"license": "BSL-1.0",
 	"dependencies": {
-		"librehome": "*",
+		"replatform64": "*",
 		"spc700": "~>0.0",
 		"nspcplay": "~>0.9"
 	},

@@ -20,5 +20,5 @@
 	],
 	"stringImportPaths": ["testdata"],
 	"versions": ["SDL_2018", "SDL_Mixer_200"],
-	"name": "librehome"
+	"name": "replatform64"
 }
