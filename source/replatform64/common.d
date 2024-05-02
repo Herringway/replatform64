@@ -98,6 +98,11 @@ struct Array2D(E) {
 		void opIndexAssign(E elem, size_t i, size_t j) {
 			impl[i + stride * j] = elem;
 		}
+		void opIndexAssign(E elem, size_t[2] i, size_t[2] j) {
+			foreach (row; j[0] .. j[1]) {
+				impl[row * stride + i[0] .. row * stride + i[1]] = elem;
+			}
+		}
 	}
 
 	// Support for `x..y` notation in slicing operator for the given dimension.
