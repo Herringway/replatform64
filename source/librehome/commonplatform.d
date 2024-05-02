@@ -47,7 +47,7 @@ struct PlatformCommon {
 			Settings defaults;
 			defaults.toFile!YAML(settingsFile);
 		}
-		auto result = fromFile!(Settings, YAML)(settingsFile);
+		auto result = fromFile!(Settings, YAML, DeSiryulize.optionalByDefault)(settingsFile);
 		settings = result.backend;
 		return result;
 	}
