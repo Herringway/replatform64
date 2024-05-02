@@ -35,6 +35,7 @@ import replatform64.ui;
 import pixelatrix;
 
 import std.algorithm.comparison;
+import std.algorithm.iteration;
 import std.algorithm.mutation;
 import std.bitmanip;
 import std.format;
@@ -169,7 +170,7 @@ struct PPU {
 	int m7startY = 0;
 
 	OAMEntry[128] oam;
-	ushort[0x10] oamHigh;
+	ubyte[oam.length / 4] oamHigh;
 
 	// store 31 extra entries to remove the need for clamp
 	ubyte[32 + 31] brightnessMult;
@@ -1230,60 +1231,54 @@ struct PPU {
 	}
 
 	private bool evaluateSprites(int line) @safe pure {
-		// TODO: iterate over oam normally to determine in-range sprites,
-		// then iterate those in-range sprites in reverse for tile-fetching
-		// TODO: rectangular sprites, wierdness with sprites at -256
-		int index = 0, index_end = index;
 		int spritesLeft = 32 + 1, tilesLeft = 34 + 1;
 		ubyte[2] spriteSizes = [ kSpriteSizes[objSize][0], kSpriteSizes[objSize][1] ];
-		int extra_left_right = extraLeftRight;
 		if (renderFlags & KPPURenderFlags.noSpriteLimits) {
 			spritesLeft = tilesLeft = 1024;
 		}
 		int tilesLeftOrg = tilesLeft;
 
-		do {
-			int yy = oam[index].yCoord;
-			if (yy == 240) {
-				continue; // this works for zelda because sprites are always 8 or 16.
+		foreach (lowOBJ, highOBJ; zip(oam[], oamHigh[].map!(x => only((x >> 0) & 3, (x >> 2) & 3, (x >> 4) & 3, (x >> 6) & 3)).joiner)) {
+			int yy = lowOBJ.yCoord;
+			const spriteSize = spriteSizes[highOBJ >> 1];
+			if ((yy == 240) && (spriteSize < 32)) { // small sprites are completely offscreen here
+				continue;
 			}
 			// check if the sprite is on this line and get the sprite size
 			int row = (line - yy) & 0xff;
-			int highOam = oamHigh[(index >> 3)] >> ((index << 1) & 15);
-			int spriteSize = spriteSizes[(highOam >> 1) & 1];
 			if (row >= spriteSize) {
 				continue;
 			}
-			// in y-range, get the x location, using the high bit as well
-			int x = oam[index].xCoord + (highOam & 1) * 256;
-			x -= (x >= 256 + extra_left_right) * 512;
-			// if in x-range
-			if (x <= -(spriteSize + extra_left_right)) {
+			// right edge wraps around to -256
+			int x = lowOBJ.xCoord + (highOBJ & 1) * 256;
+			x -= (x >= 256 + extraLeftRight) * 512;
+			// still on screen?
+			if (x <= -(spriteSize + extraLeftRight)) {
 				continue;
 			}
-			// break if we found 32 sprites already
+			// check against the sprite limit
 			if (--spritesLeft == 0) {
 				break;
 			}
 			// get some data for the sprite and y-flip row if needed
-			int objAdr = oam[index].nameTable ? objTileAdr2 : objTileAdr1;
-			if (oam[index].flipVertical) {
+			const objAdr = lowOBJ.nameTable ? objTileAdr2 : objTileAdr1;
+			if (lowOBJ.flipVertical) {
 				row = spriteSize - 1 - row;
 			}
 			// fetch all tiles in x-range
-			int paletteBase = 0x80 + 16 * oam[index].palette;
-			int prio = SPRITE_PRIO_TO_PRIO(oam[index].priority, (oam[index].palette & 8) == 0);
-			PpuZbufType z = cast(ushort)(paletteBase + (prio << 8));
+			const paletteBase = 8 + lowOBJ.palette;
+			const prio = SPRITE_PRIO_TO_PRIO(lowOBJ.priority, (lowOBJ.palette & 8) == 0);
+			PpuZbufType z = cast(ushort)((paletteBase * 16) + (prio << 8));
 
 			for (int col = 0; col < spriteSize; col += 8) {
-				if (col + x > -8 - extra_left_right && col + x < 256 + extra_left_right) {
-					// break if we found 34 8*1 slivers already
+				if (col + x > -8 - extraLeftRight && col + x < 256 + extraLeftRight) {
+					// can only draw 34 tiles per line
 					if (--tilesLeft == 0) {
 						return true;
 					}
 					// figure out which tile this uses, looping within 16x16 pages, and get it's data
-					int usedCol = oam[index].flipHorizontal ? spriteSize - 1 - col : col;
-					int usedTile = (((oam[index].startingTile >> 4) + (row >> 3)) << 4) | (((oam[index].startingTile & 0xf) + (usedCol >> 3)) & 0xf);
+					int usedCol = lowOBJ.flipHorizontal ? spriteSize - 1 - col : col;
+					int usedTile = (((lowOBJ.startingTile >> 4) + (row >> 3)) << 4) | (((lowOBJ.startingTile & 0xf) + (usedCol >> 3)) & 0xf);
 					ushort[] addr = vram[(objAdr + usedTile * 16 + (row & 0x7)) & 0x7fff .. $];
 					uint plane = addr[0] | addr[8] << 16;
 					// go over each pixel
@@ -1291,18 +1286,18 @@ struct PPU {
 					int px_right = IntMin(256 + kPpuExtraLeftRight - (col + x), 8);
 					PpuZbufType[] dst = objBuffer.data[col + x + px_left + kPpuExtraLeftRight .. $];
 
-					for (int px = px_left; px < px_right; px++, dst = dst[1 .. $]) {
-						int shift = oam[index].flipHorizontal ? px : 7 - px;
+					for (int px = px_left; px < px_right; px++) {
+						int shift = lowOBJ.flipHorizontal ? px : 7 - px;
 						uint bits = plane >> shift;
 						int pixel = (bits >> 0) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
 						// draw it in the buffer if there is a pixel here, and the buffer there is still empty
-						if (pixel != 0 && (dst[0] & 0xff) == 0) {
-							dst[0] = cast(ushort)(z + pixel);
+						if (pixel != 0 && (dst[px - px_left] & 0xff) == 0) {
+							dst[px - px_left] = cast(ushort)(z + pixel);
 						}
 					}
 				}
 			}
-		} while ((index = (index + 1) & 0x7f) != index_end);
+		}
 		return (tilesLeft != tilesLeftOrg);
 	}
 
@@ -1542,7 +1537,7 @@ struct PPU {
 			ImGui.TreePop();
 		}
 		if (ImGui.TreeNode("Sprites")) {
-			const oam2 = cast(ubyte[])(oamHigh[]);
+			const oam2 = oamHigh[];
 			foreach (id, entry; oam[]) {
 				const uint upperX = !!(oam2[id/4] & (1 << ((id % 4) * 2)));
 				const size = !!(oam2[id/4] & (1 << ((id % 4) * 2 + 1)));
@@ -2070,7 +2065,7 @@ unittest {
 					break;
 				case "ppu.oamRam":
 					ppu.oam[] = cast(const(OAMEntry)[])data[0 .. 0x200];
-					ppu.oamHigh[] = cast(const(ushort)[])data[0x200 .. 0x220];
+					ppu.oamHigh[] = data[0x200 .. 0x220];
 					break;
 				case "ppu.cgram":
 					ppu.cgram[] = cast(const(ushort)[])data;
