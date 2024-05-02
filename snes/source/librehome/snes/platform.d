@@ -273,7 +273,7 @@ struct SNES {
 			default: assert(0);
 		}
 	}
-	ushort getControllerState(ubyte playerID) @safe pure {
+	ushort getControllerState(ubyte playerID) const @safe pure {
 		ushort result = 0;
 		if (platform.inputState.controllers[playerID] & ControllerMask.y) { result |= Pad.y; }
 		if (platform.inputState.controllers[playerID] & ControllerMask.b) { result |= Pad.b; }
