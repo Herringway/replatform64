@@ -51,7 +51,7 @@ struct PlatformCommon {
 		return result;
 	}
 
-	void saveSettings(SystemSettings, GameSettings)(SystemSettings systemSettings, GameSettings gameSettings) @safe {
+	void saveSettings(SystemSettings, GameSettings)(SystemSettings systemSettings, GameSettings gameSettings) {
 		alias Settings = FullSettings!(SystemSettings, GameSettings);
 		settings.video = backend.video.getUIState();
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
