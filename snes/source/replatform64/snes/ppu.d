@@ -1328,7 +1328,7 @@ struct PPU {
 			case 0x01: //OBSEL
 				objSize = val >> 5;
 				objTileAdr1 = (val & 0b0000_0111) << 13;
-				objTileAdr2 = cast(ushort)(objTileAdr1 + ((val & 0b0001_1000) + 1) << 12);
+				objTileAdr2 = cast(ushort)(objTileAdr1 + (((val & 0b0001_1000) + 1) << 12));
 				break;
 			case 0x02: //OAMADDL
 				oamAdr = (oamAdr & ~0xff) | val;
@@ -2156,6 +2156,7 @@ unittest {
 	runTest("ebbattle", true, true);
 	runTest("ebmeteor", false, false);
 	runTest("ebgas", true, true);
+	runTest("eb_ss", true, true);
 	runTest("8x8BG1Map2BPP32x328PAL", true, true);
 	runTest("8x8BG2Map2BPP32x328PAL", true, false);
 	runTest("8x8BG3Map2BPP32x328PAL", true, false);
