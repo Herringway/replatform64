@@ -368,7 +368,7 @@ struct PPU {
 			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
 			const tileLine = (y / 8) % 32;
 			const tileMap = ((y >> 8) & 1) * 2;
-			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w * 8);
+			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
 			void renderTile(Tile tile, const uint start, uint end) {
 				const z = cast(ushort)((tile.priority ? zhi : zlo) + (tile.palette << bpp));
 				foreach (i; 8 - start .. end) {
