@@ -12,6 +12,7 @@ alias HLEReadCallback = ubyte delegate(ubyte port);
 struct SPC700Emulated {
 	SNES_SPC snes_spc;
 	SPC_Filter filter;
+	ubyte[65536][] songs;
 	bool initialized;
 	void initialize() {
 		snes_spc.initialize();
