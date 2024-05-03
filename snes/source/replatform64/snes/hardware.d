@@ -251,9 +251,9 @@ struct BGR555 {
 		ushort value;
 		struct {
 			mixin(bitfields!(
-				uint, "red", 5,
-				uint, "green", 5,
-				uint, "blue", 5,
+				ubyte, "red", 5,
+				ubyte, "green", 5,
+				ubyte, "blue", 5,
 				bool, "", 1,
 			));
 		}

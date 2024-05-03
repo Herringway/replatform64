@@ -1,5 +1,6 @@
 module replatform64.nes.ppu;
 
+import replatform64.backend.common.interfaces;
 import replatform64.common;
 import replatform64.testhelpers;
 
@@ -13,71 +14,71 @@ immutable ubyte[4][2] nametableMirrorLookup = [
 /**
  * Default hardcoded palette.
  */
-__gshared const uint32_t[64] defaultPaletteRGB = [
-	0xFF666666,
-	0xFF002A88,
-	0xFF1412A7,
-	0xFF3B00A4,
-	0xFF5C007E,
-	0xFF6E0040,
-	0xFF6C0600,
-	0xFF561D00,
-	0xFF333500,
-	0xFF0B4800,
-	0xFF005200,
-	0xFF004F08,
-	0xFF00404D,
-	0xFF000000,
-	0xFF000000,
-	0xFF000000,
-	0xFFADADAD,
-	0xFF155FD9,
-	0xFF4240FF,
-	0xFF7527FE,
-	0xFFA01ACC,
-	0xFFB71E7B,
-	0xFFB53120,
-	0xFF994E00,
-	0xFF6B6D00,
-	0xFF388700,
-	0xFF0C9300,
-	0xFF008F32,
-	0xFF007C8D,
-	0xFF000000,
-	0xFF000000,
-	0xFF000000,
-	0xFFFFFEFF,
-	0xFF64B0FF,
-	0xFF9290FF,
-	0xFFC676FF,
-	0xFFF36AFF,
-	0xFFFE6ECC,
-	0xFFFE8170,
-	0xFFEA9E22,
-	0xFFBCBE00,
-	0xFF88D800,
-	0xFF5CE430,
-	0xFF45E082,
-	0xFF48CDDE,
-	0xFF4F4F4F,
-	0xFF000000,
-	0xFF000000,
-	0xFFFFFEFF,
-	0xFFC0DFFF,
-	0xFFD3D2FF,
-	0xFFE8C8FF,
-	0xFFFBC2FF,
-	0xFFFEC4EA,
-	0xFFFECCC5,
-	0xFFF7D8A5,
-	0xFFE4E594,
-	0xFFCFEF96,
-	0xFFBDF4AB,
-	0xFFB3F3CC,
-	0xFFB5EBF2,
-	0xFFB8B8B8,
-	0xFF000000,
-	0xFF000000
+__gshared const ARGB8888[64] defaultPaletteRGB = [
+	ARGB8888(102, 102, 102),
+	ARGB8888(136, 42, 0),
+	ARGB8888(167, 18, 20),
+	ARGB8888(164, 0, 59),
+	ARGB8888(126, 0, 92),
+	ARGB8888(64, 0, 110),
+	ARGB8888(0, 6, 108),
+	ARGB8888(0, 29, 86),
+	ARGB8888(0, 53, 51),
+	ARGB8888(0, 72, 11),
+	ARGB8888(0, 82, 0),
+	ARGB8888(8, 79, 0),
+	ARGB8888(77, 64, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(173, 173, 173),
+	ARGB8888(217, 95, 21),
+	ARGB8888(255, 64, 66),
+	ARGB8888(254, 39, 117),
+	ARGB8888(204, 26, 160),
+	ARGB8888(123, 30, 183),
+	ARGB8888(32, 49, 181),
+	ARGB8888(0, 78, 153),
+	ARGB8888(0, 109, 107),
+	ARGB8888(0, 135, 56),
+	ARGB8888(0, 147, 12),
+	ARGB8888(50, 143, 0),
+	ARGB8888(141, 124, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(255, 254, 255),
+	ARGB8888(255, 176, 100),
+	ARGB8888(255, 144, 146),
+	ARGB8888(255, 118, 198),
+	ARGB8888(255, 106, 243),
+	ARGB8888(204, 110, 254),
+	ARGB8888(112, 129, 254),
+	ARGB8888(34, 158, 234),
+	ARGB8888(0, 190, 188),
+	ARGB8888(0, 216, 136),
+	ARGB8888(48, 228, 92),
+	ARGB8888(130, 224, 69),
+	ARGB8888(222, 205, 72),
+	ARGB8888(79, 79, 79),
+	ARGB8888(0, 0, 0),
+	ARGB8888(0, 0, 0),
+	ARGB8888(255, 254, 255),
+	ARGB8888(255, 223, 192),
+	ARGB8888(255, 210, 211),
+	ARGB8888(255, 200, 232),
+	ARGB8888(255, 194, 251),
+	ARGB8888(234, 196, 254),
+	ARGB8888(197, 204, 254),
+	ARGB8888(165, 216, 247),
+	ARGB8888(148, 229, 228),
+	ARGB8888(150, 239, 207),
+	ARGB8888(171, 244, 189),
+	ARGB8888(204, 243, 179),
+	ARGB8888(242, 235, 181),
+	ARGB8888(184, 184, 184),
+	ARGB8888(0, 0, 0),
+	ARGB8888(0, 0, 0)
 ];
 
 struct OAMEntry {
@@ -130,7 +131,7 @@ struct PPU {
 	enum width = 256;
 	enum height = 240;
 	/// RGB representation of the NES palette.
-	const(uint)[] paletteRGB = defaultPaletteRGB;
+	const(ARGB8888)[] paletteRGB = defaultPaletteRGB;
 	ubyte[] nesCPUVRAM;
 	private int registerCycle = 0;
 	MirrorType mirrorMode;
@@ -157,7 +158,7 @@ struct PPU {
 			return index + (ppuCtrl & (1 << 3) ? 256 : 0);
 		}
 	}
-	void drawSprite(scope Array2D!uint buffer, uint i, bool background) @safe pure {
+	void drawSprite(scope Array2D!ARGB8888 buffer, uint i, bool background) @safe pure {
 		// Read OAM for the sprite
 		ubyte y = oam[i].y;
 		ubyte index = oam[i].index;
@@ -196,7 +197,7 @@ struct PPU {
 						// Skip transparent pixels
 						continue;
 					}
-					uint32_t pixel = paletteRGB[colorIndex];
+					auto pixel = paletteRGB[colorIndex];
 
 					int xOffset = 7 - column;
 					if( flipX ) {
@@ -231,7 +232,7 @@ struct PPU {
 	 * Render to a frame buffer.
 	 */
 	void render(uint[] target) @safe pure {
-		auto buffer = Array2D!uint(256, 240, target);
+		auto buffer = Array2D!ARGB8888(256, 240, cast(ARGB8888[])target);
 		// Clear the buffer with the background color
 		buffer[0 .. $, 0 .. $] = paletteRGB[palette[0]];
 
@@ -384,7 +385,7 @@ struct PPU {
 
 		return value;
 	}
-	private void renderTile(scope Array2D!uint buffer, int index, int xOffset, int yOffset) @safe pure {
+	private void renderTile(scope Array2D!ARGB8888 buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
 		ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
@@ -402,7 +403,7 @@ struct PPU {
 					//colorIndex = palette[0];
 					continue;
 				}
-				uint32_t pixel = paletteRGB[colorIndex];
+				auto pixel = paletteRGB[colorIndex];
 
 				int x = (xOffset + (7 - column));
 				int y = (yOffset + row);

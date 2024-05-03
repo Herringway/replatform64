@@ -4,6 +4,8 @@ public import replatform64.backend.common.inputconstants;
 import replatform64.common;
 import replatform64.ui;
 
+import std.bitmanip;
+
 alias AudioCallback = void function(void*, ubyte[]);
 alias DebugFunction = void delegate(const UIState);
 interface AudioBackend {
@@ -148,4 +150,49 @@ private extern(C) __gshared ubyte internal;
 
 struct BackendID {
 	string id;
+}
+
+struct ARGB8888 {
+	align(1):
+	union {
+		uint value;
+		struct {
+			ubyte red;
+			ubyte green;
+			ubyte blue;
+			ubyte alpha;
+		}
+	}
+	this(ubyte red, ubyte green, ubyte blue) @safe pure {
+		this.red = red;
+		this.green = green;
+		this.blue = blue;
+		this.alpha = 0xFF;
+	}
+	this(uint value) @safe pure {
+		this.value = value;
+	}
+}
+
+struct RGB555 {
+	align(1):
+	union {
+		struct {
+			mixin(bitfields!(
+				ubyte, "blue", 5,
+				ubyte, "green", 5,
+				ubyte, "red", 5,
+				bool, "", 1,
+			));
+		}
+		ushort value;
+	}
+	this(ubyte red, ubyte green, ubyte blue) @safe pure {
+		this.red = red;
+		this.green = green;
+		this.blue = blue;
+	}
+	this(ushort value) @safe pure {
+		this.value = value;
+	}
 }

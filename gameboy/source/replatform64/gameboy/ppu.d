@@ -1,5 +1,6 @@
 module replatform64.gameboy.ppu;
 
+import replatform64.backend.common.interfaces;
 import replatform64.gameboy.common;
 
 import replatform64.common;
@@ -63,9 +64,9 @@ struct PPU {
 	enum height = 144;
 	Registers registers;
 	ubyte[] vram;
-	immutable(ushort)[] gbPalette = pocketPalette;
+	immutable(RGB555)[] gbPalette = pocketPalette;
 
-	private Array2D!ushort pixels;
+	private Array2D!RGB555 pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
 		const baseX = registers.scx;
@@ -159,7 +160,7 @@ struct PPU {
 	inout(ubyte)[] windowScreen() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenB : screenA;
 	}
-	ushort getColour(int b) const @safe pure {
+	RGB555 getColour(int b) const @safe pure {
 		const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
 		return gbPalette[paletteMap];
 	}
@@ -176,7 +177,7 @@ struct PPU {
 			sort!((a, b) => a.x < b.x)(oamSorted);
 		}
 		registers.ly = 0;
-		this.pixels = Array2D!ushort(width, height, cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		this.pixels = Array2D!RGB555(width, height, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 	}
 	void drawFullFrame(ubyte[] pixels, size_t stride) @safe pure {
 		beginDrawing(pixels, stride);
@@ -185,7 +186,7 @@ struct PPU {
 		}
 	}
 	void drawFullBackground(ubyte[] pixels, size_t stride) const @safe pure {
-		auto buffer = Array2D!ushort(256, 256, cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, bgScreen)) {
 			const tile = getTile(tileID, true);
 			foreach (subPixelX; 0 .. 8) {
@@ -196,7 +197,7 @@ struct PPU {
 		}
 	}
 	void drawFullWindow(ubyte[] pixels, size_t stride) @safe pure {
-		auto buffer = Array2D!ushort(256, 256, cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, windowScreen)) {
 			const tile = getTile(tileID, true);
 			foreach (subPixelX; 0 .. 8) {
@@ -207,7 +208,7 @@ struct PPU {
 		}
 	}
 	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
-		auto buffer = Array2D!ushort(8, 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites)), cast(int)(stride / ushort.sizeof), cast(ushort[])pixels);
+		auto buffer = Array2D!RGB555(8, 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites)), cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		const tile = getTile(oamEntry.tile, false);
 		foreach (x; 0 .. 8) {
@@ -432,20 +433,17 @@ immutable ushort[] pixelBitmasks = [
 	0b0100000001000000,
 	0b1000000010000000,
 ];
-ushort rgb(ubyte r, ubyte g, ubyte b) @safe pure {
-	return ((r & 0x1F) << 10) | ((g & 0x1F) << 5) | (b & 0x1F);
-}
-immutable ushort[] pocketPalette = [
-	rgb(31, 31, 31),
-	rgb(22, 22, 22),
-	rgb(13, 13, 13),
-	rgb(0, 0, 0)
+immutable RGB555[] pocketPalette = [
+	RGB555(31, 31, 31),
+	RGB555(22, 22, 22),
+	RGB555(13, 13, 13),
+	RGB555(0, 0, 0)
 ];
-immutable ushort[] ogPalette = [
-	rgb(19, 23, 1),
-	rgb(17, 21, 1),
-	rgb(6, 12, 6),
-	rgb(1, 7, 1)
+immutable RGB555[] ogPalette = [
+	RGB555(19, 23, 1),
+	RGB555(17, 21, 1),
+	RGB555(6, 12, 6),
+	RGB555(1, 7, 1)
 ];
 ushort tileAddr(ushort num, bool alt) {
 	return alt ? cast(ushort)(0x9000 + cast(byte)num) : cast(ushort)(0x8000 + num);

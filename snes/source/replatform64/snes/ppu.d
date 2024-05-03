@@ -169,7 +169,7 @@ struct PPU {
 	ubyte[32 * 2] brightnessMultHalf;
 	BGR555[0x100] cgram;
 	ubyte[kPpuXPixels] mosaicModulo;
-	uint[256] colorMapRgb;
+	ARGB8888[256] colorMapRgb;
 	PpuPixelPrioBufs[2] bgBuffers;
 	PpuPixelPrioBufs objBuffer;
 	ushort[0x8000] vram;
@@ -196,7 +196,7 @@ struct PPU {
 		if (getCurrentRenderScale(renderFlags) == 4) {
 			for (int i = 0; i < colorMapRgb.length; i++) {
 				const color = cgram[i];
-				colorMapRgb[i] = brightnessMult[color.red] << 16 | brightnessMult[color.green] << 8 | brightnessMult[color.blue];
+				colorMapRgb[i] = ARGB8888(brightnessMult[color.red], brightnessMult[color.green], brightnessMult[color.blue]);
 			}
 		}
 	}
@@ -205,7 +205,7 @@ struct PPU {
 		(cast(ulong[])buf.data)[] = 0x0500050005000500;
 	}
 
-	void runLine(Array2D!uint renderBuffer, int line) @safe pure {
+	void runLine(Array2D!ARGB8888 renderBuffer, int line) @safe pure {
 		if(line != 0) {
 			if (mosaicSize != lastMosaicModulo) {
 				int mod = mosaicSize;
@@ -221,7 +221,7 @@ struct PPU {
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
-				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = 0;
+				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = ARGB8888(0);
 				return;
 			}
 
@@ -236,8 +236,8 @@ struct PPU {
 				}
 
 				if (extraLeftRight != 0) {
-					renderBuffer[0 .. extraLeftRight, line - 1] = 0;
-					renderBuffer[256 + extraLeftRight .. $, line - 1] = 0;
+					renderBuffer[0 .. extraLeftRight, line - 1] = ARGB8888(0);
+					renderBuffer[256 + extraLeftRight .. $, line - 1] = ARGB8888(0);
 				}
 			}
 		}
@@ -635,7 +635,7 @@ struct PPU {
 	// Upsampled version of mode7 rendering. Draws everything in 4x the normal resolution.
 	// Draws directly to the pixel buffer and bypasses any math, and supports only
 	// a subset of the normal features (all that zelda needs)
-	private void drawMode7Upsampled(Array2D!uint renderBuffer, uint y) @safe pure {
+	private void drawMode7Upsampled(Array2D!ARGB8888 renderBuffer, uint y) @safe pure {
 		// expand 13-bit values to signed values
 		uint xCenter = (cast(short)(m7matrix[4] << 3)) >> 3, yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
 		uint clippedH = ((cast(short)(m7matrix[6] << 3)) >> 3) - xCenter;
@@ -667,13 +667,13 @@ struct PPU {
 			xcur -= extraLeftCur * 4 * m0;
 			ycur -= extraLeftCur * 4 * m2;
 
-			uint[] dst = render_buffer_ptr[0 .. draw_width * 4, j];
+			auto dst = render_buffer_ptr[0 .. draw_width * 4, j];
 
 			void DRAW_PIXEL(int mode) {
 				tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
 				pixel = vram[tile * 64 + (ycur >> 22 & 7) * 8 + (xcur >> 22 & 7)] >> 8;
 				pixel = (xcur & 0x80000000) ? 0 : pixel;
-				dst[0] = (mode ? (colorMapRgb[pixel] & 0xfefefe) >> 1 : colorMapRgb[pixel]);
+				dst[0] = mode ? ARGB8888((colorMapRgb[pixel].value & 0xfefefe) >> 1) : colorMapRgb[pixel];
 				xcur += m0;
 				ycur += m2;
 				dst = dst[1 .. $];
@@ -697,16 +697,12 @@ struct PPU {
 		}
 
 		if (lineHasSprites) {
-			uint[] dst = render_buffer_ptr[0 .. $, 0];
+			auto dst = render_buffer_ptr[0 .. $, 0];
 			PpuZbufType[] pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
 			for (size_t i = 0; i < draw_width; i++, dst = dst[16 .. $]) {
 				uint pixel = pixels[i] & 0xff;
 				if (pixel) {
-					uint color = colorMapRgb[pixel];
-					dst[0 .. 0 + 4][] = color;
-					dst[1 .. 1 + 4][] = color;
-					dst[2 .. 2 + 4][] = color;
-					dst[3 .. 3 + 4][] = color;
+					dst[0 .. 7][] = colorMapRgb[pixel];
 				}
 			}
 		}
@@ -714,14 +710,14 @@ struct PPU {
 		if (extraLeftRight - extraLeftCur != 0) {
 			size_t n = 4 * uint.sizeof * (extraLeftRight - extraLeftCur);
 			for(int i = 0; i < 4; i++) {
-				render_buffer_ptr[0 .. n, i] = 0;
+				render_buffer_ptr[0 .. n, i] = ARGB8888(0);
 			}
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			size_t n = 4 * uint.sizeof * (extraLeftRight - extraRightCur);
 			for (int i = 0; i < 4; i++) {
 				const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
-				render_buffer_ptr[start .. $, i] = 0;
+				render_buffer_ptr[start .. $, i] = ARGB8888(0);
 			}
 		}
 	}
@@ -778,9 +774,9 @@ struct PPU {
 		}
 	}
 
-	private void drawWholeLine(Array2D!uint renderBuffer, uint y) @safe pure {
+	private void drawWholeLine(Array2D!ARGB8888 renderBuffer, uint y) @safe pure {
 		if (forcedBlank) {
-			renderBuffer[0 .. $, y - 1] = 0;
+			renderBuffer[0 .. $, y - 1] = ARGB8888(0);
 			return;
 		}
 
@@ -818,8 +814,8 @@ struct PPU {
 		uint cw_clip_math = ((cwin.bits & kCwBitsMod[clipMode]) ^ kCwBitsMod[clipMode + 4]) |
 													((cwin.bits & kCwBitsMod[preventMathMode]) ^ kCwBitsMod[preventMathMode + 4]) << 8;
 
-		uint[] dst = renderBuffer[0 .. $, y - 1];
-		uint[] dst_org = dst;
+		auto dst = renderBuffer[0 .. $, y - 1];
+		auto dst_org = dst;
 
 		dst = dst[extraLeftRight - extraLeftCur .. $];
 
@@ -835,7 +831,7 @@ struct PPU {
 				uint i = left;
 				do {
 					const color = cgram[bgBuffers[0].data[i] & 0xff];
-					dst[0] = brightnessMult[color.red & clip_color_mask] << 16 | brightnessMult[color.green & clip_color_mask] << 8 | brightnessMult[color.blue & clip_color_mask];
+					dst[0] = ARGB8888(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
 					dst = dst[1 .. $];
 				} while (++i < right);
 			} else {
@@ -875,7 +871,7 @@ struct PPU {
 							b += b2;
 						}
 					}
-					dst[0] = color_map[b] | color_map[g] << 8 | color_map[r] << 16;
+					dst[0] = ARGB8888(color_map[r], color_map[g], color_map[b]);
 					dst = dst[1 .. $];
 				} while (++i < right);
 			}
@@ -884,20 +880,19 @@ struct PPU {
 
 		// Clear out stuff on the sides.
 		if (extraLeftRight - extraLeftCur != 0) {
-			dst_org[0 .. uint.sizeof * (extraLeftRight - extraLeftCur)] = 0;
+			dst_org[0 .. uint.sizeof * (extraLeftRight - extraLeftCur)] = ARGB8888(0);
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
-			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = 0;
+			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = ARGB8888(0);
 		}
 	}
 
-	private void handlePixel(Array2D!uint renderBuffer, int x, int y) @safe pure {
-		int r = 0, r2 = 0;
-		int g = 0, g2 = 0;
-		int b = 0, b2 = 0;
+	private void handlePixel(Array2D!ARGB8888 renderBuffer, int x, int y) @safe pure {
+		BGR555 colour1;
+		BGR555 colour2;
 		if (!forcedBlank) {
-			int mainLayer = getPixel(x, y, false, r, g, b);
+			int mainLayer = getPixel(x, y, false, colour1);
 
 			bool colorWindowState = getWindowState(5, x);
 			if (
@@ -905,7 +900,7 @@ struct PPU {
 				(clipMode == 2 && colorWindowState) ||
 				(clipMode == 1 && !colorWindowState)
 				) {
-				r = g = b = 0;
+				colour1 = BGR555(0, 0, 0);
 			}
 			int secondLayer = 5; // backdrop
 			bool mathEnabled = mainLayer < 6 && (mathEnabled & (1 << mainLayer)) && !(
@@ -914,53 +909,41 @@ struct PPU {
 				(preventMathMode == 1 && !colorWindowState)
 				);
 			if ((mathEnabled && addSubscreen) || mode == 5 || mode == 6) {
-				secondLayer = getPixel(x, y, true, r2, g2, b2);
+				secondLayer = getPixel(x, y, true, colour2);
 			}
 			// TODO: subscreen pixels can be clipped to black as well
 			// TODO: math for subscreen pixels (add/sub sub to main)
 			if (mathEnabled) {
+				short r = colour1.red;
+				short g = colour1.green;
+				short b = colour1.blue;
 				if (subtractColor) {
-					r -= (addSubscreen && secondLayer != 5) ? r2 : fixedColorR;
-					g -= (addSubscreen && secondLayer != 5) ? g2 : fixedColorG;
-					b -= (addSubscreen && secondLayer != 5) ? b2 : fixedColorB;
+					r -= (addSubscreen && secondLayer != 5) ? colour2.red: fixedColorR;
+					g -= (addSubscreen && secondLayer != 5) ? colour2.green: fixedColorG;
+					b -= (addSubscreen && secondLayer != 5) ? colour2.blue: fixedColorB;
 				} else {
-					r += (addSubscreen && secondLayer != 5) ? r2 : fixedColorR;
-					g += (addSubscreen && secondLayer != 5) ? g2 : fixedColorG;
-					b += (addSubscreen && secondLayer != 5) ? b2 : fixedColorB;
+					r += (addSubscreen && secondLayer != 5) ? colour2.red : fixedColorR;
+					g += (addSubscreen && secondLayer != 5) ? colour2.green : fixedColorG;
+					b += (addSubscreen && secondLayer != 5) ? colour2.blue : fixedColorB;
 				}
 				if (halfColor && (secondLayer != 5 || !addSubscreen)) {
 					r >>= 1;
 					g >>= 1;
 					b >>= 1;
 				}
-				if (r > 31) {
-					r = 31;
-				}
-				if (g > 31) {
-					g = 31;
-				}
-				if (b > 31) {
-					b = 31;
-				}
-				if (r < 0) {
-					r = 0;
-				}
-				if (g < 0) {
-					g = 0;
-				}
-				if (b < 0) {
-					b = 0;
-				}
+				colour1.red = cast(ubyte)clamp(r, short(0), short(31));
+				colour1.green = cast(ubyte)clamp(g, short(0), short(31));
+				colour1.blue = cast(ubyte)clamp(b, short(0), short(31));
 			}
 			if (!(mode == 5 || mode == 6)) {
-				r2 = r; g2 = g; b2 = b;
+				colour2 = colour1;
 			}
 		}
 		int row = y - 1;
-		renderBuffer[x + extraLeftRight, row] =
-			(cast(ubyte)(((b << 3) | (b >> 2)) * brightness / 15) << 0) |
-			(cast(ubyte)(((g << 3) | (g >> 2)) * brightness / 15) << 8) |
-			(cast(ubyte)(((r << 3) | (r >> 2)) * brightness / 15) << 16);
+		renderBuffer[x + extraLeftRight, row] = ARGB8888(
+			cast(ubyte)(((colour1.red << 3) | (colour1.red >> 2)) * brightness / 15),
+			cast(ubyte)(((colour1.green << 3) | (colour1.green >> 2)) * brightness / 15),
+			cast(ubyte)(((colour1.blue << 3) | (colour1.blue >> 2)) * brightness / 15));
 	}
 
 	immutable int[4][10] bitDepthsPerMode = [
@@ -976,7 +959,7 @@ struct PPU {
 		[8, 7, 5, 5]
 	];
 
-	private int getPixel(int x, int y, bool sub, ref int r, ref int g, ref int b) @safe pure {
+	private int getPixel(int x, int y, bool sub, ref BGR555 colour) @safe pure {
 		// array for layer definitions per mode:
 		// 0-7: mode 0-7; 8: mode 1 + l3prio; 9: mode 7 + extbg
 		// 0-3; layers 1-4; 4: sprites; 5: nonexistent
@@ -1062,10 +1045,7 @@ struct PPU {
 				break;
 			}
 		}
-		const color = cgram[pixel & 0xff];
-		r = color.red;
-		g = color.green;
-		b = color.blue;
+		colour = cgram[pixel & 0xff];
 		if (layer == 4 && pixel < 0xc0) {
 			layer = 6; // sprites with palette color < 0xc0
 		}
@@ -1658,7 +1638,7 @@ unittest {
 		return result;
 	}
 	static ubyte[] draw(ref PPU ppu, HDMAWrite[] hdmaWrites, int flags) {
-		auto buffer = Array2D!uint(width, height);
+		auto buffer = Array2D!ARGB8888(width, height);
 		ppu.beginDrawing(flags);
 		foreach (i; 0 .. height + 1) {
 			foreach (write; hdmaWrites) {
@@ -1667,10 +1647,6 @@ unittest {
 				}
 			}
 			ppu.runLine(buffer, i);
-		}
-		auto pixels = buffer[];
-		foreach (ref pixel; pixels) { //swap red and blue, remove transparency
-			pixel = 0xFF000000 | ((pixel & 0xFF) << 16) | (pixel & 0xFF00) | ((pixel & 0xFF0000) >> 16);
 		}
 		return cast(ubyte[])buffer[];
 	}
