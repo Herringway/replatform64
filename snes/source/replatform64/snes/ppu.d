@@ -221,7 +221,7 @@ struct PPU {
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
-				renderBuffer[line - 1, 0 .. 256 + extraLeftRight * 2] = 0;
+				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = 0;
 				return;
 			}
 
