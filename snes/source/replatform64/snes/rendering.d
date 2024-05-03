@@ -164,7 +164,7 @@ struct SNESRenderer {
 			case Renderer.bsnes:
 				return bsnesFrame.cgram[];
 			case Renderer.neo:
-				return neoRenderer.cgram[];
+				return cast(ushort[])(neoRenderer.cgram[]);
 		}
 	}
 	OAMEntry[] oam1() {

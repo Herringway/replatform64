@@ -1,5 +1,7 @@
 module replatform64.snes.hardware;
 
+import std.bitmanip;
+
 enum Register {
 	INIDISP = 0x2100,
 	OBSEL = 0x2101,
@@ -242,3 +244,26 @@ immutable ushort[8] pixelPlaneMasks = [
 	0b0000001000000010,
 	0b0000000100000001,
 ];
+
+struct BGR555 {
+	align(1):
+	union {
+		ushort value;
+		struct {
+			mixin(bitfields!(
+				uint, "red", 5,
+				uint, "green", 5,
+				uint, "blue", 5,
+				bool, "", 1,
+			));
+		}
+	}
+	this(ubyte red, ubyte green, ubyte blue) @safe pure {
+		this.red = red;
+		this.green = green;
+		this.blue = blue;
+	}
+	this(ushort value) @safe pure {
+		this.value = value;
+	}
+}

@@ -167,7 +167,7 @@ struct PPU {
 	// store 31 extra entries to remove the need for clamp
 	ubyte[32 + 31] brightnessMult;
 	ubyte[32 * 2] brightnessMultHalf;
-	ushort[0x100] cgram;
+	BGR555[0x100] cgram;
 	ubyte[kPpuXPixels] mosaicModulo;
 	uint[256] colorMapRgb;
 	PpuPixelPrioBufs[2] bgBuffers;
@@ -195,8 +195,8 @@ struct PPU {
 
 		if (getCurrentRenderScale(renderFlags) == 4) {
 			for (int i = 0; i < colorMapRgb.length; i++) {
-				uint color = cgram[i];
-				colorMapRgb[i] = brightnessMult[color & 0x1f] << 16 | brightnessMult[(color >> 5) & 0x1f] << 8 | brightnessMult[(color >> 10) & 0x1f];
+				const color = cgram[i];
+				colorMapRgb[i] = brightnessMult[color.red] << 16 | brightnessMult[color.green] << 8 | brightnessMult[color.blue];
 			}
 		}
 	}
@@ -829,13 +829,13 @@ struct PPU {
 			// If clip is set, then zero out the rgb values from the main screen.
 			uint clip_color_mask = (cw_clip_math & 1) ? 0x1f : 0;
 			uint math_enabled_cur = (cw_clip_math & 0x100) ? math_enabled : 0;
-			uint fixed_color = fixedColorR | fixedColorG << 5 | fixedColorB << 10;
-			if (math_enabled_cur == 0 || fixed_color == 0 && !halfColor && !rendered_subscreen) {
+			const fixed_color = BGR555(fixedColorR, fixedColorG, fixedColorB);
+			if (math_enabled_cur == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
 				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
 				uint i = left;
 				do {
-					uint color = cgram[bgBuffers[0].data[i] & 0xff];
-					dst[0] = brightnessMult[color & clip_color_mask] << 16 | brightnessMult[(color >> 5) & clip_color_mask] << 8 | brightnessMult[(color >> 10) & clip_color_mask];
+					const color = cgram[bgBuffers[0].data[i] & 0xff];
+					dst[0] = brightnessMult[color.red & clip_color_mask] << 16 | brightnessMult[color.green & clip_color_mask] << 8 | brightnessMult[color.blue & clip_color_mask];
 					dst = dst[1 .. $];
 				} while (++i < right);
 			} else {
@@ -845,11 +845,12 @@ struct PPU {
 				// Need to check for each pixel whether to use math or not based on the main screen layer.
 				uint i = left;
 				do {
-					uint color = cgram[bgBuffers[0].data[i] & 0xff], color2;
+					const color = cgram[bgBuffers[0].data[i] & 0xff];
+					BGR555 color2;
 					ubyte main_layer = (bgBuffers[0].data[i] >> 8) & 0xf;
-					uint r = color & clip_color_mask;
-					uint g = (color >> 5) & clip_color_mask;
-					uint b = (color >> 10) & clip_color_mask;
+					uint r = color.red & clip_color_mask;
+					uint g = color.green & clip_color_mask;
+					uint b = color.blue & clip_color_mask;
 					ubyte[] color_map = brightnessMult;
 					if (math_enabled_cur & (1 << main_layer)) {
 						if (math_enabled_cur & 0x100) { // addSubscreen ?
@@ -863,7 +864,7 @@ struct PPU {
 							color2 = fixed_color;
 							color_map = half_color_map;
 						}
-						uint r2 = (color2 & 0x1f), g2 = ((color2 >> 5) & 0x1f), b2 = ((color2 >> 10) & 0x1f);
+						uint r2 = color2.red, g2 = color2.green, b2 = color2.blue;
 						if (math_enabled_cur & 0x200) { // subtractColor?
 							r = (r >= r2) ? r - r2 : 0;
 							g = (g >= g2) ? g - g2 : 0;
@@ -1061,10 +1062,10 @@ struct PPU {
 				break;
 			}
 		}
-		ushort color = cgram[pixel & 0xff];
-		r = color & 0x1f;
-		g = (color >> 5) & 0x1f;
-		b = (color >> 10) & 0x1f;
+		const color = cgram[pixel & 0xff];
+		r = color.red;
+		g = color.green;
+		b = color.blue;
 		if (layer == 4 && pixel < 0xc0) {
 			layer = 6; // sprites with palette color < 0xc0
 		}
@@ -1437,7 +1438,7 @@ struct PPU {
 				if(!cgramSecondWrite) {
 					cgramBuffer = val;
 				} else {
-					cgram[cgramPointer++] = (val << 8) | cgramBuffer;
+					cgram[cgramPointer++] = BGR555((val << 8) | cgramBuffer);
 				}
 				cgramSecondWrite = !cgramSecondWrite;
 				break;
@@ -1553,9 +1554,9 @@ struct PPU {
 			foreach (idx, ref palette; cgram[].chunks(16).enumerate) {
 				if (ImGui.TreeNode(format!"Palette %s"(idx))) {
 					foreach (i, ref colour; palette) {
-						float[3] c = [((colour >> 0) & 31) / 31.0, ((colour >> 5) & 31) / 31.0, ((colour >> 10) & 31) / 31.0];
+						float[3] c = [colour.red / 31.0, colour.green / 31.0, colour.blue / 31.0];
 						if (ImGui.ColorEdit3(format!"%s"(i), c)) {
-							colour = cast(ushort)((cast(ushort)(c[2] * 31) << 10) | (cast(ushort)(c[1] * 31) << 5) | cast(ushort)(c[0] * 31));
+							colour = BGR555(cast(ubyte)(c[0] * 31), cast(ubyte)(c[1] * 31), cast(ubyte)(c[2] * 31));
 						}
 					}
 					ImGui.TreePop();
@@ -1585,8 +1586,7 @@ struct PPU {
 			const texHeight = 0x8000 / 16 / 16 * 8;
 			static ubyte[2 * texWidth * texHeight] data;
 			auto pixels = cast(ushort[])(data[]);
-			ushort[16] palette = cgram[paletteID * 16 .. (paletteID + 1) * 16];
-			palette[] &= 0x7FFF;
+			BGR555[16] palette = cgram[paletteID * 16 .. (paletteID + 1) * 16];
 			foreach (idx, tile; (cast(ushort[])vram).chunks(16).enumerate) {
 				const base = (idx % 16) * 8 + (idx / 16) * texWidth * 8;
 				foreach (p; 0 .. 8 * 8) {
@@ -1596,7 +1596,7 @@ struct PPU {
 					const plane23 = tile[py + 8] & pixelPlaneMasks[px];
 					const s = 7 - px;
 					const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
-					pixels[base + px + py * texWidth] = palette[pixel];
+					pixels[base + px + py * texWidth] = palette[pixel].value & 0x7FFF;
 				}
 			}
 			static void* windowSurface;
@@ -2054,7 +2054,7 @@ unittest {
 					ppu.oamHigh[] = data[0x200 .. 0x220];
 					break;
 				case "ppu.cgram":
-					ppu.cgram[] = cast(const(ushort)[])data;
+					ppu.cgram[] = cast(const(BGR555)[])data;
 					break;
 				default: break;
 			}
