@@ -50,14 +50,17 @@ struct SPC700Emulated {
 		// Filter samples
 		filter.run(buffer);
 	}
+	void loadNSPC(const(ubyte)[] data) {
+		songs ~= loadNSPCBuffer(data);
+	}
 }
 
 struct NSPC {
 	NSPCPlayer player;
 	Song[] loadedSongs;
 	bool initialized;
-	HLEWriteCallback writePortCallback;
-	HLEReadCallback readPortCallback;
+	void delegate(scope ref NSPC nspc, ubyte port, ubyte value, AudioBackend backend) writePortCallback;
+	ubyte delegate(scope ref NSPC nspc, ubyte port) readPortCallback;
 	AudioBackend backend;
 	void changeSong(ubyte track) {
 		initialized = false;
@@ -83,12 +86,12 @@ struct NSPC {
 	}
 	void writeCallback(ubyte port, ubyte value, AudioBackend backend) {
 		if (writePortCallback !is null) {
-			writePortCallback(port, value, backend);
+			writePortCallback(this, port, value, backend);
 		}
 	}
 	ubyte readCallback(ubyte port) {
 		if (readPortCallback !is null) {
-			return readPortCallback(port);
+			return readPortCallback(this, port);
 		}
 		return 0;
 	}
