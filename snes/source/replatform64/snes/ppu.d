@@ -62,10 +62,6 @@ struct PpuPixelPrioBufs {
 	PpuZbufType[kPpuXPixels] data;
 }
 
-int IntMin(int a, int b) @safe pure { return a < b ? a : b; }
-int IntMax(int a, int b) @safe pure { return a > b ? a : b; }
-uint UintMin(uint a, uint b) @safe pure { return a < b ? a : b; }
-
 enum KPPURenderFlags {
 	newRenderer = 1,
 	// Render mode7 upsampled by 4x4
@@ -472,7 +468,7 @@ struct PPU {
 			x &= 7;
 			int w = mosaicSize - (sx - mosaicModulo[sx]);
 			do {
-				w = IntMin(w, cast(int)dstz.length);
+				w = min(w, cast(int)dstz.length);
 				uint tile = tp[0];
 				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
 				z = (tile & 0x2000) ? zhi : zlo;
@@ -583,7 +579,7 @@ struct PPU {
 			if (mosaic_enabled) {
 				int w = mosaicSize - (x - mosaicModulo[x]);
 				do {
-					w = IntMin(w, cast(int)dstz.length);
+					w = min(w, cast(int)dstz.length);
 					if (cast(uint)(xpos | ypos) > outside_value) {
 						if (!char_fill) {
 							break;
@@ -632,9 +628,9 @@ struct PPU {
 	}
 
 	void setExtraSideSpace(int left, int right, int bottom) @safe pure {
-		extraLeftCur = cast(ubyte)UintMin(left, extraLeftRight);
-		extraRightCur = cast(ubyte)UintMin(right, extraLeftRight);
-		extraBottomCur = cast(ubyte)UintMin(bottom, 16);
+		extraLeftCur = cast(ubyte)min(left, extraLeftRight);
+		extraRightCur = cast(ubyte)min(right, extraLeftRight);
+		extraBottomCur = cast(ubyte)min(bottom, 16);
 	}
 
 	private float FloatInterpolate(float x, float xmin, float xmax, float ymin, float ymax) @safe pure {
@@ -1273,8 +1269,8 @@ struct PPU {
 					ushort[] addr = vram[(objAdr + usedTile * 16 + (row & 0x7)) & 0x7fff .. $];
 					uint plane = addr[0] | addr[8] << 16;
 					// go over each pixel
-					int px_left = IntMax(-(col + x + kPpuExtraLeftRight), 0);
-					int px_right = IntMin(256 + kPpuExtraLeftRight - (col + x), 8);
+					int px_left = max(-(col + x + kPpuExtraLeftRight), 0);
+					int px_right = min(256 + kPpuExtraLeftRight - (col + x), 8);
 					PpuZbufType[] dst = objBuffer.data[col + x + px_left + kPpuExtraLeftRight .. $];
 
 					for (int px = px_left; px < px_right; px++) {
