@@ -338,7 +338,7 @@ struct PPU {
 		}
 		PpuWindows win;
 		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
-		const bglayer = &bgLayer[layer];
+		const bglayer = bgLayer[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
 		static if (bpp == 2) {
 			alias TileType = Intertwined2BPP;
@@ -347,7 +347,7 @@ struct PPU {
 		} else static if (bpp == 8) {
 			alias TileType = Intertwined8BPP;
 		}
-		auto tiles = (cast(const(TileType)[])vram).cycle[(bgLayer[layer].tileAdr * 2) / TileType.sizeof .. (bgLayer[layer].tileAdr * 2) / TileType.sizeof + 0x400];
+		auto tiles = (cast(const(TileType)[])vram).cycle[(bglayer.tileAdr * 2) / TileType.sizeof .. (bglayer.tileAdr * 2) / TileType.sizeof + 0x400];
 		y = mosaicModulo[y] + bglayer.vScroll;
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
@@ -406,7 +406,7 @@ struct PPU {
 		}
 		PpuWindows win;
 		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
-		BGLayer *bglayer = &bgLayer[layer];
+		const bglayer = bgLayer[layer];
 		y = mosaicModulo[y] + bglayer.vScroll;
 		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
 		if ((y & 0x100) && bglayer.tilemapHigher) {
@@ -418,7 +418,7 @@ struct PPU {
 				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
-		int tileadr = bgLayer[layer].tileAdr;
+		int tileadr = bglayer.tileAdr;
 		int pixel;
 		int tileadr1 = tileadr + 7 - (y & 0x7);
 		int tileadr0 = tileadr + (y & 0x7);
@@ -1075,7 +1075,7 @@ struct PPU {
 
 
 	private int getPixelForBGLayer(int x, int y, int layer, bool priority) @safe pure {
-		BGLayer *layerp = &bgLayer[layer];
+		const layerp = bgLayer[layer];
 		// figure out address of tilemap word and read it
 		bool wideTiles = mode == 5 || mode == 6;
 		int tileBitsX = wideTiles ? 4 : 3;
