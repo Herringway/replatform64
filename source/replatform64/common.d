@@ -103,6 +103,12 @@ struct Array2D(E) {
 				impl[row * stride + i[0] .. row * stride + i[1]] = elem;
 			}
 		}
+		void opIndexAssign(E elem, size_t i, size_t[2] j) {
+			opIndexAssign(elem, [i, i+1], j);
+		}
+		void opIndexAssign(E elem, size_t[2] i, size_t j) {
+			opIndexAssign(elem, i, [j, j+1]);
+		}
 	}
 
 	// Support for `x..y` notation in slicing operator for the given dimension.
@@ -151,6 +157,15 @@ struct Array2D(E) {
 
 	tmp = 42;
 	assert(tmp[2, 1] == 42);
+	tmp[0 .. 2, 0 .. 2] = 31;
+	assert(tmp[1, 1] == 31);
+	assert(tmp[2, 2] == 42);
+	tmp[0, 0 .. 2] = 18;
+	assert(tmp[0, 1] == 18);
+	assert(tmp[1, 1] == 31);
+	tmp[0 .. 2, 0] = 77;
+	assert(tmp[1, 0] == 77);
+	assert(tmp[1, 1] == 31);
 }
 
 auto array2D(T)(return T[] array, int width, int height) {
