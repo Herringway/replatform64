@@ -235,10 +235,9 @@ struct PPU {
 					handlePixel(renderBuffer, x, line);
 				}
 
-				uint[] dst = renderBuffer[0 .. $, line - 1];
 				if (extraLeftRight != 0) {
-					dst[0 .. extraLeftRight] = 0;
-					dst[256 + extraLeftRight .. 257 + extraLeftRight] = 0;
+					renderBuffer[0 .. extraLeftRight, line - 1] = 0;
+					renderBuffer[256 + extraLeftRight .. $, line - 1] = 0;
 				}
 			}
 		}
