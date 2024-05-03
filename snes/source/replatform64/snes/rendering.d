@@ -1,6 +1,7 @@
 module replatform64.snes.rendering;
 
 import replatform64.backend.common;
+import replatform64.common;
 import replatform64.snes.bsnes.renderer;
 import replatform64.snes.hardware;
 import replatform64.snes.ppu;
@@ -77,14 +78,15 @@ struct SNESRenderer {
 				.drawFrame(cast(ushort[])(texture[]), pitch, &bsnesFrame);
 				break;
 			case Renderer.neo:
-				neoRenderer.beginDrawing(texture, pitch, KPPURenderFlags.newRenderer);
+				auto buffer = Array2D!uint(width, height, pitch / uint.sizeof, cast(uint[])texture);
+				neoRenderer.beginDrawing(KPPURenderFlags.newRenderer);
 				HDMAWrite[] hdmaTemp = neoHDMAData[0 .. neoNumHDMA];
 				foreach (i; 0 .. height) {
 					while ((hdmaTemp.length > 0) && (hdmaTemp[0].vcounter == i)) {
 						neoRenderer.write(hdmaTemp[0].addr, hdmaTemp[0].value);
 						hdmaTemp = hdmaTemp[1 .. $];
 					}
-					neoRenderer.runLine(i);
+					neoRenderer.runLine(buffer, i);
 				}
 				break;
 		}

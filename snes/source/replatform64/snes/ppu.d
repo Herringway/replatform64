@@ -92,7 +92,6 @@ struct PPU {
 	ubyte lastBrightnessMult = 0xff;
 	ubyte lastMosaicModulo = 0xff;
 	ubyte renderFlags;
-	Array2D!uint renderBuffer;
 	ubyte extraLeftCur = 0;
 	ubyte extraRightCur = 0;
 	ubyte extraLeftRight = 0;
@@ -180,10 +179,8 @@ struct PPU {
 		return hq ? 4 : 1;
 	}
 
-	void beginDrawing(ubyte[] pixels, size_t stride, uint render_flags) @safe pure {
+	void beginDrawing(uint render_flags) @safe pure {
 		renderFlags = cast(ubyte)render_flags;
-
-		renderBuffer = Array2D!uint(256, (render_flags & KPPURenderFlags.height240) ? 240 : 224, cast(int)(stride / uint.sizeof), cast(uint[])pixels);
 
 		// Cache the brightness computation
 		if (brightness != lastBrightnessMult) {
@@ -208,8 +205,7 @@ struct PPU {
 		(cast(ulong[])buf.data)[] = 0x0500050005000500;
 	}
 
-
-	void runLine(int line) @safe pure {
+	void runLine(Array2D!uint renderBuffer, int line) @safe pure {
 		if(line != 0) {
 			if (mosaicSize != lastMosaicModulo) {
 				int mod = mosaicSize;
@@ -230,13 +226,13 @@ struct PPU {
 			}
 
 			if (renderFlags & KPPURenderFlags.newRenderer) {
-				drawWholeLine(line);
+				drawWholeLine(renderBuffer, line);
 			} else {
 				if (mode == 7) {
 					calculateMode7Starts(line);
 				}
 				for (int x = 0; x < 256; x++) {
-					handlePixel(x, line);
+					handlePixel(renderBuffer, x, line);
 				}
 
 				uint[] dst = renderBuffer[0 .. $, line - 1];
@@ -640,7 +636,7 @@ struct PPU {
 	// Upsampled version of mode7 rendering. Draws everything in 4x the normal resolution.
 	// Draws directly to the pixel buffer and bypasses any math, and supports only
 	// a subset of the normal features (all that zelda needs)
-	private void drawMode7Upsampled(uint y) @safe pure {
+	private void drawMode7Upsampled(Array2D!uint renderBuffer, uint y) @safe pure {
 		// expand 13-bit values to signed values
 		uint xCenter = (cast(short)(m7matrix[4] << 3)) >> 3, yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
 		uint clippedH = ((cast(short)(m7matrix[6] << 3)) >> 3) - xCenter;
@@ -783,14 +779,14 @@ struct PPU {
 		}
 	}
 
-	private void drawWholeLine(uint y) @safe pure {
+	private void drawWholeLine(Array2D!uint renderBuffer, uint y) @safe pure {
 		if (forcedBlank) {
 			renderBuffer[0 .. $, y - 1] = 0;
 			return;
 		}
 
 		if (mode == 7 && (renderFlags & KPPURenderFlags.mode74x4)) {
-			drawMode7Upsampled(y);
+			drawMode7Upsampled(renderBuffer, y);
 			return;
 		}
 
@@ -896,7 +892,7 @@ struct PPU {
 		}
 	}
 
-	private void handlePixel(int x, int y) @safe pure {
+	private void handlePixel(Array2D!uint renderBuffer, int x, int y) @safe pure {
 		int r = 0, r2 = 0;
 		int g = 0, g2 = 0;
 		int b = 0, b2 = 0;
@@ -1659,22 +1655,21 @@ unittest {
 		return result;
 	}
 	static ubyte[] draw(ref PPU ppu, HDMAWrite[] hdmaWrites, int flags) {
-		ubyte[] buffer = new ubyte[](width * height * 4);
-		enum pitch = width * 4;
-		ppu.beginDrawing(buffer, pitch, flags);
+		auto buffer = Array2D!uint(width, height);
+		ppu.beginDrawing(flags);
 		foreach (i; 0 .. height + 1) {
 			foreach (write; hdmaWrites) {
 				if (write.vcounter + 1 == i) {
 					ppu.writeRegister(write.addr, write.value);
 				}
 			}
-			ppu.runLine(i);
+			ppu.runLine(buffer, i);
 		}
-		auto pixels = cast(uint[])buffer;
+		auto pixels = buffer[];
 		foreach (ref pixel; pixels) { //swap red and blue, remove transparency
 			pixel = 0xFF000000 | ((pixel & 0xFF) << 16) | (pixel & 0xFF00) | ((pixel & 0xFF0000) >> 16);
 		}
-		return buffer;
+		return cast(ubyte[])buffer[];
 	}
 	static ubyte[] renderMesen2State(string filename, HDMAWrite[] hdma = [], int flags) {
 		PPU ppu;

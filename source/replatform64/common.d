@@ -52,6 +52,14 @@ struct Array2D(E) {
 	private size_t stride;
 	private size_t width, height;
 
+	this(size_t width, size_t height) inout {
+		this(width, height, width);
+	}
+
+	this(size_t width, size_t height, size_t stride) inout {
+		this(width, height, stride, new inout E[](width * height));
+	}
+
 	this(size_t width, size_t height, inout E[] initialData) inout {
 		this(width, height, width, initialData);
 	}
