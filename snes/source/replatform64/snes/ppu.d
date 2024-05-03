@@ -332,7 +332,7 @@ struct PPU {
 		];
 	}
 	// Draw a whole line of a background layer into bgBuffers
-	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
+	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType[2] priorities) @safe pure {
 		if (!IS_SCREEN_ENABLED(sub, layer)) {
 			return; // layer is completely hidden
 		}
@@ -360,7 +360,7 @@ struct PPU {
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
 			void renderTile(Tile tile, const uint start, uint end) {
-				const z = cast(ushort)((tile.priority ? zhi : zlo) + (tile.palette << bpp));
+				const z = cast(ushort)(priorities[tile.priority] + (tile.palette << bpp));
 				foreach (i; 8 - start .. end) {
 					ubyte tileX = cast(ubyte)i;
 					ubyte tileY = y % 8;
@@ -764,7 +764,7 @@ struct PPU {
 							if (bgLayer[layer].mosaic) {
 								drawBackgroundMosaic!bpp(y, sub, layer, priorityHigh, priorityLow);
 							} else {
-								drawBackground!bpp(y, sub, layer, priorityHigh, priorityLow);
+								drawBackground!bpp(y, sub, layer, [priorityLow, priorityHigh]);
 							}
 						}
 					}}
