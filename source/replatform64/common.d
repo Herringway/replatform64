@@ -48,7 +48,7 @@ struct DebugState {
 struct Array2D(E) {
 	import std.format : format;
 	import std.traits : isMutable;
-	E[] impl;
+	private E[] impl;
 	private size_t stride;
 	private size_t width, height;
 
