@@ -53,9 +53,7 @@ struct BGLayer {
 
 enum kPpuExtraLeftRight = 88;
 
-enum {
-	kPpuXPixels = 256 + kPpuExtraLeftRight * 2,
-};
+enum kPpuXPixels = 256 + kPpuExtraLeftRight * 2;
 
 alias PpuZbufType = ushort;
 
@@ -98,8 +96,7 @@ struct PPU {
 	ubyte lastBrightnessMult = 0xff;
 	ubyte lastMosaicModulo = 0xff;
 	ubyte renderFlags;
-	uint renderPitch;
-	uint[] renderBuffer;
+	Array2D!uint renderBuffer;
 	ubyte extraLeftCur = 0;
 	ubyte extraRightCur = 0;
 	ubyte extraLeftRight = 0;
@@ -187,10 +184,10 @@ struct PPU {
 		return hq ? 4 : 1;
 	}
 
-	void beginDrawing(ubyte[] pixels, size_t pitch, uint render_flags) @safe pure {
+	void beginDrawing(ubyte[] pixels, size_t stride, uint render_flags) @safe pure {
 		renderFlags = cast(ubyte)render_flags;
-		renderPitch = cast(uint)pitch / uint.sizeof;
-		renderBuffer = cast(uint[])pixels;
+
+		renderBuffer = Array2D!uint(256, (render_flags & KPPURenderFlags.height240) ? 240 : 224, cast(int)(stride / uint.sizeof), cast(uint[])pixels);
 
 		// Cache the brightness computation
 		if (brightness != lastBrightnessMult) {
@@ -232,7 +229,7 @@ struct PPU {
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
-				renderBuffer[(line - 1) * renderPitch .. (line - 1) * renderPitch + (256 + extraLeftRight * 2)] = 0;
+				renderBuffer[line - 1, 0 .. 256 + extraLeftRight * 2] = 0;
 				return;
 			}
 
@@ -246,7 +243,7 @@ struct PPU {
 					handlePixel(x, line);
 				}
 
-				uint[] dst = renderBuffer[(line - 1) * renderPitch .. $];
+				uint[] dst = renderBuffer[0 .. $, line - 1];
 				if (extraLeftRight != 0) {
 					dst[0 .. extraLeftRight] = 0;
 					dst[256 + extraLeftRight .. 257 + extraLeftRight] = 0;
@@ -661,11 +658,8 @@ struct PPU {
 				m0v[i] = cast(int)(4096.0f / FloatInterpolate(cast(int)y + kInterpolateOffsets[i], 0, 223, mode7PerspectiveLow, mode7PerspectiveHigh));
 			}
 		}
-		size_t pitch = renderPitch;
-		uint[] render_buffer_ptr = renderBuffer[(y - 1) * 4 * pitch .. $];
-		uint[] dst_start = render_buffer_ptr[(extraLeftRight - extraLeftCur) * 4 .. $];
+		auto render_buffer_ptr = renderBuffer[0 .. $, (y - 1) * 4 .. y * 4];
 		size_t draw_width = 256 + extraLeftCur + extraRightCur;
-		uint[] dst_curline = dst_start;
 		uint m1 = m7matrix[1] << 12; // xpos increment per vert movement
 		uint m2 = m7matrix[2] << 12; // ypos increment per horiz movement
 		for (int j = 0; j < 4; j++) {
@@ -682,7 +676,7 @@ struct PPU {
 			xcur -= extraLeftCur * 4 * m0;
 			ycur -= extraLeftCur * 4 * m2;
 
-			uint[] dst = dst_curline[0 .. draw_width * 4];
+			uint[] dst = render_buffer_ptr[0 .. draw_width * 4, j];
 
 			void DRAW_PIXEL(int mode) {
 				tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
@@ -709,21 +703,19 @@ struct PPU {
 					DRAW_PIXEL(1);
 				} while (dst.length > 0);
 			}
-
-			dst_curline = dst_curline[pitch .. $];
 		}
 
 		if (lineHasSprites) {
-			uint[] dst = dst_start;
+			uint[] dst = render_buffer_ptr[0 .. $, 0];
 			PpuZbufType[] pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
 			for (size_t i = 0; i < draw_width; i++, dst = dst[16 .. $]) {
 				uint pixel = pixels[i] & 0xff;
 				if (pixel) {
 					uint color = colorMapRgb[pixel];
-					dst[pitch * 0 .. pitch * 0 + 4][] = color;
-					dst[pitch * 1 .. pitch * 1 + 4][] = color;
-					dst[pitch * 2 .. pitch * 2 + 4][] = color;
-					dst[pitch * 3 .. pitch * 3 + 4][] = color;
+					dst[0 .. 0 + 4][] = color;
+					dst[1 .. 1 + 4][] = color;
+					dst[2 .. 2 + 4][] = color;
+					dst[3 .. 3 + 4][] = color;
 				}
 			}
 		}
@@ -731,14 +723,14 @@ struct PPU {
 		if (extraLeftRight - extraLeftCur != 0) {
 			size_t n = 4 * uint.sizeof * (extraLeftRight - extraLeftCur);
 			for(int i = 0; i < 4; i++) {
-				render_buffer_ptr[pitch * i .. pitch * i + n] = 0;
+				render_buffer_ptr[0 .. n, i] = 0;
 			}
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			size_t n = 4 * uint.sizeof * (extraLeftRight - extraRightCur);
 			for (int i = 0; i < 4; i++) {
-				const start = pitch * i + (256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur)) * 4 * uint.sizeof;
-				render_buffer_ptr[start .. start + n] = 0;
+				const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
+				render_buffer_ptr[start .. $, i] = 0;
 			}
 		}
 	}
@@ -797,8 +789,7 @@ struct PPU {
 
 	private void drawWholeLine(uint y) @safe pure {
 		if (forcedBlank) {
-			uint[] dst = renderBuffer[(y - 1) * renderPitch .. $];
-			dst[] = 0;
+			renderBuffer[0 .. $, y - 1] = 0;
 			return;
 		}
 
@@ -836,7 +827,7 @@ struct PPU {
 		uint cw_clip_math = ((cwin.bits & kCwBitsMod[clipMode]) ^ kCwBitsMod[clipMode + 4]) |
 													((cwin.bits & kCwBitsMod[preventMathMode]) ^ kCwBitsMod[preventMathMode + 4]) << 8;
 
-		uint[] dst = cast(uint[])renderBuffer[(y - 1) * renderPitch .. $];
+		uint[] dst = renderBuffer[0 .. $, y - 1];
 		uint[] dst_org = dst;
 
 		dst = dst[extraLeftRight - extraLeftCur .. $];
@@ -974,7 +965,7 @@ struct PPU {
 			}
 		}
 		int row = y - 1;
-		renderBuffer[row * renderPitch + (x + extraLeftRight)] =
+		renderBuffer[x + extraLeftRight, row] =
 			(cast(ubyte)(((b << 3) | (b >> 2)) * brightness / 15) << 0) |
 			(cast(ubyte)(((g << 3) | (g >> 2)) * brightness / 15) << 8) |
 			(cast(ubyte)(((r << 3) | (r >> 2)) * brightness / 15) << 16);
