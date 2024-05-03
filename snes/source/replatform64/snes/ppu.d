@@ -48,6 +48,7 @@ struct BGLayer {
 	bool tilemapHigher = false;
 	ushort tilemapAdr = 0;
 	bool doubleTileSize;
+	bool mosaic;
 	ushort tileAdr = 0;
 }
 
@@ -102,7 +103,6 @@ struct PPU {
 	// TMW / TSW etc
 	ubyte[2] screenEnabled;
 	ubyte[2] screenWindowed;
-	ubyte mosaicEnabled;
 	ubyte mosaicSize = 1;
 	// object/sprites
 	ushort objTileAdr1 = 0x4000;
@@ -549,7 +549,7 @@ struct PPU {
 		int clippedV = vScroll - yCenter;
 		clippedH = (clippedH & 0x2000) ? (clippedH | ~1023) : (clippedH & 1023);
 		clippedV = (clippedV & 0x2000) ? (clippedV | ~1023) : (clippedV & 1023);
-		bool mosaic_enabled = IS_MOSAIC_ENABLED(0);
+		bool mosaic_enabled = bgLayer[0].mosaic;
 		if (mosaic_enabled) {
 			y = mosaicModulo[y];
 		}
@@ -761,7 +761,7 @@ struct PPU {
 						static if (bpp > 0) {
 							const priorityHigh = cast(ushort)((priorityTable[i][bg3Priority][layer][0] << 12) | (layer << 8));
 							const priorityLow = cast(ushort)((priorityTable[i][bg3Priority][layer][1] << 12) | (layer << 8));
-							if (IS_MOSAIC_ENABLED(layer)) {
+							if (bgLayer[layer].mosaic) {
 								drawBackgroundMosaic!bpp(y, sub, layer, priorityHigh, priorityLow);
 							} else {
 								drawBackground!bpp(y, sub, layer, priorityHigh, priorityLow);
@@ -1034,7 +1034,7 @@ struct PPU {
 					// bg layer
 					int lx = x;
 					int ly = y;
-					if (IS_MOSAIC_ENABLED(curLayer)) {
+					if (bgLayer[curLayer].mosaic) {
 						lx -= lx % mosaicSize;
 						ly -= (ly - 1) % mosaicSize;
 					}
@@ -1146,7 +1146,7 @@ struct PPU {
 		int clippedV = vScroll - yCenter;
 		clippedH = (clippedH & 0x2000) ? (clippedH | ~1023) : (clippedH & 1023);
 		clippedV = (clippedV & 0x2000) ? (clippedV | ~1023) : (clippedV & 1023);
-		if(IS_MOSAIC_ENABLED(0)) {
+		if(bgLayer[0].mosaic) {
 			y -= (y - 1) % mosaicSize;
 		}
 		ubyte ry = cast(ubyte)(m7yFlip ? 255 - y : y);
@@ -1165,7 +1165,7 @@ struct PPU {
 	}
 
 	private int getPixelForMode7(int x, int layer, bool priority) @safe pure {
-		if (IS_MOSAIC_ENABLED(layer)) {
+		if (bgLayer[layer].mosaic) {
 			x -= x % mosaicSize;
 		}
 		ubyte rx = cast(ubyte)(m7xFlip ? 255 - x : x);
@@ -1336,7 +1336,12 @@ struct PPU {
 				break;
 			case 0x06: // MOSAIC
 				mosaicSize = (val >> 4) + 1;
-				mosaicEnabled = (mosaicSize > 1) ? val : 0;
+				if (mosaicSize > 1) {
+					bgLayer[0].mosaic = !!(val & 0b00000001);
+					bgLayer[1].mosaic = !!(val & 0b00000010);
+					bgLayer[2].mosaic = !!(val & 0b00000100);
+					bgLayer[3].mosaic = !!(val & 0b00001000);
+				}
 				break;
 			case 0x07: // BG1SC
 			case 0x08: // BG2SC
@@ -1511,7 +1516,6 @@ struct PPU {
 	}
 	bool IS_SCREEN_ENABLED(uint sub, uint layer) const @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
 	bool IS_SCREEN_WINDOWED(uint sub, uint layer) const @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
-	bool IS_MOSAIC_ENABLED(uint layer) const @safe pure { return !!(mosaicEnabled & (1 << layer)); }
 	bool GET_WINDOW_FLAGS(uint layer) const @safe pure { return !!(windowsel >> (layer * 4)); }
 	void debugUI(const UIState state, VideoBackend video) {
 		if (ImGui.TreeNode("Global state")) {
