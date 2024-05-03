@@ -78,7 +78,7 @@ struct SNESRenderer {
 				.drawFrame(cast(ushort[])(texture[]), pitch, &bsnesFrame);
 				break;
 			case Renderer.neo:
-				auto buffer = Array2D!ARGB8888(width, height, pitch / ARGB8888.sizeof, cast(ARGB8888[])texture);
+				auto buffer = Array2D!RGBA8888(width, height, pitch / RGBA8888.sizeof, cast(RGBA8888[])texture);
 				neoRenderer.beginDrawing(KPPURenderFlags.newRenderer);
 				HDMAWrite[] hdmaTemp = neoHDMAData[0 .. neoNumHDMA];
 				foreach (i; 0 .. height) {

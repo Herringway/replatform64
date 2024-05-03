@@ -297,7 +297,7 @@ unittest {
 	import std.string : lineSplitter;
 	enum width = 160;
 	enum height = 144;
-	static ubyte[] draw(ref PPU ppu) {
+	static Array2D!RGBA8888 draw(ref PPU ppu) {
 		auto buffer = new ushort[](width * height);
 		enum pitch = width * 2;
 		ppu.drawFullFrame(cast(ubyte[])buffer, pitch);
@@ -308,15 +308,15 @@ unittest {
 			0x5AD6: 0xFFB5B5B5,
 			0x7FFF: 0xFFFFFFFF,
 		];
-		foreach (i, ref pixel; result) { //RGB555 -> ARGB8888
+		foreach (i, ref pixel; result) { //RGB555 -> RGBA8888
 			if (buffer[i] !in colourMap) {
 				import std.logger; infof("%04X", buffer[i]);
 			}
 			pixel = colourMap[buffer[i]];
 		}
-		return cast(ubyte[])result;
+		return Array2D!RGBA8888(width, height, cast(RGBA8888[])result);
 	}
-	static ubyte[] renderMesen2State(string filename) {
+	static Array2D!RGBA8888 renderMesen2State(string filename) {
 		PPU ppu;
 		ppu.vram = new ubyte[](0x10000);
 		auto file = cast(ubyte[])read(buildPath("testdata/gameboy", filename));
@@ -412,9 +412,9 @@ unittest {
 	}
 	static void runTest(string name) {
 		const frame = renderMesen2State(name~".mss");
-		if (const result = comparePNG(frame, "testdata/gameboy", name~".png", width, height)) {
-			dumpPNG(frame, name~".png", width, height);
-			assert(0, format!"Pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(result.x, result.y, name, result.got, result.expected));
+		if (const result = comparePNG(frame, "testdata/gameboy", name~".png")) {
+			dumpPNG(frame, name~".png");
+			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
 		}
 	}
 	runTest("everythingok");

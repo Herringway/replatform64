@@ -169,7 +169,7 @@ struct PPU {
 	ubyte[32 * 2] brightnessMultHalf;
 	BGR555[0x100] cgram;
 	ubyte[kPpuXPixels] mosaicModulo;
-	ARGB8888[256] colorMapRgb;
+	RGBA8888[256] colorMapRgb;
 	PpuPixelPrioBufs[2] bgBuffers;
 	PpuPixelPrioBufs objBuffer;
 	ushort[0x8000] vram;
@@ -196,7 +196,7 @@ struct PPU {
 		if (getCurrentRenderScale(renderFlags) == 4) {
 			for (int i = 0; i < colorMapRgb.length; i++) {
 				const color = cgram[i];
-				colorMapRgb[i] = ARGB8888(brightnessMult[color.red], brightnessMult[color.green], brightnessMult[color.blue]);
+				colorMapRgb[i] = RGBA8888(brightnessMult[color.red], brightnessMult[color.green], brightnessMult[color.blue]);
 			}
 		}
 	}
@@ -205,7 +205,7 @@ struct PPU {
 		(cast(ulong[])buf.data)[] = 0x0500050005000500;
 	}
 
-	void runLine(Array2D!ARGB8888 renderBuffer, int line) @safe pure {
+	void runLine(Array2D!RGBA8888 renderBuffer, int line) @safe pure {
 		if(line != 0) {
 			if (mosaicSize != lastMosaicModulo) {
 				int mod = mosaicSize;
@@ -221,7 +221,7 @@ struct PPU {
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
-				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = ARGB8888(0);
+				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = RGBA8888(0);
 				return;
 			}
 
@@ -236,8 +236,8 @@ struct PPU {
 				}
 
 				if (extraLeftRight != 0) {
-					renderBuffer[0 .. extraLeftRight, line - 1] = ARGB8888(0);
-					renderBuffer[256 + extraLeftRight .. $, line - 1] = ARGB8888(0);
+					renderBuffer[0 .. extraLeftRight, line - 1] = RGBA8888(0);
+					renderBuffer[256 + extraLeftRight .. $, line - 1] = RGBA8888(0);
 				}
 			}
 		}
@@ -635,7 +635,7 @@ struct PPU {
 	// Upsampled version of mode7 rendering. Draws everything in 4x the normal resolution.
 	// Draws directly to the pixel buffer and bypasses any math, and supports only
 	// a subset of the normal features (all that zelda needs)
-	private void drawMode7Upsampled(Array2D!ARGB8888 renderBuffer, uint y) @safe pure {
+	private void drawMode7Upsampled(Array2D!RGBA8888 renderBuffer, uint y) @safe pure {
 		// expand 13-bit values to signed values
 		uint xCenter = (cast(short)(m7matrix[4] << 3)) >> 3, yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
 		uint clippedH = ((cast(short)(m7matrix[6] << 3)) >> 3) - xCenter;
@@ -673,7 +673,7 @@ struct PPU {
 				tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
 				pixel = vram[tile * 64 + (ycur >> 22 & 7) * 8 + (xcur >> 22 & 7)] >> 8;
 				pixel = (xcur & 0x80000000) ? 0 : pixel;
-				dst[0] = mode ? ARGB8888((colorMapRgb[pixel].value & 0xfefefe) >> 1) : colorMapRgb[pixel];
+				dst[0] = mode ? RGBA8888((colorMapRgb[pixel].value & 0xfefefe) >> 1) : colorMapRgb[pixel];
 				xcur += m0;
 				ycur += m2;
 				dst = dst[1 .. $];
@@ -710,14 +710,14 @@ struct PPU {
 		if (extraLeftRight - extraLeftCur != 0) {
 			size_t n = 4 * uint.sizeof * (extraLeftRight - extraLeftCur);
 			for(int i = 0; i < 4; i++) {
-				render_buffer_ptr[0 .. n, i] = ARGB8888(0);
+				render_buffer_ptr[0 .. n, i] = RGBA8888(0);
 			}
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			size_t n = 4 * uint.sizeof * (extraLeftRight - extraRightCur);
 			for (int i = 0; i < 4; i++) {
 				const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
-				render_buffer_ptr[start .. $, i] = ARGB8888(0);
+				render_buffer_ptr[start .. $, i] = RGBA8888(0);
 			}
 		}
 	}
@@ -774,9 +774,9 @@ struct PPU {
 		}
 	}
 
-	private void drawWholeLine(Array2D!ARGB8888 renderBuffer, uint y) @safe pure {
+	private void drawWholeLine(Array2D!RGBA8888 renderBuffer, uint y) @safe pure {
 		if (forcedBlank) {
-			renderBuffer[0 .. $, y - 1] = ARGB8888(0);
+			renderBuffer[0 .. $, y - 1] = RGBA8888(0);
 			return;
 		}
 
@@ -831,7 +831,7 @@ struct PPU {
 				uint i = left;
 				do {
 					const color = cgram[bgBuffers[0].data[i] & 0xff];
-					dst[0] = ARGB8888(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
+					dst[0] = RGBA8888(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
 					dst = dst[1 .. $];
 				} while (++i < right);
 			} else {
@@ -871,7 +871,7 @@ struct PPU {
 							b += b2;
 						}
 					}
-					dst[0] = ARGB8888(color_map[r], color_map[g], color_map[b]);
+					dst[0] = RGBA8888(color_map[r], color_map[g], color_map[b]);
 					dst = dst[1 .. $];
 				} while (++i < right);
 			}
@@ -880,15 +880,15 @@ struct PPU {
 
 		// Clear out stuff on the sides.
 		if (extraLeftRight - extraLeftCur != 0) {
-			dst_org[0 .. uint.sizeof * (extraLeftRight - extraLeftCur)] = ARGB8888(0);
+			dst_org[0 .. uint.sizeof * (extraLeftRight - extraLeftCur)] = RGBA8888(0);
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
-			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = ARGB8888(0);
+			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = RGBA8888(0);
 		}
 	}
 
-	private void handlePixel(Array2D!ARGB8888 renderBuffer, int x, int y) @safe pure {
+	private void handlePixel(Array2D!RGBA8888 renderBuffer, int x, int y) @safe pure {
 		BGR555 colour1;
 		BGR555 colour2;
 		if (!forcedBlank) {
@@ -940,7 +940,7 @@ struct PPU {
 			}
 		}
 		int row = y - 1;
-		renderBuffer[x + extraLeftRight, row] = ARGB8888(
+		renderBuffer[x + extraLeftRight, row] = RGBA8888(
 			cast(ubyte)(((colour1.red << 3) | (colour1.red >> 2)) * brightness / 15),
 			cast(ubyte)(((colour1.green << 3) | (colour1.green >> 2)) * brightness / 15),
 			cast(ubyte)(((colour1.blue << 3) | (colour1.blue >> 2)) * brightness / 15));
@@ -1637,8 +1637,8 @@ unittest {
 		}
 		return result;
 	}
-	static ubyte[] draw(ref PPU ppu, HDMAWrite[] hdmaWrites, int flags) {
-		auto buffer = Array2D!ARGB8888(width, height);
+	static Array2D!RGBA8888 draw(ref PPU ppu, HDMAWrite[] hdmaWrites, int flags) {
+		auto buffer = Array2D!RGBA8888(width, height);
 		ppu.beginDrawing(flags);
 		foreach (i; 0 .. height + 1) {
 			foreach (write; hdmaWrites) {
@@ -1648,9 +1648,9 @@ unittest {
 			}
 			ppu.runLine(buffer, i);
 		}
-		return cast(ubyte[])buffer[];
+		return buffer;
 	}
-	static ubyte[] renderMesen2State(string filename, HDMAWrite[] hdma = [], int flags) {
+	static Array2D!RGBA8888 renderMesen2State(string filename, HDMAWrite[] hdma = [], int flags) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/snes", filename));
 		INIDISPValue INIDISP;
@@ -2086,14 +2086,14 @@ unittest {
 		if (buildPath("testdata/snes", name~".hdma").exists) {
 			writes = parseHDMAWrites(name~".hdma");
 		}
-		static void compare(ubyte[] frame, bool expected, string renderName, string dumpSuffix, string testName) {
-			if (const result = comparePNG(frame, "testdata/snes", testName~".png", width, height)) {
+		static void compare(Array2D!RGBA8888 frame, bool expected, string renderName, string dumpSuffix, string testName) {
+			if (const result = comparePNG(frame, "testdata/snes", testName~".png")) {
 				mkdirRecurse("failed");
-				dumpPNG(frame, "failed/"~testName~"-"~dumpSuffix~".png", width, height);
+				dumpPNG(frame, "failed/"~testName~"-"~dumpSuffix~".png");
 				if (!expected) {
-					writeln(format!"(Expected) %s pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(renderName, result.x, result.y, testName, result.got, result.expected));
+					writeln(format!"(Expected) %s pixel mismatch at %s, %s in %s (got %s, expecting %s)"(renderName, result.x, result.y, testName, result.got, result.expected));
 				} else {
-					assert(0, format!"%s pixel mismatch at %s, %s in %s (got %08X, expecting %08X)"(renderName, result.x, result.y, testName, result.got, result.expected));
+					assert(0, format!"%s pixel mismatch at %s, %s in %s (got %s, expecting %s)"(renderName, result.x, result.y, testName, result.got, result.expected));
 				}
 			} else {
 				assert(expected, format!"Unexpected %s success in %s"(renderName, testName));

@@ -152,7 +152,7 @@ struct BackendID {
 	string id;
 }
 
-struct ARGB8888 {
+struct RGBA8888 {
 	align(1):
 	union {
 		uint value;
@@ -171,6 +171,10 @@ struct ARGB8888 {
 	}
 	this(uint value) @safe pure {
 		this.value = value;
+	}
+	void toString(S)(S sink) const {
+		import std.format : formattedWrite;
+		sink.formattedWrite("RGBA8888(%s, %s, %s, %s)", red, green, blue, alpha);
 	}
 }
 

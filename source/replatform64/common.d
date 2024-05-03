@@ -72,6 +72,9 @@ struct Array2D(E) {
 		this.width = width;
 		this.height = height;
 	}
+	size_t[2] dimensions() const @safe pure {
+		return [opDollar!0, opDollar!1];
+	}
 
 	// Index a single element, e.g., arr[0, 1]
 	ref inout(E) opIndex(size_t i, size_t j) inout {
