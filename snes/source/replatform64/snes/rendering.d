@@ -172,7 +172,7 @@ struct SNESRenderer {
 			case Renderer.bsnes:
 				return cast(OAMEntry[])(bsnesFrame.oam1[]);
 			case Renderer.neo:
-				return cast(OAMEntry[])(neoRenderer.oam[0 .. 0x100]);
+				return neoRenderer.oam;
 		}
 	}
 	ubyte[] oam2() {
@@ -180,7 +180,7 @@ struct SNESRenderer {
 			case Renderer.bsnes:
 				return bsnesFrame.oam2[];
 			case Renderer.neo:
-				return cast(ubyte[])(neoRenderer.oam[0x100 .. $]);
+				return cast(ubyte[])(neoRenderer.oamHigh[]);
 		}
 	}
 	const(ubyte)[] registers() const {
