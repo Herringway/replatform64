@@ -170,11 +170,9 @@ struct PPU {
 	BGR555[0x100] cgram;
 	ubyte[kPpuXPixels] mosaicModulo;
 	RGBA8888[256] colorMapRgb;
-	PpuPixelPrioBufs[2] bgBuffers;
-	PpuPixelPrioBufs objBuffer;
 	ushort[0x8000] vram;
 
-	int getCurrentRenderScale(uint render_flags) @safe pure {
+	int getCurrentRenderScale(uint render_flags) const @safe pure {
 		bool hq = mode == 7 && !forcedBlank && (render_flags & (KPPURenderFlags.mode74x4 | KPPURenderFlags.newRenderer)) == (KPPURenderFlags.mode74x4 | KPPURenderFlags.newRenderer);
 		return hq ? 4 : 1;
 	}
@@ -201,7 +199,7 @@ struct PPU {
 		}
 	}
 
-	private void ClearBackdrop(ref PpuPixelPrioBufs buf) @safe pure {
+	private void ClearBackdrop(ref PpuPixelPrioBufs buf) const @safe pure {
 		(cast(ulong[])buf.data)[] = 0x0500050005000500;
 	}
 
@@ -215,9 +213,10 @@ struct PPU {
 					j = (j + 1 == mod ? 0 : j + 1);
 				}
 			}
+			PpuPixelPrioBufs[3] winBuffers;
 			// evaluate sprites
-			ClearBackdrop(objBuffer);
-			lineHasSprites = !forcedBlank && evaluateSprites(line - 1);
+			ClearBackdrop(winBuffers[2]);
+			lineHasSprites = !forcedBlank && evaluateSprites(line - 1, winBuffers[2]);
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
@@ -226,13 +225,13 @@ struct PPU {
 			}
 
 			if (renderFlags & KPPURenderFlags.newRenderer) {
-				drawWholeLine(renderBuffer, line);
+				drawWholeLine(renderBuffer, winBuffers, line);
 			} else {
 				if (mode == 7) {
 					calculateMode7Starts(line);
 				}
 				for (int x = 0; x < 256; x++) {
-					handlePixel(renderBuffer, x, line);
+					handlePixel(renderBuffer, winBuffers[2], x, line);
 				}
 
 				if (extraLeftRight != 0) {
@@ -243,14 +242,17 @@ struct PPU {
 		}
 	}
 
-	private void windowsClear(ref PpuWindows win, uint layer) @safe pure {
+	private PpuWindows windowsClear(uint layer) const @safe pure {
+		PpuWindows win;
 		win.edges[0] = -(layer != 2 ? extraLeftCur : 0);
 		win.edges[1] = 256 + (layer != 2 ? extraRightCur : 0);
 		win.nr = 1;
 		win.bits = 0;
+		return win;
 	}
 
-	private void windowsCalc(ref PpuWindows win, uint layer) const @safe pure {
+	private PpuWindows windowsCalc(uint layer) const @safe pure {
+		PpuWindows win;
 		// Evaluate which spans to render based on the window settings.
 		// There are at most 5 windows.
 		// Algorithm from Snes9x
@@ -313,6 +315,7 @@ struct PPU {
 			w2_bits = cast(ubyte)~w2_bits;
 		}
 		win.bits = w1_bits | w2_bits;
+		return win;
 	}
 	private Array2D!(const Tile)[4] getBackgroundTilemaps(uint layer) const return @safe pure {
 		static immutable tilemapOffsets = [
@@ -331,13 +334,8 @@ struct PPU {
 			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[3] .. $][0 .. 32 * 32]),
 		];
 	}
-	// Draw a whole line of a background layer into bgBuffers
-	private void drawBackground(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType[2] priorities) @safe pure {
-		if (!IS_SCREEN_ENABLED(sub, layer)) {
-			return; // layer is completely hidden
-		}
-		PpuWindows win;
-		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
+	// Draw a whole line of a background layer into bgBuffer
+	private void drawBackground(size_t bpp)(uint y, uint layer, PpuZbufType[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		const bglayer = bgLayer[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
 		static if (bpp == 2) {
@@ -355,7 +353,7 @@ struct PPU {
 			}
 			uint x = win.edges[windex] + bglayer.hScroll;
 			uint w = win.edges[windex + 1] - win.edges[windex];
-			PpuZbufType[] dstz = bgBuffers[sub].data[win.edges[windex] + kPpuExtraLeftRight .. $];
+			PpuZbufType[] dstz = bgBuffer.data[win.edges[windex] + kPpuExtraLeftRight .. $];
 			const tileLine = (y / 8) % 32;
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
@@ -392,8 +390,8 @@ struct PPU {
 		}
 	}
 
-	// Draw a whole line of a background layer into bgBuffers, with mosaic applied
-	private void drawBackgroundMosaic(size_t bpp)(uint y, bool sub, uint layer, PpuZbufType zhi, PpuZbufType zlo) @safe pure {
+	// Draw a whole line of a background layer into bgBuffer, with mosaic applied
+	private void drawBackgroundMosaic(size_t bpp)(uint y, uint layer, PpuZbufType[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		static if (bpp == 2) {
 			enum kPaletteShift = 8;
 		} else static if (bpp == 4) {
@@ -401,11 +399,6 @@ struct PPU {
 		} else static if (bpp == 8) {
 			enum kPaletteShift = 12;
 		}
-		if (!IS_SCREEN_ENABLED(sub, layer)) {
-			return; // layer is completely hidden
-		}
-		PpuWindows win;
-		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
 		const bglayer = bgLayer[layer];
 		y = mosaicModulo[y] + bglayer.vScroll;
 		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
@@ -436,7 +429,7 @@ struct PPU {
 				continue; // layer is disabled for this window part
 			}
 			int sx = win.edges[windex];
-			PpuZbufType[] dstz = bgBuffers[sub].data[sx + kPpuExtraLeftRight .. win.edges[windex + 1] + kPpuExtraLeftRight];
+			PpuZbufType[] dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. win.edges[windex + 1] + kPpuExtraLeftRight];
 			uint x = sx + bglayer.hScroll;
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
@@ -466,7 +459,7 @@ struct PPU {
 				w = min(w, cast(int)dstz.length);
 				uint tile = tp[0];
 				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = (tile & 0x2000) ? zhi : zlo;
+				z = priorities[(tile & 0x2000)];
 				bits = READ_BITS(ta, tile & 0x3ff);
 				if (tile & 0x4000) {
 					bits >>= x;
@@ -495,28 +488,22 @@ struct PPU {
 	}
 
 	// level6 should be set if it's from palette 0xc0 which means color math is not applied
-	uint SPRITE_PRIO_TO_PRIO(uint prio, bool level6) @safe pure {
+	uint SPRITE_PRIO_TO_PRIO(uint prio, bool level6) const @safe pure {
 		return SPRITE_PRIO_TO_PRIO_HI(prio) * 16 + 4 + (level6 ? 2 : 0);
 	}
-	uint SPRITE_PRIO_TO_PRIO_HI(uint prio) @safe pure {
+	uint SPRITE_PRIO_TO_PRIO_HI(uint prio) const @safe pure {
 		return (prio + 1) * 3;
 	}
 
-	private void drawSprites(uint y, uint sub, bool clear_backdrop) @safe pure {
-		int layer = 4;
-		if (!IS_SCREEN_ENABLED(sub, layer)) {
-			return; // layer is completely hidden
-		}
-		PpuWindows win;
-		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
+	private void drawSprites(uint y, bool clear_backdrop, scope ref PpuPixelPrioBufs bgBuffer, scope ref PpuPixelPrioBufs objBuffer, const PpuWindows win) const @safe pure {
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
 				continue; // layer is disabled for this window part
 			}
 			int left = win.edges[windex];
 			int width = win.edges[windex + 1] - left;
-			PpuZbufType[] src = objBuffer.data[left + kPpuExtraLeftRight .. $];
-			PpuZbufType[] dst = bgBuffers[sub].data[left + kPpuExtraLeftRight .. $];
+			auto src = objBuffer.data[left + kPpuExtraLeftRight .. $];
+			PpuZbufType[] dst = bgBuffer.data[left + kPpuExtraLeftRight .. $];
 			if (clear_backdrop) {
 				dst[0 .. min($, width * ushort.sizeof)] = src[0 .. min($, width * ushort.sizeof)];
 			} else {
@@ -532,13 +519,8 @@ struct PPU {
 	}
 
 	// Assumes it's drawn on an empty backdrop
-	private void drawBackgroundMode7(uint y, bool sub, PpuZbufType z) @safe pure {
+	private void drawBackgroundMode7(uint y, PpuZbufType z, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		int layer = 0;
-		if (!IS_SCREEN_ENABLED(sub, layer)) {
-			return; // layer is completely hidden
-		}
-		PpuWindows win;
-		IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(win, layer) : windowsClear(win, layer);
 
 		// expand 13-bit values to signed values
 		int hScroll = (cast(short)(m7matrix[6] << 3)) >> 3;
@@ -563,7 +545,7 @@ struct PPU {
 				continue; // layer is disabled for this window part
 			}
 			int x = win.edges[windex], x2 = win.edges[windex + 1], tile;
-			PpuZbufType[] dstz = bgBuffers[sub].data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
+			PpuZbufType[] dstz = bgBuffer.data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
 			uint rx = m7xFlip ? 255 - x : x;
 			uint xpos = m7startX + m7matrix[0] * rx;
 			uint ypos = m7startY + m7matrix[2] * rx;
@@ -628,25 +610,21 @@ struct PPU {
 		extraBottomCur = cast(ubyte)min(bottom, 16);
 	}
 
-	private float FloatInterpolate(float x, float xmin, float xmax, float ymin, float ymax) @safe pure {
-		return ymin + (ymax - ymin) * (x - xmin) * (1.0f / (xmax - xmin));
-	}
-
 	// Upsampled version of mode7 rendering. Draws everything in 4x the normal resolution.
 	// Draws directly to the pixel buffer and bypasses any math, and supports only
 	// a subset of the normal features (all that zelda needs)
-	private void drawMode7Upsampled(Array2D!RGBA8888 renderBuffer, uint y) @safe pure {
+	private void drawMode7Upsampled(Array2D!RGBA8888 renderBuffer, scope ref PpuPixelPrioBufs objBuffer, uint y) const @safe pure {
 		// expand 13-bit values to signed values
 		uint xCenter = (cast(short)(m7matrix[4] << 3)) >> 3, yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
 		uint clippedH = ((cast(short)(m7matrix[6] << 3)) >> 3) - xCenter;
 		uint clippedV = ((cast(short)(m7matrix[7] << 3)) >> 3) - yCenter;
 		int[4] m0v;
-		if (*cast(uint*)&mode7PerspectiveLow == 0) {
+		if (*cast(const(uint)*)&mode7PerspectiveLow == 0) {
 			m0v[0] = m0v[1] = m0v[2] = m0v[3] = m7matrix[0] << 12;
 		} else {
 			static const float[4] kInterpolateOffsets = [ -1, -1 + 0.25f, -1 + 0.5f, -1 + 0.75f ];
 			for (int i = 0; i < 4; i++) {
-				m0v[i] = cast(int)(4096.0f / FloatInterpolate(cast(int)y + kInterpolateOffsets[i], 0, 223, mode7PerspectiveLow, mode7PerspectiveHigh));
+				m0v[i] = cast(int)(4096.0f / interpolate(cast(int)y + kInterpolateOffsets[i], 0, 223, mode7PerspectiveLow, mode7PerspectiveHigh));
 			}
 		}
 		auto render_buffer_ptr = renderBuffer[0 .. $, (y - 1) * 4 .. y * 4];
@@ -698,7 +676,7 @@ struct PPU {
 
 		if (lineHasSprites) {
 			auto dst = render_buffer_ptr[0 .. $, 0];
-			PpuZbufType[] pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
+			auto pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
 			for (size_t i = 0; i < draw_width; i++, dst = dst[16 .. $]) {
 				uint pixel = pixels[i] & 0xff;
 				if (pixel) {
@@ -722,7 +700,7 @@ struct PPU {
 		}
 	}
 
-	private void drawBackgrounds(int y, bool sub) @safe pure {
+	private void drawBackgrounds(int y, bool sub, scope ref PpuPixelPrioBufs[3] winBuffers) const @safe pure {
 		// Top 4 bits contain the prio level, and bottom 4 bits the layer num
 		// split into minimums and maximums
 		enum ushort[2][4][2][8] priorityTable = [
@@ -747,7 +725,11 @@ struct PPU {
 		];
 
 		if (lineHasSprites) {
-			drawSprites(y, sub, mode != 7);
+			const layer = 4;
+			if (IS_SCREEN_ENABLED(sub, layer)) {
+				const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
+				drawSprites(y, mode != 7, winBuffers[sub], winBuffers[2], win);
+			}
 		}
 		sw: switch (mode) {
 			static foreach (i; 0 .. 7) {
@@ -755,41 +737,49 @@ struct PPU {
 					static foreach (layer; 0 .. 4) {{
 						enum bpp = bgBPP[i][layer];
 						static if (bpp > 0) {
-							const priorityHigh = cast(ushort)((priorityTable[i][bg3Priority][layer][0] << 12) | (layer << 8));
-							const priorityLow = cast(ushort)((priorityTable[i][bg3Priority][layer][1] << 12) | (layer << 8));
-							if (bgLayer[layer].mosaic) {
-								drawBackgroundMosaic!bpp(y, sub, layer, priorityHigh, priorityLow);
-							} else {
-								drawBackground!bpp(y, sub, layer, [priorityLow, priorityHigh]);
+							if (IS_SCREEN_ENABLED(sub, layer)) {
+								const priorityHigh = cast(ushort)((priorityTable[i][bg3Priority][layer][0] << 12) | (layer << 8));
+								const priorityLow = cast(ushort)((priorityTable[i][bg3Priority][layer][1] << 12) | (layer << 8));
+								const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
+								if (bgLayer[layer].mosaic) {
+									drawBackgroundMosaic!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
+								} else {
+									drawBackground!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
+								}
 							}
 						}
 					}}
 					break sw;
 			}
 			case 7:
-				drawBackgroundMode7(y, sub, 0xc000);
+				const layer = 0;
+				if (!IS_SCREEN_ENABLED(sub, layer)) {
+					return; // layer is completely hidden
+				}
+				const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
+				drawBackgroundMode7(y, 0xc000, winBuffers[layer], win);
 				break;
 			default:
 				assert(0);
 		}
 	}
 
-	private void drawWholeLine(Array2D!RGBA8888 renderBuffer, uint y) @safe pure {
+	private void drawWholeLine(Array2D!RGBA8888 renderBuffer, scope ref PpuPixelPrioBufs[3] winBuffers, uint y) const @safe pure {
 		if (forcedBlank) {
 			renderBuffer[0 .. $, y - 1] = RGBA8888(0);
 			return;
 		}
 
 		if (mode == 7 && (renderFlags & KPPURenderFlags.mode74x4)) {
-			drawMode7Upsampled(renderBuffer, y);
+			drawMode7Upsampled(renderBuffer, winBuffers[2], y);
 			return;
 		}
 
 		// Default background is backdrop
-		ClearBackdrop(bgBuffers[0]);
+		ClearBackdrop(winBuffers[0]);
 
 		// Render main screen
-		drawBackgrounds(y, false);
+		drawBackgrounds(y, false, winBuffers);
 
 		// The 6:th bit is automatically zero, math is never applied to the first half of the sprites.
 		uint math_enabled = mathEnabled;
@@ -797,16 +787,15 @@ struct PPU {
 		// Render also the subscreen?
 		bool rendered_subscreen = false;
 		if (preventMathMode != 3 && addSubscreen && math_enabled) {
-			ClearBackdrop(bgBuffers[1]);
+			ClearBackdrop(winBuffers[1]);
 			if (screenEnabled[1] != 0) {
-				drawBackgrounds(y, true);
+				drawBackgrounds(y, true, winBuffers);
 				rendered_subscreen = true;
 			}
 		}
 
 		// Color window affects the drawing mode in each region
-		PpuWindows cwin;
-		windowsCalc(cwin, 5);
+		const cwin = windowsCalc(5);
 		static const ubyte[8] kCwBitsMod = [
 			0x00, 0xff, 0xff, 0x00,
 			0xff, 0x00, 0xff, 0x00,
@@ -830,28 +819,28 @@ struct PPU {
 				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
 				uint i = left;
 				do {
-					const color = cgram[bgBuffers[0].data[i] & 0xff];
+					const color = cgram[winBuffers[0].data[i] & 0xff];
 					dst[0] = RGBA8888(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
 					dst = dst[1 .. $];
 				} while (++i < right);
 			} else {
-				ubyte[] half_color_map = halfColor ? brightnessMultHalf : brightnessMult;
+				auto half_color_map = halfColor ? brightnessMultHalf : brightnessMult;
 				// Store this in locals
 				math_enabled_cur |= addSubscreen << 8 | subtractColor << 9;
 				// Need to check for each pixel whether to use math or not based on the main screen layer.
 				uint i = left;
 				do {
-					const color = cgram[bgBuffers[0].data[i] & 0xff];
+					const color = cgram[winBuffers[0].data[i] & 0xff];
 					BGR555 color2;
-					ubyte main_layer = (bgBuffers[0].data[i] >> 8) & 0xf;
+					ubyte main_layer = (winBuffers[0].data[i] >> 8) & 0xf;
 					uint r = color.red & clip_color_mask;
 					uint g = color.green & clip_color_mask;
 					uint b = color.blue & clip_color_mask;
-					ubyte[] color_map = brightnessMult;
+					const(ubyte)[] color_map = brightnessMult;
 					if (math_enabled_cur & (1 << main_layer)) {
 						if (math_enabled_cur & 0x100) { // addSubscreen ?
-							if ((bgBuffers[1].data[i] & 0xff) != 0) {
-								color2 = cgram[bgBuffers[1].data[i] & 0xff];
+							if ((winBuffers[1].data[i] & 0xff) != 0) {
+								color2 = cgram[winBuffers[1].data[i] & 0xff];
 								color_map = half_color_map;
 							} else {// Don't halve if addSubscreen && backdrop
 								color2 = fixed_color;
@@ -888,11 +877,11 @@ struct PPU {
 		}
 	}
 
-	private void handlePixel(Array2D!RGBA8888 renderBuffer, int x, int y) @safe pure {
+	private void handlePixel(Array2D!RGBA8888 renderBuffer, scope ref PpuPixelPrioBufs objBuffer, int x, int y) const @safe pure {
 		BGR555 colour1;
 		BGR555 colour2;
 		if (!forcedBlank) {
-			int mainLayer = getPixel(x, y, false, colour1);
+			int mainLayer = getPixel(x, y, false, colour1, objBuffer);
 
 			bool colorWindowState = getWindowState(5, x);
 			if (
@@ -909,7 +898,7 @@ struct PPU {
 				(preventMathMode == 1 && !colorWindowState)
 				);
 			if ((mathEnabled && addSubscreen) || mode == 5 || mode == 6) {
-				secondLayer = getPixel(x, y, true, colour2);
+				secondLayer = getPixel(x, y, true, colour2, objBuffer);
 			}
 			// TODO: subscreen pixels can be clipped to black as well
 			// TODO: math for subscreen pixels (add/sub sub to main)
@@ -959,7 +948,7 @@ struct PPU {
 		[8, 7, 5, 5]
 	];
 
-	private int getPixel(int x, int y, bool sub, ref BGR555 colour) @safe pure {
+	private int getPixel(int x, int y, bool sub, ref BGR555 colour, scope ref PpuPixelPrioBufs objBuffer) const @safe pure {
 		// array for layer definitions per mode:
 		// 0-7: mode 0-7; 8: mode 1 + l3prio; 9: mode 7 + extbg
 		// 0-3; layers 1-4; 4: sprites; 5: nonexistent
@@ -1054,7 +1043,7 @@ struct PPU {
 	}
 
 
-	private int getPixelForBGLayer(int x, int y, int layer, bool priority) @safe pure {
+	private int getPixelForBGLayer(int x, int y, int layer, bool priority) const @safe pure {
 		const layerp = bgLayer[layer];
 		// figure out address of tilemap word and read it
 		bool wideTiles = mode == 5 || mode == 6;
@@ -1145,7 +1134,7 @@ struct PPU {
 		);
 	}
 
-	private int getPixelForMode7(int x, int layer, bool priority) @safe pure {
+	private int getPixelForMode7(int x, int layer, bool priority) const @safe pure {
 		if (bgLayer[layer].mosaic) {
 			x -= x % mosaicSize;
 		}
@@ -1169,7 +1158,7 @@ struct PPU {
 		return pixel;
 	}
 
-	private bool getWindowState(int layer, int x) @safe pure {
+	private bool getWindowState(int layer, int x) const @safe pure {
 		uint winflags = GET_WINDOW_FLAGS(layer);
 		if (!(winflags & kWindow1Enabled) && !(winflags & kWindow2Enabled)) {
 			return false;
@@ -1193,7 +1182,7 @@ struct PPU {
 		return test1 || test2;
 	}
 
-	private bool evaluateSprites(int line) @safe pure {
+	private bool evaluateSprites(int line, scope ref PpuPixelPrioBufs objBuffer) const @safe pure {
 		int spritesLeft = 32 + 1, tilesLeft = 34 + 1;
 		ubyte[2] spriteSizes = [ kSpriteSizes[objSize][0], kSpriteSizes[objSize][1] ];
 		if (renderFlags & KPPURenderFlags.noSpriteLimits) {
@@ -1242,7 +1231,7 @@ struct PPU {
 					// figure out which tile this uses, looping within 16x16 pages, and get it's data
 					int usedCol = lowOBJ.flipHorizontal ? spriteSize - 1 - col : col;
 					int usedTile = (((lowOBJ.startingTile >> 4) + (row >> 3)) << 4) | (((lowOBJ.startingTile & 0xf) + (usedCol >> 3)) & 0xf);
-					ushort[] addr = vram[(objAdr + usedTile * 16 + (row & 0x7)) & 0x7fff .. $];
+					auto addr = vram[(objAdr + usedTile * 16 + (row & 0x7)) & 0x7fff .. $];
 					uint plane = addr[0] | addr[8] << 16;
 					// go over each pixel
 					int px_left = max(-(col + x + kPpuExtraLeftRight), 0);
@@ -2279,4 +2268,8 @@ union SETINIValue {
 			bool, "", 1,
 		));
 	}
+}
+
+private float interpolate(float x, float xmin, float xmax, float ymin, float ymax) @safe pure {
+	return ymin + (ymax - ymin) * (x - xmin) * (1.0f / (xmax - xmin));
 }
