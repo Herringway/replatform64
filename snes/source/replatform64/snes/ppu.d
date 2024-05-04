@@ -347,13 +347,10 @@ struct PPU {
 		}
 		auto tiles = (cast(const(TileType)[])vram).cycle[(bglayer.tileAdr * 2) / TileType.sizeof .. (bglayer.tileAdr * 2) / TileType.sizeof + 0x400];
 		y = mosaicModulo[y] + bglayer.vScroll;
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			uint x = win.edges[windex] + bglayer.hScroll;
-			uint w = win.edges[windex + 1] - win.edges[windex];
-			PpuZbufType[] dstz = bgBuffer.data[win.edges[windex] + kPpuExtraLeftRight .. $];
+		foreach (edges; win.validEdges) {
+			uint x = edges[0] + bglayer.hScroll;
+			uint w = edges[1] - edges[0];
+			PpuZbufType[] dstz = bgBuffer.data[edges[0] + kPpuExtraLeftRight .. $];
 			const tileLine = (y / 8) % 32;
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
@@ -423,12 +420,9 @@ struct PPU {
 			}
 			return result;
 		}
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			const sx = win.edges[windex];
-			PpuZbufType[] dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. win.edges[windex + 1] + kPpuExtraLeftRight];
+		foreach (edges; win.validEdges) {
+			const sx = edges[0];
+			PpuZbufType[] dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
 			uint x = sx + bglayer.hScroll;
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
@@ -482,12 +476,9 @@ struct PPU {
 	}
 
 	private void drawSprites(uint y, bool clearBackdrop, scope ref PpuPixelPrioBufs bgBuffer, scope const ref PpuPixelPrioBufs objBuffer, const PpuWindows win) const @safe pure {
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			const left = win.edges[windex];
-			const width = win.edges[windex + 1] - left;
+		foreach (edges; win.validEdges) {
+			const left = edges[0];
+			const width = edges[1] - left;
 			auto src = objBuffer.data[left + kPpuExtraLeftRight .. $];
 			PpuZbufType[] dst = bgBuffer.data[left + kPpuExtraLeftRight .. $];
 			if (clearBackdrop) {
@@ -526,11 +517,8 @@ struct PPU {
 			(m7matrix[1] * clippedV & ~63) + (xCenter << 8);
 		uint m7startY = (m7matrix[2] * clippedH & ~63) + (m7matrix[3] * ry & ~63) +
 			(m7matrix[3] * clippedV & ~63) + (yCenter << 8);
-		for (size_t windex = 0; windex < win.nr; windex++) {
-			if (win.bits & (1 << windex)) {
-				continue; // layer is disabled for this window part
-			}
-			int x = win.edges[windex], x2 = win.edges[windex + 1], tile;
+		foreach (edges; win.validEdges) {
+			int x = edges[0], x2 = edges[1], tile;
 			PpuZbufType[] dstz = bgBuffer.data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
 			uint rx = m7xFlip ? 255 - x : x;
 			uint xpos = m7startX + m7matrix[0] * rx;
@@ -762,8 +750,9 @@ struct PPU {
 		auto dst_org = renderBuffer[0 .. $, y - 1];
 		auto dst = dst_org[extraLeftRight - extraLeftCur .. $];
 
-		foreach (windex; 0 .. cwin.nr) {
-			const left = cwin.edges[windex] + kPpuExtraLeftRight, right = cwin.edges[windex + 1] + kPpuExtraLeftRight;
+		foreach (edges; cwin.allEdges) {
+			const left = edges[0] + kPpuExtraLeftRight;
+			const right = edges[1] + kPpuExtraLeftRight;
 			// If clip is set, then zero out the rgb values from the main screen.
 			const clip_color_mask = (cw_clip_math & 1) ? 0x1f : 0;
 			uint math_enabled_cur = (cw_clip_math & 0x100) ? mathEnabled : 0;
@@ -1549,6 +1538,12 @@ struct PpuWindows {
 	short[6] edges;
 	ubyte nr;
 	ubyte bits;
+	auto validEdges() const {
+		return zip(iota(edges.length), edges[].slide(2)).filter!(x => !(bits & (1 << x[0]))).map!(x => x[1]).take(nr);
+	}
+	auto allEdges() const {
+		return edges[0 .. nr + 1].slide(2);
+	}
 }
 
 unittest {
