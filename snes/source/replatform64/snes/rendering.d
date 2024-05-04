@@ -83,7 +83,7 @@ struct SNESRenderer {
 				HDMAWrite[] hdmaTemp = neoHDMAData[0 .. neoNumHDMA];
 				foreach (i; 0 .. height) {
 					while ((hdmaTemp.length > 0) && (hdmaTemp[0].vcounter == i)) {
-						neoRenderer.write(hdmaTemp[0].addr, hdmaTemp[0].value);
+						neoRenderer.writeRegister(hdmaTemp[0].addr, hdmaTemp[0].value);
 						hdmaTemp = hdmaTemp[1 .. $];
 					}
 					neoRenderer.runLine(buffer, i);
