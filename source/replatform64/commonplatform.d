@@ -60,7 +60,7 @@ struct PlatformCommon {
 		this.game = new Fiber(dg);
 		backend = loadBackend(backendType, settings);
 		backend.video.hideUI();
-		//startWatchDog();
+		startWatchDog();
 	}
 	void installAudioCallback(void* data, AudioCallback callback) @safe {
 		backend.audio.installCallback(data, callback);

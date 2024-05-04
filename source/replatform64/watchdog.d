@@ -59,6 +59,7 @@ struct SimpleWatchDog {
 }
 /// Main function for the watchdog thread. If a hang is detected, generate a crash dump and exit
 noreturn watchGameLogic() {
+	watchDog.lastPetting = MonoTime.currTime;
 	while(true) {
 		if (watchDog.alarmed) {
 			watchDog.printStackTrace();
