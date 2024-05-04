@@ -62,6 +62,7 @@ noreturn watchGameLogic() {
 	watchDog.lastPetting = MonoTime.currTime;
 	while(true) {
 		if (watchDog.alarmed) {
+			tracef("alarmed! (%s)", MonoTime.currTime() - watchDog.lastPetting);
 			watchDog.printStackTrace();
 			break;
 		}
