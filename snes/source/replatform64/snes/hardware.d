@@ -266,4 +266,8 @@ struct BGR555 {
 	this(ushort value) @safe pure {
 		this.value = value;
 	}
+	void toString(S)(S sink) const {
+		import std.format : formattedWrite;
+		sink.formattedWrite("BGR555(%s, %s, %s)", red, green, blue);
+	}
 }
