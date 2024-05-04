@@ -781,12 +781,9 @@ struct PPU {
 		// Render main screen
 		drawBackgrounds(y, false, winBuffers);
 
-		// The 6:th bit is automatically zero, math is never applied to the first half of the sprites.
-		uint math_enabled = mathEnabled;
-
 		// Render also the subscreen?
 		bool rendered_subscreen = false;
-		if (preventMathMode != 3 && addSubscreen && math_enabled) {
+		if (preventMathMode != 3 && addSubscreen && mathEnabled) {
 			ClearBackdrop(winBuffers[1]);
 			if (screenEnabled[1] != 0) {
 				drawBackgrounds(y, true, winBuffers);
@@ -796,24 +793,22 @@ struct PPU {
 
 		// Color window affects the drawing mode in each region
 		const cwin = windowsCalc(5);
-		static const ubyte[8] kCwBitsMod = [
+		static immutable ubyte[8] kCwBitsMod = [
 			0x00, 0xff, 0xff, 0x00,
 			0xff, 0x00, 0xff, 0x00,
 		];
 		uint cw_clip_math = ((cwin.bits & kCwBitsMod[clipMode]) ^ kCwBitsMod[clipMode + 4]) |
 													((cwin.bits & kCwBitsMod[preventMathMode]) ^ kCwBitsMod[preventMathMode + 4]) << 8;
 
-		auto dst = renderBuffer[0 .. $, y - 1];
-		auto dst_org = dst;
-
-		dst = dst[extraLeftRight - extraLeftCur .. $];
+		auto dst_org = renderBuffer[0 .. $, y - 1];
+		auto dst = dst_org[extraLeftRight - extraLeftCur .. $];
 
 		uint windex = 0;
 		do {
-			uint left = cwin.edges[windex] + kPpuExtraLeftRight, right = cwin.edges[windex + 1] + kPpuExtraLeftRight;
+			const left = cwin.edges[windex] + kPpuExtraLeftRight, right = cwin.edges[windex + 1] + kPpuExtraLeftRight;
 			// If clip is set, then zero out the rgb values from the main screen.
-			uint clip_color_mask = (cw_clip_math & 1) ? 0x1f : 0;
-			uint math_enabled_cur = (cw_clip_math & 0x100) ? math_enabled : 0;
+			const clip_color_mask = (cw_clip_math & 1) ? 0x1f : 0;
+			uint math_enabled_cur = (cw_clip_math & 0x100) ? mathEnabled : 0;
 			const fixed_color = BGR555(fixedColorR, fixedColorG, fixedColorB);
 			if (math_enabled_cur == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
 				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
