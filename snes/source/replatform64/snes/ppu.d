@@ -411,10 +411,9 @@ struct PPU {
 				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
-		int tileadr = bglayer.tileAdr;
-		int pixel;
-		int tileadr1 = tileadr + 7 - (y & 0x7);
-		int tileadr0 = tileadr + (y & 0x7);
+		const tileadr = bglayer.tileAdr;
+		const tileadr1 = tileadr + 7 - (y & 0x7);
+		const tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
 		ulong READ_BITS(uint ta, uint tile) {
 			ulong result;
@@ -428,61 +427,49 @@ struct PPU {
 			if (win.bits & (1 << windex)) {
 				continue; // layer is disabled for this window part
 			}
-			int sx = win.edges[windex];
+			const sx = win.edges[windex];
 			PpuZbufType[] dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. win.edges[windex + 1] + kPpuExtraLeftRight];
 			uint x = sx + bglayer.hScroll;
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
-			ulong bits;
-			PpuZbufType z;
-			void DO_PIXEL(int i)() {
-				pixel = 0;
-				static foreach (plane; 0 .. bpp) {
-					pixel |= (bits >> (7 * plane + i)) & (1 << plane);
-				}
-				if (pixel && (z > dstz[i])) {
-					dstz[i] = cast(ushort)(z + pixel);
-				}
-			}
-			void DO_PIXEL_HFLIP(int i)() {
-				pixel = 0;
-				static foreach (plane; 0 .. bpp) {
-					pixel |= (bits >> (7 * (plane + 1) - i)) & (1 << plane);
-				}
-				if (pixel && z > dstz[i]) {
-					dstz[i] = cast(ushort)(z + pixel);
-				}
-			}
 			x &= 7;
-			int w = mosaicSize - (sx - mosaicModulo[sx]);
-			do {
-				w = min(w, cast(int)dstz.length);
-				uint tile = tp[0];
-				int ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				z = priorities[(tile & 0x2000)];
-				bits = READ_BITS(ta, tile & 0x3ff);
+			const w = mosaicSize - (sx - mosaicModulo[sx]);
+			foreach (chunk; dstz.chunks(w)) {
+				const tile = tp[0];
+				const ta = (tile & 0x8000) ? tileadr1 : tileadr0;
+				const z = priorities[(tile & 0x2000)];
+				auto bits = READ_BITS(ta, tile & 0x3ff);
+				int pixel = 0;
 				if (tile & 0x4000) {
 					bits >>= x;
-					DO_PIXEL!(0);
+					static foreach (plane; 0 .. bpp) {
+						pixel |= (bits >> (7 * plane)) & (1 << plane);
+					}
+					if (pixel && (z > dstz[0])) {
+						dstz[0] = cast(ushort)(z + pixel);
+					}
 				} else {
 					bits <<= x;
-					DO_PIXEL_HFLIP!(0);
+					static foreach (plane; 0 .. bpp) {
+						pixel |= (bits >> (7 * (plane + 1))) & (1 << plane);
+					}
+					if (pixel && z > dstz[0]) {
+						dstz[0] = cast(ushort)(z + pixel);
+					}
 				}
 				if (pixel) {
 					pixel += (tile & 0x1c00) >> kPaletteShift;
-					foreach (i; 0 .. w) {
-						if (z > dstz[i]) {
-							dstz[i] = cast(ushort)(pixel + z);
+					foreach (ref p; chunk) {
+						if (z > p) {
+							p = cast(ushort)(pixel + z);
 						}
 					}
 				}
-				dstz = dstz[w .. $];
 				x += w;
 				for (; x >= 8; x -= 8) {
 					tp = (tp.length > 1) ? tp[1 .. $] : tp_next;
 				}
-				w = mosaicSize;
-			} while (dstz.length != 0);
+			}
 		}
 	}
 
@@ -554,8 +541,7 @@ struct PPU {
 			bool char_fill = m7charFill;
 			if (mosaic_enabled) {
 				int w = mosaicSize - (x - mosaicModulo[x]);
-				do {
-					w = min(w, cast(int)dstz.length);
+				foreach (chunk; dstz.chunks(w)) {
 					if (cast(uint)(xpos | ypos) > outside_value) {
 						if (!char_fill) {
 							break;
@@ -564,19 +550,15 @@ struct PPU {
 					} else {
 						tile = vram[(ypos >> 11 & 0x7f) * 128 + (xpos >> 11 & 0x7f)] & 0xff;
 					}
-					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
+					const pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
 					if (pixel) {
-						foreach (i; 0 .. w) {
-							dstz[i] = cast(ushort)(pixel + z);
-						}
+						chunk[] = cast(ushort)(pixel + z);
 					}
-					xpos += dx * w;
-					ypos += dy * w;
-					dstz = dstz[w .. $];
-					w = mosaicSize;
-				} while (dstz.length > 0);
+					xpos += dx * chunk.length;
+					ypos += dy * chunk.length;
+				}
 			} else {
-				do {
+				foreach (ref dst; dstz) {
 					if (cast(uint)(xpos | ypos) > outside_value) {
 						if (!char_fill) {
 							break;
@@ -587,12 +569,11 @@ struct PPU {
 					}
 					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
 					if (pixel) {
-						dstz[0] = cast(ushort)(pixel + z);
+						dst = cast(ushort)(pixel + z);
 					}
 					xpos += dx;
 					ypos += dy;
-					dstz = dstz[1 .. $];
-				} while (dstz.length > 0);
+				}
 			}
 		}
 	}
@@ -613,28 +594,27 @@ struct PPU {
 	// a subset of the normal features (all that zelda needs)
 	private void drawMode7Upsampled(Array2D!ABGR8888 renderBuffer, scope ref PpuPixelPrioBufs objBuffer, uint y) const @safe pure {
 		// expand 13-bit values to signed values
-		uint xCenter = (cast(short)(m7matrix[4] << 3)) >> 3, yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
-		uint clippedH = ((cast(short)(m7matrix[6] << 3)) >> 3) - xCenter;
-		uint clippedV = ((cast(short)(m7matrix[7] << 3)) >> 3) - yCenter;
+		const xCenter = (cast(short)(m7matrix[4] << 3)) >> 3, yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
+		const clippedH = ((cast(short)(m7matrix[6] << 3)) >> 3) - xCenter;
+		const clippedV = ((cast(short)(m7matrix[7] << 3)) >> 3) - yCenter;
 		int[4] m0v;
 		if (*cast(const(uint)*)&mode7PerspectiveLow == 0) {
-			m0v[0] = m0v[1] = m0v[2] = m0v[3] = m7matrix[0] << 12;
+			m0v[] = m7matrix[0] << 12;
 		} else {
-			static const float[4] kInterpolateOffsets = [ -1, -1 + 0.25f, -1 + 0.5f, -1 + 0.75f ];
+			static immutable float[4] kInterpolateOffsets = [ -1, -1 + 0.25f, -1 + 0.5f, -1 + 0.75f ];
 			for (int i = 0; i < 4; i++) {
 				m0v[i] = cast(int)(4096.0f / interpolate(cast(int)y + kInterpolateOffsets[i], 0, 223, mode7PerspectiveLow, mode7PerspectiveHigh));
 			}
 		}
 		auto render_buffer_ptr = renderBuffer[0 .. $, (y - 1) * 4 .. y * 4];
-		size_t draw_width = 256 + extraLeftCur + extraRightCur;
-		uint m1 = m7matrix[1] << 12; // xpos increment per vert movement
-		uint m2 = m7matrix[2] << 12; // ypos increment per horiz movement
+		const draw_width = 256 + extraLeftCur + extraRightCur;
+		const m1 = m7matrix[1] << 12; // xpos increment per vert movement
+		const m2 = m7matrix[2] << 12; // ypos increment per horiz movement
 		for (int j = 0; j < 4; j++) {
-			uint m0 = m0v[j], m3 = m0;
+			const m0 = m0v[j], m3 = m0;
 			uint xpos = m0 * clippedH + m1 * (clippedV + y) + (xCenter << 20), xcur;
 			uint ypos = m2 * clippedH + m3 * (clippedV + y) + (yCenter << 20), ycur;
 
-			uint tile, pixel;
 			xpos -= (m0 + m1) >> 1;
 			ypos -= (m2 + m3) >> 1;
 			xcur = (xpos << 2) + j * m1;
@@ -643,38 +623,19 @@ struct PPU {
 			xcur -= extraLeftCur * 4 * m0;
 			ycur -= extraLeftCur * 4 * m2;
 
-			auto dst = render_buffer_ptr[0 .. draw_width * 4, j];
-
-			void DRAW_PIXEL(int mode) {
-				tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
-				pixel = vram[tile * 64 + (ycur >> 22 & 7) * 8 + (xcur >> 22 & 7)] >> 8;
+			foreach (ref destPixel; render_buffer_ptr[0 .. draw_width * 4, j]) {
+				const tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
+				auto pixel = vram[tile * 64 + (ycur >> 22 & 7) * 8 + (xcur >> 22 & 7)] >> 8;
 				pixel = (xcur & 0x80000000) ? 0 : pixel;
-				dst[0] = mode ? ABGR8888((colorMapRgb[pixel].value & 0xfefefe) >> 1) : colorMapRgb[pixel];
+				destPixel = halfColor ? ABGR8888((colorMapRgb[pixel].value & 0xfefefe) >> 1) : colorMapRgb[pixel];
 				xcur += m0;
 				ycur += m2;
-				dst = dst[1 .. $];
-			}
-
-			if (!halfColor) {
-				do {
-					DRAW_PIXEL(0);
-					DRAW_PIXEL(0);
-					DRAW_PIXEL(0);
-					DRAW_PIXEL(0);
-				} while (dst.length > 0);
-			} else {
-				do {
-					DRAW_PIXEL(1);
-					DRAW_PIXEL(1);
-					DRAW_PIXEL(1);
-					DRAW_PIXEL(1);
-				} while (dst.length > 0);
 			}
 		}
 
 		if (lineHasSprites) {
 			auto dst = render_buffer_ptr[0 .. $, 0];
-			auto pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
+			const pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
 			for (size_t i = 0; i < draw_width; i++, dst = dst[16 .. $]) {
 				uint pixel = pixels[i] & 0xff;
 				if (pixel) {
@@ -684,13 +645,13 @@ struct PPU {
 		}
 
 		if (extraLeftRight - extraLeftCur != 0) {
-			size_t n = 4 * uint.sizeof * (extraLeftRight - extraLeftCur);
+			const n = 4 * uint.sizeof * (extraLeftRight - extraLeftCur);
 			for(int i = 0; i < 4; i++) {
 				render_buffer_ptr[0 .. n, i] = ABGR8888(0);
 			}
 		}
 		if (extraLeftRight - extraRightCur != 0) {
-			size_t n = 4 * uint.sizeof * (extraLeftRight - extraRightCur);
+			const n = 4 * uint.sizeof * (extraLeftRight - extraRightCur);
 			for (int i = 0; i < 4; i++) {
 				const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
 				render_buffer_ptr[start .. $, i] = ABGR8888(0);
@@ -1441,15 +1402,17 @@ struct PPU {
 				screenWindowed[1] = val;
 				break;
 			case 0x30: // CGWSEL
-				//assert((val & 1) == 0); // directColor always zero
-				addSubscreen = !!(val & 0x2);
-				preventMathMode = (val & 0x30) >> 4;
-				clipMode = (val & 0xc0) >> 6;
+				const parsed = CGWSELValue(val);
+				//assert(parsed.directColour); // direct colour not supported yet
+				addSubscreen = parsed.subscreenEnable;
+				preventMathMode = parsed.mathPreventMode;
+				clipMode = parsed.mathClipMode;
 				break;
 			case 0x31: // CGADSUB
-				subtractColor = !!(val & 0x80);
-				halfColor = !!(val & 0x40);
-				mathEnabled = val & 0x3f;
+				const parsed = CGADSUBValue(val);
+				halfColor = parsed.enableHalf;
+				subtractColor = parsed.enableSubtract;
+				mathEnabled = parsed.layers;
 				break;
 			case 0x32: // COLDATA
 				if(val & 0x80) {
@@ -1834,12 +1797,7 @@ unittest {
 					CGWSEL.mathClipMode = intData & 0b00000011;
 					break;
 				case "ppu.colorMathEnabled":
-					CGADSUB.enableBG1 = !!(byteData & 0b00000001);
-					CGADSUB.enableBG2 = !!(byteData & 0b00000010);
-					CGADSUB.enableBG3 = !!(byteData & 0b00000100);
-					CGADSUB.enableBG4 = !!(byteData & 0b00001000);
-					CGADSUB.enableOBJ = !!(byteData & 0b00010000);
-					CGADSUB.enableBackdrop = !!(byteData & 0b00100000);
+					CGADSUB.layers = byteData & 0b00111111;
 					break;
 				case "ppu.colorMathHalveResult":
 					CGADSUB.enableHalf = byteData & 1;
@@ -2220,9 +2178,9 @@ union CGWSELValue {
 		mixin(bitfields!(
 			bool, "directColour", 1,
 			bool, "subscreenEnable", 1,
-			uint, "", 2,
-			uint, "mathPreventMode", 2,
-			uint, "mathClipMode", 2,
+			ubyte, "", 2,
+			ubyte, "mathPreventMode", 2,
+			ubyte, "mathClipMode", 2,
 		));
 	}
 }
@@ -2231,12 +2189,7 @@ union CGADSUBValue {
 	ubyte raw;
 	struct {
 		mixin(bitfields!(
-			bool, "enableBG1", 1,
-			bool, "enableBG2", 1,
-			bool, "enableBG3", 1,
-			bool, "enableBG4", 1,
-			bool, "enableOBJ", 1,
-			bool, "enableBackdrop", 1,
+			ubyte, "layers", 6,
 			bool, "enableHalf", 1,
 			bool, "enableSubtract", 1,
 		));
