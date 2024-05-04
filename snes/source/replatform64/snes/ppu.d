@@ -470,12 +470,11 @@ struct PPU {
 				}
 				if (pixel) {
 					pixel += (tile & 0x1c00) >> kPaletteShift;
-					int i = 0;
-					do {
+					foreach (i; 0 .. w) {
 						if (z > dstz[i]) {
 							dstz[i] = cast(ushort)(pixel + z);
 						}
-					} while (++i != w);
+					}
 				}
 				dstz = dstz[w .. $];
 				x += w;
@@ -495,25 +494,25 @@ struct PPU {
 		return (prio + 1) * 3;
 	}
 
-	private void drawSprites(uint y, bool clear_backdrop, scope ref PpuPixelPrioBufs bgBuffer, scope ref PpuPixelPrioBufs objBuffer, const PpuWindows win) const @safe pure {
+	private void drawSprites(uint y, bool clearBackdrop, scope ref PpuPixelPrioBufs bgBuffer, scope const ref PpuPixelPrioBufs objBuffer, const PpuWindows win) const @safe pure {
 		for (size_t windex = 0; windex < win.nr; windex++) {
 			if (win.bits & (1 << windex)) {
 				continue; // layer is disabled for this window part
 			}
-			int left = win.edges[windex];
-			int width = win.edges[windex + 1] - left;
+			const left = win.edges[windex];
+			const width = win.edges[windex + 1] - left;
 			auto src = objBuffer.data[left + kPpuExtraLeftRight .. $];
 			PpuZbufType[] dst = bgBuffer.data[left + kPpuExtraLeftRight .. $];
-			if (clear_backdrop) {
+			if (clearBackdrop) {
 				dst[0 .. min($, width * ushort.sizeof)] = src[0 .. min($, width * ushort.sizeof)];
 			} else {
-				do {
+				foreach (_; 0 .. width) {
 					if (src[0] > dst[0]) {
 						dst[0] = src[0];
 					}
 					src = src[1 .. $];
 					dst = dst[1 .. $];
-				} while (--width);
+				}
 			}
 		}
 	}
@@ -567,10 +566,9 @@ struct PPU {
 					}
 					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
 					if (pixel) {
-						int i = 0;
-						do {
+						foreach (i; 0 .. w) {
 							dstz[i] = cast(ushort)(pixel + z);
-						} while (++i != w);
+						}
 					}
 					xpos += dx * w;
 					ypos += dy * w;
@@ -803,8 +801,7 @@ struct PPU {
 		auto dst_org = renderBuffer[0 .. $, y - 1];
 		auto dst = dst_org[extraLeftRight - extraLeftCur .. $];
 
-		uint windex = 0;
-		do {
+		foreach (windex; 0 .. cwin.nr) {
 			const left = cwin.edges[windex] + kPpuExtraLeftRight, right = cwin.edges[windex + 1] + kPpuExtraLeftRight;
 			// If clip is set, then zero out the rgb values from the main screen.
 			const clip_color_mask = (cw_clip_math & 1) ? 0x1f : 0;
@@ -812,19 +809,17 @@ struct PPU {
 			const fixed_color = BGR555(fixedColorR, fixedColorG, fixedColorB);
 			if (math_enabled_cur == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
 				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
-				uint i = left;
-				do {
+				foreach (i; left .. right) {
 					const color = cgram[winBuffers[0].data[i] & 0xff];
 					dst[0] = ABGR8888(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
 					dst = dst[1 .. $];
-				} while (++i < right);
+				}
 			} else {
 				auto half_color_map = halfColor ? brightnessMultHalf : brightnessMult;
 				// Store this in locals
 				math_enabled_cur |= addSubscreen << 8 | subtractColor << 9;
 				// Need to check for each pixel whether to use math or not based on the main screen layer.
-				uint i = left;
-				do {
+				foreach (i; left .. right) {
 					const color = cgram[winBuffers[0].data[i] & 0xff];
 					BGR555 color2;
 					ubyte main_layer = (winBuffers[0].data[i] >> 8) & 0xf;
@@ -857,10 +852,10 @@ struct PPU {
 					}
 					dst[0] = ABGR8888(color_map[r], color_map[g], color_map[b]);
 					dst = dst[1 .. $];
-				} while (++i < right);
+				}
 			}
 			cw_clip_math >>= 1;
-		} while (++windex < cwin.nr);
+		}
 
 		// Clear out stuff on the sides.
 		if (extraLeftRight - extraLeftCur != 0) {
