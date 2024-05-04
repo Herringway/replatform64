@@ -50,7 +50,7 @@ struct SNESRenderer {
 				enforce(initSnesDrawFrame(), "Could not initialize SnesDrawFrame");
 				break;
 			case Renderer.neo:
-				textureType = PixelFormat.argb8888;
+				textureType = PixelFormat.abgr8888;
 				neoRenderer.extraLeftRight = (defaultWidth - 256) / 2;
 				neoRenderer.setExtraSideSpace((defaultWidth - 256) / 2, (defaultWidth - 256) / 2, (defaultHeight - 224) / 2);
 				break;
@@ -78,7 +78,7 @@ struct SNESRenderer {
 				.drawFrame(cast(ushort[])(texture[]), pitch, &bsnesFrame);
 				break;
 			case Renderer.neo:
-				auto buffer = Array2D!RGBA8888(width, height, pitch / RGBA8888.sizeof, cast(RGBA8888[])texture);
+				auto buffer = Array2D!ABGR8888(width, height, pitch / ABGR8888.sizeof, cast(ABGR8888[])texture);
 				neoRenderer.beginDrawing(KPPURenderFlags.newRenderer);
 				HDMAWrite[] hdmaTemp = neoHDMAData[0 .. neoNumHDMA];
 				foreach (i; 0 .. height) {

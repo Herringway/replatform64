@@ -5,19 +5,19 @@ import replatform64.common;
 
 package:
 
-static void dumpPNG(const Array2D!RGBA8888 frame, string file) {
+static void dumpPNG(const Array2D!ABGR8888 frame, string file) {
 	import arsd.png : PngType, writePng;
 	writePng(file, cast(ubyte[])frame[], cast(int)frame.dimensions[0], cast(int)frame.dimensions[1], PngType.truecolor_with_alpha);
 }
-auto comparePNG(const Array2D!RGBA8888 frame, string baseDir, string comparePath) {
+auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath) {
 	import std.format : format;
 	import std.path : buildPath;
 	import arsd.png : readPng;
 	static struct Result {
 		size_t x = size_t.max;
 		size_t y = size_t.max;
-		RGBA8888 expected;
-		RGBA8888 got;
+		ABGR8888 expected;
+		ABGR8888 got;
 		bool opCast(T: bool)() const {
 			return (x != size_t.max) && (y != size_t.max);
 		}
@@ -25,7 +25,7 @@ auto comparePNG(const Array2D!RGBA8888 frame, string baseDir, string comparePath
 	auto reference = readPng(buildPath(baseDir, comparePath));
 	foreach (x; 0 .. frame.dimensions[0]) {
 		foreach (y; 0 .. frame.dimensions[1]) {
-			const refPixel = RGBA8888(reference.getPixel(cast(int)x, cast(int)y).asUint);
+			const refPixel = ABGR8888(reference.getPixel(cast(int)x, cast(int)y).asUint);
 			if (refPixel != frame[x, y]) {
 				return Result(x, y, refPixel, frame[x, y]);
 			}

@@ -204,6 +204,9 @@ class SDL2Video : VideoBackend {
 		final switch (format) {
 			case PixelFormat.rgb555: return SDL_PIXELFORMAT_RGB555; break;
 			case PixelFormat.argb8888: return SDL_PIXELFORMAT_ARGB8888; break;
+			case PixelFormat.bgra8888: return SDL_PIXELFORMAT_BGRA8888; break;
+			case PixelFormat.rgba8888: return SDL_PIXELFORMAT_RGBA8888; break;
+			case PixelFormat.abgr8888: return SDL_PIXELFORMAT_ABGR8888; break;
 		}
 	}
 	void getDrawingTexture(out Texture result) @trusted {

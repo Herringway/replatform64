@@ -14,71 +14,71 @@ immutable ubyte[4][2] nametableMirrorLookup = [
 /**
  * Default hardcoded palette.
  */
-__gshared const RGBA8888[64] defaultPaletteRGB = [
-	RGBA8888(102, 102, 102),
-	RGBA8888(136, 42, 0),
-	RGBA8888(167, 18, 20),
-	RGBA8888(164, 0, 59),
-	RGBA8888(126, 0, 92),
-	RGBA8888(64, 0, 110),
-	RGBA8888(0, 6, 108),
-	RGBA8888(0, 29, 86),
-	RGBA8888(0, 53, 51),
-	RGBA8888(0, 72, 11),
-	RGBA8888(0, 82, 0),
-	RGBA8888(8, 79, 0),
-	RGBA8888(77, 64, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(173, 173, 173),
-	RGBA8888(217, 95, 21),
-	RGBA8888(255, 64, 66),
-	RGBA8888(254, 39, 117),
-	RGBA8888(204, 26, 160),
-	RGBA8888(123, 30, 183),
-	RGBA8888(32, 49, 181),
-	RGBA8888(0, 78, 153),
-	RGBA8888(0, 109, 107),
-	RGBA8888(0, 135, 56),
-	RGBA8888(0, 147, 12),
-	RGBA8888(50, 143, 0),
-	RGBA8888(141, 124, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(255, 254, 255),
-	RGBA8888(255, 176, 100),
-	RGBA8888(255, 144, 146),
-	RGBA8888(255, 118, 198),
-	RGBA8888(255, 106, 243),
-	RGBA8888(204, 110, 254),
-	RGBA8888(112, 129, 254),
-	RGBA8888(34, 158, 234),
-	RGBA8888(0, 190, 188),
-	RGBA8888(0, 216, 136),
-	RGBA8888(48, 228, 92),
-	RGBA8888(130, 224, 69),
-	RGBA8888(222, 205, 72),
-	RGBA8888(79, 79, 79),
-	RGBA8888(0, 0, 0),
-	RGBA8888(0, 0, 0),
-	RGBA8888(255, 254, 255),
-	RGBA8888(255, 223, 192),
-	RGBA8888(255, 210, 211),
-	RGBA8888(255, 200, 232),
-	RGBA8888(255, 194, 251),
-	RGBA8888(234, 196, 254),
-	RGBA8888(197, 204, 254),
-	RGBA8888(165, 216, 247),
-	RGBA8888(148, 229, 228),
-	RGBA8888(150, 239, 207),
-	RGBA8888(171, 244, 189),
-	RGBA8888(204, 243, 179),
-	RGBA8888(242, 235, 181),
-	RGBA8888(184, 184, 184),
-	RGBA8888(0, 0, 0),
-	RGBA8888(0, 0, 0)
+__gshared const ABGR8888[64] defaultPaletteRGB = [
+	ABGR8888(102, 102, 102),
+	ABGR8888(136, 42, 0),
+	ABGR8888(167, 18, 20),
+	ABGR8888(164, 0, 59),
+	ABGR8888(126, 0, 92),
+	ABGR8888(64, 0, 110),
+	ABGR8888(0, 6, 108),
+	ABGR8888(0, 29, 86),
+	ABGR8888(0, 53, 51),
+	ABGR8888(0, 72, 11),
+	ABGR8888(0, 82, 0),
+	ABGR8888(8, 79, 0),
+	ABGR8888(77, 64, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(173, 173, 173),
+	ABGR8888(217, 95, 21),
+	ABGR8888(255, 64, 66),
+	ABGR8888(254, 39, 117),
+	ABGR8888(204, 26, 160),
+	ABGR8888(123, 30, 183),
+	ABGR8888(32, 49, 181),
+	ABGR8888(0, 78, 153),
+	ABGR8888(0, 109, 107),
+	ABGR8888(0, 135, 56),
+	ABGR8888(0, 147, 12),
+	ABGR8888(50, 143, 0),
+	ABGR8888(141, 124, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(255, 254, 255),
+	ABGR8888(255, 176, 100),
+	ABGR8888(255, 144, 146),
+	ABGR8888(255, 118, 198),
+	ABGR8888(255, 106, 243),
+	ABGR8888(204, 110, 254),
+	ABGR8888(112, 129, 254),
+	ABGR8888(34, 158, 234),
+	ABGR8888(0, 190, 188),
+	ABGR8888(0, 216, 136),
+	ABGR8888(48, 228, 92),
+	ABGR8888(130, 224, 69),
+	ABGR8888(222, 205, 72),
+	ABGR8888(79, 79, 79),
+	ABGR8888(0, 0, 0),
+	ABGR8888(0, 0, 0),
+	ABGR8888(255, 254, 255),
+	ABGR8888(255, 223, 192),
+	ABGR8888(255, 210, 211),
+	ABGR8888(255, 200, 232),
+	ABGR8888(255, 194, 251),
+	ABGR8888(234, 196, 254),
+	ABGR8888(197, 204, 254),
+	ABGR8888(165, 216, 247),
+	ABGR8888(148, 229, 228),
+	ABGR8888(150, 239, 207),
+	ABGR8888(171, 244, 189),
+	ABGR8888(204, 243, 179),
+	ABGR8888(242, 235, 181),
+	ABGR8888(184, 184, 184),
+	ABGR8888(0, 0, 0),
+	ABGR8888(0, 0, 0)
 ];
 
 struct OAMEntry {
@@ -131,7 +131,7 @@ struct PPU {
 	enum width = 256;
 	enum height = 240;
 	/// RGB representation of the NES palette.
-	const(RGBA8888)[] paletteRGB = defaultPaletteRGB;
+	const(ABGR8888)[] paletteRGB = defaultPaletteRGB;
 	ubyte[] nesCPUVRAM;
 	private int registerCycle = 0;
 	MirrorType mirrorMode;
@@ -158,7 +158,7 @@ struct PPU {
 			return index + (ppuCtrl & (1 << 3) ? 256 : 0);
 		}
 	}
-	void drawSprite(scope Array2D!RGBA8888 buffer, uint i, bool background) @safe pure {
+	void drawSprite(scope Array2D!ABGR8888 buffer, uint i, bool background) @safe pure {
 		// Read OAM for the sprite
 		ubyte y = oam[i].y;
 		ubyte index = oam[i].index;
@@ -232,7 +232,7 @@ struct PPU {
 	 * Render to a frame buffer.
 	 */
 	void render(uint[] target) @safe pure {
-		auto buffer = Array2D!RGBA8888(256, 240, cast(RGBA8888[])target);
+		auto buffer = Array2D!ABGR8888(256, 240, cast(ABGR8888[])target);
 		// Clear the buffer with the background color
 		buffer[0 .. $, 0 .. $] = paletteRGB[palette[0]];
 
@@ -385,7 +385,7 @@ struct PPU {
 
 		return value;
 	}
-	private void renderTile(scope Array2D!RGBA8888 buffer, int index, int xOffset, int yOffset) @safe pure {
+	private void renderTile(scope Array2D!ABGR8888 buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
 		ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
@@ -462,16 +462,16 @@ unittest {
 	import std.string : lineSplitter;
 	enum width = 256;
 	enum height = 240;
-	static Array2D!RGBA8888 draw(ref PPU ppu) {
+	static Array2D!ABGR8888 draw(ref PPU ppu) {
 		auto buffer = new uint[](width * height);
 		enum pitch = width * 2;
 		ppu.render(buffer);
 		foreach (i, ref pixel; buffer) {
 			pixel = 0xFF000000 | ((pixel & 0xFF) << 16) | (pixel & 0xFF00) | ((pixel & 0xFF0000) >> 16);
 		}
-		return Array2D!RGBA8888(width, height, cast(RGBA8888[])buffer);
+		return Array2D!ABGR8888(width, height, cast(ABGR8888[])buffer);
 	}
-	static Array2D!RGBA8888 renderMesen2State(string filename) {
+	static Array2D!ABGR8888 renderMesen2State(string filename) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
 		ppu.nesCPUVRAM = new ubyte[](0x4000);

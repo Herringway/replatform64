@@ -136,7 +136,10 @@ struct Texture {
 
 enum PixelFormat {
 	rgb555,
+	abgr8888,
 	argb8888,
+	bgra8888,
+	rgba8888,
 }
 
 enum WindowMode {
@@ -152,7 +155,7 @@ struct BackendID {
 	string id;
 }
 
-struct RGBA8888 {
+struct ABGR8888 {
 	align(1):
 	union {
 		uint value;
@@ -174,7 +177,7 @@ struct RGBA8888 {
 	}
 	void toString(S)(S sink) const {
 		import std.format : formattedWrite;
-		sink.formattedWrite("RGBA8888(%s, %s, %s, %s)", red, green, blue, alpha);
+		sink.formattedWrite("ABGR8888(%s, %s, %s, %s)", red, green, blue, alpha);
 	}
 }
 

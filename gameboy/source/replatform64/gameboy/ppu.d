@@ -297,7 +297,7 @@ unittest {
 	import std.string : lineSplitter;
 	enum width = 160;
 	enum height = 144;
-	static Array2D!RGBA8888 draw(ref PPU ppu) {
+	static Array2D!ABGR8888 draw(ref PPU ppu) {
 		auto buffer = new ushort[](width * height);
 		enum pitch = width * 2;
 		ppu.drawFullFrame(cast(ubyte[])buffer, pitch);
@@ -308,15 +308,15 @@ unittest {
 			0x5AD6: 0xFFB5B5B5,
 			0x7FFF: 0xFFFFFFFF,
 		];
-		foreach (i, ref pixel; result) { //RGB555 -> RGBA8888
+		foreach (i, ref pixel; result) { //RGB555 -> ABGR8888
 			if (buffer[i] !in colourMap) {
 				import std.logger; infof("%04X", buffer[i]);
 			}
 			pixel = colourMap[buffer[i]];
 		}
-		return Array2D!RGBA8888(width, height, cast(RGBA8888[])result);
+		return Array2D!ABGR8888(width, height, cast(ABGR8888[])result);
 	}
-	static Array2D!RGBA8888 renderMesen2State(string filename) {
+	static Array2D!ABGR8888 renderMesen2State(string filename) {
 		PPU ppu;
 		ppu.vram = new ubyte[](0x10000);
 		auto file = cast(ubyte[])read(buildPath("testdata/gameboy", filename));
