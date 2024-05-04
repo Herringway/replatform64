@@ -1,34 +1,38 @@
 module replatform64.framestat;
 
+import core.time;
+import std.algorithm.mutation;
+import std.range;
+
+static immutable frameStatisticLabels = ["Events", "Game logic", "Rendering"];
 enum FrameStatistic {
-	gameLogic,
 	events,
-	renderer,
-	overlay,
-	imgui,
+	gameLogic,
 	ppu,
 }
+struct Frame {
+	MonoTime[2][FrameStatistic.max + 1] statistics;
+	MonoTime start;
+	MonoTime end;
+}
 struct FrameStatTracker {
-	import core.time : Duration, MonoTime;
-	MonoTime[2][FrameStatistic.max + 1] frameStatistics;
-	private MonoTime[2][FrameStatistic.max + 1] frameStatisticsNextFrame;
+	enum frameCount = 60;
+	Frame[frameCount] history;
+	private Frame next;
 	private MonoTime lastCheck;
-	MonoTime frameStart;
-	MonoTime frameEnd;
-	private MonoTime nextFrameStart;
 	void startFrame() {
-		lastCheck = MonoTime.currTime;
-		nextFrameStart = lastCheck;
+		auto now = MonoTime.currTime;
+		lastCheck = now;
+		next.start = now;
 	}
 	void checkpoint(FrameStatistic stat) {
-		auto now = MonoTime.currTime();
-		frameStatisticsNextFrame[stat] = [lastCheck, now];
+		auto now = MonoTime.currTime;
+		next.statistics[stat] = [lastCheck, now];
 		lastCheck = now;
 	}
 	void endFrame() {
-		frameEnd = MonoTime.currTime();
-		frameStatistics = frameStatisticsNextFrame;
-		frameStart = nextFrameStart;
+		next.end = MonoTime.currTime;
+		copy(history[1 .. $].chain(only(next)), history[]);
 	}
 }
 

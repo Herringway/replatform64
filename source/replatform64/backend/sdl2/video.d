@@ -17,6 +17,7 @@ import std.logger;
 import std.string;
 
 class SDL2Video : VideoBackend {
+	private DebugFunction common;
 	private DebugFunction debugging;
 	private DebugFunction platformDebugging;
 	private DebugFunction gameStateDebugging;
@@ -48,7 +49,8 @@ class SDL2Video : VideoBackend {
 		io.FontGlobalScale = settings.uiZoom;
 		infof("ImGui initialized");
 	}
-	void setDebuggingFunctions(DebugFunction debugFunc, DebugFunction platformDebugFunc, DebugFunction gameStateMenu, DebugFunction platformStateMenu) @safe {
+	void setDebuggingFunctions(DebugFunction commonDebug, DebugFunction debugFunc, DebugFunction platformDebugFunc, DebugFunction gameStateMenu, DebugFunction platformStateMenu) @safe {
+		common = commonDebug;
 		debugging = debugFunc;
 		platformDebugging = platformDebugFunc;
 		this.gameStateDebugging = gameStateMenu;
@@ -151,6 +153,9 @@ class SDL2Video : VideoBackend {
 				}
 				if (platformDebugging) {
 					platformDebugging(state);
+				}
+				if (common) {
+					common(state);
 				}
 				if (debugging) {
 					debugging(state);

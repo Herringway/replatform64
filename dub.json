@@ -11,7 +11,7 @@
 		"siryul": "~>0.6",
 		"pixelatrix": "~>0.0",
 		"d_imgui": { "repository": "git+https://github.com/Herringway/imgui.git", "version": "d88d230e58c85866a1225f53256f2bbdc5d1f8d3" },
-		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "bdf219948b6dd9804c28ef33d686e7083de1940e" }
+		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "2a134420a15a9fc655066dc152312ffe58453650" }
 	},
 	"subPackages": [
 		"gameboy",

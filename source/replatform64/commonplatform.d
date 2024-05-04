@@ -9,8 +9,11 @@ import replatform64.planet;
 import replatform64.ui;
 import replatform64.watchdog;
 
+import imgui.flamegraph;
+
 import core.stdc.stdlib;
 import core.thread;
+import std.algorithm.iteration;
 import std.algorithm.mutation;
 import std.concurrency;
 import std.conv;
@@ -37,6 +40,7 @@ struct PlatformCommon {
 	private uint inputPlaybackFrameCounter;
 	private HookState[][string] hooks;
 	private ubyte[][uint] sramSlotBuffer;
+	private bool metricsEnabled;
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
 		inputPlayback = demo;
 	}
@@ -66,7 +70,40 @@ struct PlatformCommon {
 		backend.audio.installCallback(data, callback);
 	}
 	void enableDebuggingFeatures() @safe {
-		backend.video.setDebuggingFunctions(debugMenu, platformDebugMenu, debugState, platformDebugState);
+		backend.video.setDebuggingFunctions(&debuggingUI, debugMenu, platformDebugMenu, debugState, platformDebugState);
+	}
+	void debuggingUI(const UIState) {
+		if (ImGui.BeginMainMenuBar()) {
+			if (ImGui.BeginMenu("Debugging")) {
+				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
+				ImGui.EndMenu();
+			}
+			ImGui.EndMainMenuBar();
+		}
+		if (metricsEnabled) {
+			if (ImGui.Begin("Metrics")) {
+				PlotFlame("Frame time", (start, end, level, caption, data, idx) {
+					const times = *cast(typeof(frameStatTracker.history)*)data;
+					if (caption) {
+						*caption = frameStatisticLabels[idx];
+					}
+					if (level) {
+						*level = 0;
+					}
+					if (start) {
+						*start = times[].map!(x => (x.statistics[idx][0] - x.start).total!"hnsecs" / 10_000.0).mean;
+					}
+					if (end) {
+						*end = times[].map!(x => (x.statistics[idx][1] - x.start).total!"hnsecs" / 10_000.0).mean;
+					}
+				}, &frameStatTracker.history, cast(int)(FrameStatistic.max + 1), 0, "", float.max, float.max, ImVec2(400.0, 0.0));
+				ImGui.PlotLines("Frame History", (data, idx) {
+					const times = *cast(typeof(frameStatTracker.history)*)data;
+					return (times[idx].end - times[idx].start).total!"hnsecs" / 10_000.0;
+				}, &frameStatTracker.history, cast(int)frameStatTracker.history.length);
+			}
+			ImGui.End();
+		}
 	}
 	void showUI() {
 		backend.video.showUI();
@@ -74,29 +111,31 @@ struct PlatformCommon {
 	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
 		// pet the dog each frame so it knows we're ok
 		watchDog.pet();
-		frameStatTracker.startFrame();
-		if (backend.processEvents()) {
-			return true;
-		}
-		updateInput();
-		frameStatTracker.checkpoint(FrameStatistic.events);
-		if (inputState.exit) {
-			return true;
-		}
-
-		if (!paused || inputState.step) {
-			inputState.step = false;
-			Throwable t = game.call(Fiber.Rethrow.no);
-			if(t) {
-				writeDebugDump(t.msg, t.info);
+		{
+			frameStatTracker.startFrame();
+			scope(exit) frameStatTracker.endFrame();
+			if (backend.processEvents()) {
 				return true;
 			}
-			interrupt();
-		}
-		frameStatTracker.checkpoint(FrameStatistic.gameLogic);
-		draw();
-		frameStatTracker.checkpoint(FrameStatistic.ppu);
+			updateInput();
+			frameStatTracker.checkpoint(FrameStatistic.events);
+			if (inputState.exit) {
+				return true;
+			}
 
+			if (!paused || inputState.step) {
+				inputState.step = false;
+				Throwable t = game.call(Fiber.Rethrow.no);
+				if(t) {
+					writeDebugDump(t.msg, t.info);
+					return true;
+				}
+				interrupt();
+			}
+			frameStatTracker.checkpoint(FrameStatistic.gameLogic);
+			draw();
+			frameStatTracker.checkpoint(FrameStatistic.ppu);
+	}
 		if (!inputState.fastForward) {
 			backend.video.waitNextFrame();
 		}
@@ -105,7 +144,6 @@ struct PlatformCommon {
 			paused = !paused;
 			inputState.pause = false;
 		}
-		frameStatTracker.endFrame();
 		return false;
 	}
 	void updateInput() @safe {

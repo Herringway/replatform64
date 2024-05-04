@@ -13,7 +13,7 @@ class NullAudio : AudioBackend {
 
 class NullVideo : VideoBackend {
 	void initialize(VideoSettings) @safe {}
-	void setDebuggingFunctions(DebugFunction, DebugFunction, DebugFunction, DebugFunction) @safe {}
+	void setDebuggingFunctions(DebugFunction, DebugFunction, DebugFunction, DebugFunction, DebugFunction) @safe {}
 	void deinitialize() @safe {}
 	void getDrawingTexture(out Texture texture) @safe {}
 	void createWindow(string title, WindowSettings settings) @safe {}
