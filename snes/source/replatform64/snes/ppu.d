@@ -2044,6 +2044,7 @@ unittest {
 	runTest("ebmeteor", false, false);
 	runTest("ebgas", true, true);
 	runTest("eb_ss", true, true);
+	runTest("yi_intro", false, false);
 	runTest("8x8BG1Map2BPP32x328PAL", true, true);
 	runTest("8x8BG2Map2BPP32x328PAL", true, false);
 	runTest("8x8BG3Map2BPP32x328PAL", true, false);
@@ -2062,6 +2063,11 @@ unittest {
 	runTest("Perspective", false, false);
 	runTest("Rings", true, false);
 	runTest("RotZoom", false, false);
+	runTest("extbgtest", true, false);
+	runTest("extbgtest2", true, false);
+	runTest("smasb2", false, false);
+	runTest("cttitle", false, false);
+	runTest("gradient", false, false);
 }
 
 union INIDISPValue {
