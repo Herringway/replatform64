@@ -1581,8 +1581,6 @@ enum {
 	kWindow2Enabled = 8,
 }
 
-alias SaveLoadFunc = void function(void*, void*, size_t);
-
 
 struct PpuWindows {
 	short[6] edges;
