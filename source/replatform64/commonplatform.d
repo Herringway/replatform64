@@ -226,6 +226,7 @@ struct PlatformCommon {
 				exit(0);
 			}
 			backend.video.startFrame();
+			watchDog.pet();
 			renderExtractionUI();
 			backend.video.finishFrame();
 			backend.video.waitNextFrame();
