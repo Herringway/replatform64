@@ -10,7 +10,13 @@ import std.concurrency;
 import std.string;
 import std.traits;
 
-alias ProgressUpdateFunction = void delegate(scope const string);
+struct Progress {
+	string title;
+	uint completedItems = 0;
+	uint totalItems = 1;
+}
+
+alias ProgressUpdateFunction = void delegate(scope const Progress);
 alias ExtractFunction = void function(scope ref PlanetArchive, scope ProgressUpdateFunction, immutable(ubyte)[]);
 alias LoadFunction = void function(const PlanetArchive, const scope PlanetArchive.Entry);
 

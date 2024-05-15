@@ -180,17 +180,14 @@ struct PlatformCommon {
 		void extractAllData(Tid main, immutable(ubyte)[] rom) {
 		    PlanetArchive archive;
 		    send(main, "Loading ROM");
-		    const(char)[] last;
 
 		    //handle data that can just be copied as-is
 		    static foreach (asset; SymbolData!Modules) {{
 		        static foreach (i, element; asset.sources) {
-			        if (last != asset.name) {
-			            last = asset.name;
-			            immutable str = text("Extracting ", asset.name);
-			            send(main, str);
+			        {
+						enum str = "Extracting " ~ asset.name;
+			            send(main, Progress(str, i, cast(uint)asset.sources.length));
 			        }
-			        infof("Extracting %s", asset.name);
 			        archive.addFile(asset.name, rom[element.offset .. element.offset + element.length]);
 		        }
 		    }}
@@ -206,21 +203,26 @@ struct PlatformCommon {
 		}
 		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data);
 		bool extractionDone;
-		string lastMessage = "Initializing";
+		auto progress = Progress("Initializing");
 		void renderExtractionUI() {
 			ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, ImVec2(0.5f, 0.5f));
-			ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse);
+			ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
 				Spinner("##spinning", 15, 6,  ImGui.GetColorU32(ImGuiCol.ButtonHovered));
 				ImGui.SameLine();
 				ImGui.Text("Extracting assets. Please wait.");
-				ImGui.Text(lastMessage);
+				ImGui.Text(progress.title);
+				if (progress.totalItems == 0) {
+					ImGui.ProgressBar(0, ImVec2(0, 0));
+				} else {
+					ImGui.ProgressBar(cast(float)progress.completedItems / progress.totalItems, ImVec2(ImGui.GetContentRegionAvail().x, 0), format!"%s/%s"(progress.completedItems, progress.totalItems));
+				}
 			ImGui.End();
 		}
 		while (!extractionDone) {
-			receiveTimeout(0.seconds,
+			while (receiveTimeout(0.seconds,
 				(bool) { extractionDone = true; },
-				(string msg) { lastMessage = msg; }
-			);
+				(const Progress msg) { progress = msg; }
+			)) {}
 			assert(backend);
 			if (backend.processEvents() || backend.input.getState().exit) {
 				exit(0);
