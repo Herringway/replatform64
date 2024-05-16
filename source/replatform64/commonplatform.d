@@ -13,6 +13,7 @@ import imgui.flamegraph;
 
 import core.stdc.stdlib;
 import core.thread;
+import std.algorithm.comparison;
 import std.algorithm.iteration;
 import std.algorithm.mutation;
 import std.concurrency;
@@ -21,6 +22,7 @@ import std.file;
 import std.format;
 import std.logger;
 import std.stdio;
+import std.string;
 import siryul;
 
 enum settingsFile = "settings.yaml";
@@ -36,11 +38,15 @@ struct PlatformCommon {
 	DebugFunction platformDebugMenu;
 	DebugFunction debugState;
 	DebugFunction platformDebugState;
+	Resolution nativeResolution;
 	private const(RecordedInputState)[] inputPlayback;
 	private uint inputPlaybackFrameCounter;
 	private HookState[][string] hooks;
 	private ubyte[][uint] sramSlotBuffer;
 	private bool metricsEnabled;
+	private ImGui.ImGuiContext* imguiContext;
+	private bool renderUI = true;
+	private bool debuggingEnabled;
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
 		inputPlayback = demo;
 	}
@@ -57,25 +63,48 @@ struct PlatformCommon {
 
 	void saveSettings(SystemSettings, GameSettings)(SystemSettings systemSettings, GameSettings gameSettings) {
 		alias Settings = FullSettings!(SystemSettings, GameSettings);
-		settings.video = backend.video.getUIState();
+		settings.video.ui = strip(ImGui.SaveIniSettingsToMemory());
+		settings.video.window = backend.video.getWindowState();
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
 	void initialize(void delegate() dg, Backend backendType = Backend.autoSelect) {
 		this.game = new Fiber(dg);
 		backend = loadBackend(backendType, settings);
-		backend.video.hideUI();
+
+		IMGUI_CHECKVERSION();
+		imguiContext = ImGui.CreateContext();
+		ImGui.LoadIniSettingsFromMemory(settings.video.ui);
+		ImGuiIO* io = &ImGui.GetIO();
+		io.IniFilename = "";
+
+		ImGui.StyleColorsDark();
+		ImGui.GetStyle().ScaleAllSizes(settings.video.uiZoom);
+		io.FontGlobalScale = settings.video.uiZoom;
+		tracef("ImGui initialized");
+
+		renderUI = false;
 		startWatchDog();
+	}
+	void deinitialize() {
+		ImGui.DestroyContext(imguiContext);
+		backend.deinitialize();
 	}
 	void installAudioCallback(void* data, AudioCallback callback) @safe {
 		backend.audio.installCallback(data, callback);
 	}
 	void enableDebuggingFeatures() @safe {
-		backend.video.setDebuggingFunctions(&debuggingUI, debugMenu, platformDebugMenu, debugState, platformDebugState);
+		debuggingEnabled = true;
+		if (settings.video.window.width == settings.video.window.width.max) {
+			//resetWindowSize(true);
+		}
 	}
 	void debuggingUI(const UIState) {
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("Debugging")) {
 				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
+				if (ImGui.MenuItem("Force crash")) {
+					assert(0, "Forced crash");
+				}
 				ImGui.EndMenu();
 			}
 			ImGui.EndMainMenuBar();
@@ -106,7 +135,7 @@ struct PlatformCommon {
 		}
 	}
 	void showUI() {
-		backend.video.showUI();
+		renderUI = true;
 	}
 	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
 		// pet the dog each frame so it knows we're ok
@@ -133,9 +162,12 @@ struct PlatformCommon {
 				interrupt();
 			}
 			frameStatTracker.checkpoint(FrameStatistic.gameLogic);
+			backend.video.startFrame();
 			draw();
 			frameStatTracker.checkpoint(FrameStatistic.ppu);
-	}
+			renderUIElements();
+			backend.video.finishFrame();
+		}
 		if (!inputState.fastForward) {
 			backend.video.waitNextFrame();
 		}
@@ -296,6 +328,59 @@ struct PlatformCommon {
 	}
 	private string saveFileName(uint slot) {
 		return format!"%s.%s.sav"(gameID, slot);
+	}
+	private void renderUIElements() {
+		UIState state;
+		state.window = backend.video.getWindowState();
+		const gameWidth = nativeResolution.width * settings.video.zoom;
+		const gameHeight = nativeResolution.height * settings.video.zoom;
+		if (renderUI) {
+			if (debuggingEnabled) {
+				ImGui.SetNextWindowSize(ImGui.ImVec2(gameWidth, gameHeight), ImGuiCond.FirstUseEver);
+				ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
+				ImGui.Image(backend.video.getRenderingTexture(), ImGui.GetContentRegionAvail());
+				ImGui.End();
+				int areaHeight;
+				if (ImGui.BeginMainMenuBar()) {
+					areaHeight = cast(int)ImGui.GetWindowSize().y;
+					ImGui.EndMainMenuBar();
+				}
+				if (platformDebugMenu) {
+					platformDebugMenu(state);
+				}
+				debuggingUI(state);
+				if (debugMenu) {
+					debugMenu(state);
+				}
+				if (platformDebugState) {
+					ImGui.Begin("Platform", null, ImGuiWindowFlags.None);
+					platformDebugState(state);
+					ImGui.End();
+				}
+				if (debugState) {
+					enum debugWidth = 500;
+					ImGui.SetNextWindowSize(ImGui.ImVec2(debugWidth, state.window.height - (areaHeight - 1)), ImGuiCond.FirstUseEver);
+					ImGui.SetNextWindowPos(ImGui.ImVec2(0, areaHeight - 1), ImGuiCond.FirstUseEver);
+					ImGui.Begin("Debugging");
+					debugState(state);
+					ImGui.End();
+				}
+			} else {
+				ImGui.GetStyle().WindowPadding = ImVec2(0, 0);
+				ImGui.GetStyle().WindowBorderSize = 0;
+				ImGui.SetNextWindowSize(ImGui.ImVec2(state.window.width, state.window.height));
+				ImGui.SetNextWindowPos(ImGui.ImVec2(0, 0));
+				ImGui.Begin("Game", null, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoSavedSettings);
+				auto drawSize = ImGui.GetContentRegionAvail();
+				if (settings.video.keepAspectRatio) {
+					const scaleFactor = min(state.window.width / cast(float)gameWidth, state.window.height / cast(float)gameHeight);
+					drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
+				}
+				ImGui.Image(backend.video.getRenderingTexture(), drawSize);
+				ImGui.End();
+			}
+		}
+
 	}
 }
 

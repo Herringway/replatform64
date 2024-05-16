@@ -23,33 +23,29 @@ struct Renderer {
 		backend.createTexture(width, height, PixelFormat.rgb555);
 	}
 	void draw() {
-		backend.startFrame();
-		{
-			Texture texture;
-			backend.getDrawingTexture(texture);
-			ppu.beginDrawing(texture.buffer[], texture.pitch);
-			foreach (i; 0 .. height) {
-				if (ppu.registers.ly == ppu.registers.lyc) {
-					ppu.registers.stat |= 0b00000100;
-					if ((ppu.registers.stat & 0b01000000) && (statInterrupt !is null)) {
-						statInterrupt();
-					}
-				} else {
-					ppu.registers.stat &= ~0b00000100;
-				}
-				if ((ppu.registers.stat & 0b00100000) && (statInterrupt !is null)) {
+		Texture texture;
+		backend.getDrawingTexture(texture);
+		ppu.beginDrawing(texture.buffer[], texture.pitch);
+		foreach (i; 0 .. height) {
+			if (ppu.registers.ly == ppu.registers.lyc) {
+				ppu.registers.stat |= 0b00000100;
+				if ((ppu.registers.stat & 0b01000000) && (statInterrupt !is null)) {
 					statInterrupt();
 				}
-				ppu.runLine();
-				if ((ppu.registers.stat & 0b00001000) && (statInterrupt !is null)) {
-					statInterrupt();
-				}
-				if ((ppu.registers.ly == 144) && (ppu.registers.stat & 0b00010000) && (statInterrupt !is null)) {
-					statInterrupt();
-				}
+			} else {
+				ppu.registers.stat &= ~0b00000100;
+			}
+			if ((ppu.registers.stat & 0b00100000) && (statInterrupt !is null)) {
+				statInterrupt();
+			}
+			ppu.runLine();
+			if ((ppu.registers.stat & 0b00001000) && (statInterrupt !is null)) {
+				statInterrupt();
+			}
+			if ((ppu.registers.ly == 144) && (ppu.registers.stat & 0b00010000) && (statInterrupt !is null)) {
+				statInterrupt();
 			}
 		}
-		backend.finishFrame();
 	}
 	void waitNextFrame() {
 		backend.waitNextFrame();

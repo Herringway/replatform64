@@ -2,14 +2,16 @@ module replatform64.ui.common;
 
 import std.traits;
 
+import replatform64.backend.common.interfaces;
 import replatform64.common;
 
 import d_imgui.imgui_h;
 import ImGui = d_imgui;
 
+alias DebugFunction = void delegate(const UIState);
+
 struct UIState {
-	int width;
-	int height;
+	WindowState window;
 	float scaleFactor;
 }
 

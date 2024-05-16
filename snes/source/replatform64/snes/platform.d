@@ -61,6 +61,7 @@ struct SNES {
 	void initialize(Backend backendType = Backend.autoSelect) {
 		platform.initialize({ entryPoint(); }, backendType);
 		renderer.initialize(title, platform.backend.video, backendType == Backend.none ? RendererSettings(engine: Renderer.neo) : settings.renderer);
+		platform.nativeResolution = renderer.getResolution();
 		crashHandler = &dumpSNESDebugData;
 		platform.debugMenu = debugMenuRenderer;
 		platform.platformDebugMenu = &commonSNESDebugging;

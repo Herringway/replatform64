@@ -64,8 +64,6 @@ struct GameBoySimple {
 	private bool oamEditorActive;
 	private MemoryEditor memoryEditorOAM;
 	private bool showRendererLayerWindow;
-	alias width = renderer.ppu.width;
-	alias height = renderer.ppu.height;
 
 	private PlatformCommon platform;
 	auto ref gameID() {
@@ -92,6 +90,7 @@ struct GameBoySimple {
 		renderer.ppu.vram = new ubyte[](0x10000);
 
 		apu.initialize();
+		platform.nativeResolution = Resolution(PPU.width, PPU.height);
 		platform.initialize({ entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
 		renderer.initialize(title, platform.backend.video);

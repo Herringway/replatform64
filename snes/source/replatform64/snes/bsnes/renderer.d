@@ -1,6 +1,7 @@
 module replatform64.snes.bsnes.renderer;
 
 import replatform64.backend.common.interfaces;
+import replatform64.common;
 import replatform64.snes.hardware;
 import replatform64.snes.rendering;
 import replatform64.ui;
@@ -185,6 +186,23 @@ align:
 			case 0x212F:
 				TSW = val;
 				break;
+			case 0x2130:
+				CGWSEL = val;
+				break;
+			case 0x2131:
+				CGADSUB = val;
+				break;
+			case 0x2132:
+				if (val & 0x80) {
+					FIXED_COLOUR_DATA_B = val;
+				}
+				if (val & 0x40) {
+					FIXED_COLOUR_DATA_G = val;
+				}
+				if (val & 0x20) {
+					FIXED_COLOUR_DATA_R = val;
+				}
+				break;
 			default:
 				debug infof("Write to unknown register %04X", addr);
 				break;
@@ -286,6 +304,15 @@ align:
 			ImGui.TreePop();
 		}
 	}
+	public void drawFrame(Array2D!RGB555 texture) const {
+		assert(texture.stride == 512);
+		assert(libsfcppu_drawFrame, "libsfcppu not loaded?");
+		texture[] = getFrameData();
+	}
+	RGB555[] getFrameData() const {
+		RGB555* rawdata = cast(RGB555*)libsfcppu_drawFrame(&this);
+		return rawdata[ImgW * 16 .. ImgW * (ImgH + 16)];
+	}
 }
 
 
@@ -343,16 +370,4 @@ bool loadDynamicLibrary(const(char)[] libName) {
 public bool initSnesDrawFrame() {
 	assert(libsfcppu_init, "libsfcppu not loaded?");
 	return libsfcppu_init();
-}
-
-public void drawFrame(ushort[] buffer, int pitch, const(SnesDrawFrameData)* d)
-	in(buffer.length == ImgW * ImgH)
-{
-	assert(pitch == 1024);
-	assert(libsfcppu_drawFrame, "libsfcppu not loaded?");
-	buffer[] = getFrameData(d);
-}
-ushort[] getFrameData(const(SnesDrawFrameData)* d) {
-	ushort * rawdata = libsfcppu_drawFrame(d);
-	return rawdata[ImgW * 16 .. ImgW * (ImgH + 16)];
 }

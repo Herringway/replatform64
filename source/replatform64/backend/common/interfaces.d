@@ -7,7 +7,6 @@ import replatform64.ui;
 import std.bitmanip;
 
 alias AudioCallback = void function(void*, ubyte[]);
-alias DebugFunction = void delegate(const UIState);
 interface AudioBackend {
 	void initialize(uint sampleRate, uint channels, uint samples) @safe;
 	void installCallback(void* data, AudioCallback callback) @safe;
@@ -18,10 +17,11 @@ interface AudioBackend {
 
 interface VideoBackend {
 	void initialize(VideoSettings) @safe;
-	void setDebuggingFunctions(DebugFunction, DebugFunction, DebugFunction, DebugFunction, DebugFunction) @safe;
 	void deinitialize() @safe;
 	void getDrawingTexture(out Texture texture) @safe;
+	void* getRenderingTexture() @safe;
 	void createWindow(string title, WindowSettings settings) @safe;
+	WindowState getWindowState() const @safe;
 	void createTexture(uint width, uint height, PixelFormat format) @safe;
 	void* createSurface(size_t width, size_t height, size_t stride, PixelFormat format) @safe;
 	void setSurfacePixels(void* surface, ubyte[] buffer) @safe;
@@ -29,9 +29,6 @@ interface VideoBackend {
 	void finishFrame() @safe;
 	void waitNextFrame() @safe;
 	void setTitle(scope const char[] title) @safe;
-	void hideUI() @safe;
-	void showUI() @safe;
-	VideoSettings getUIState() @safe;
 }
 interface InputBackend {
 	void initialize(InputSettings) @safe;
@@ -59,15 +56,19 @@ struct BackendSettings {
 	InputSettings input;
 }
 
-struct VideoSettings {
+struct WindowState {
 	WindowMode mode;
-	bool keepAspectRatio = true;
-	uint zoom = 1;
-	uint uiZoom = 1;
 	uint x = uint.max;
 	uint y = uint.max;
 	uint width = uint.max;
 	uint height = uint.max;
+}
+
+struct VideoSettings {
+	WindowState window;
+	bool keepAspectRatio = true;
+	uint zoom = 1;
+	uint uiZoom = 1;
 	string ui;
 }
 
@@ -128,6 +129,9 @@ struct Texture {
 	uint width;
 	uint height;
 	void* surface;
+	Array2D!T asArray2D(T)() @safe pure {
+		return Array2D!T(width, height, pitch / T.sizeof, cast(T[])buffer);
+	}
 	void delegate() @safe nothrow @nogc cleanup;
 	~this() {
 		cleanup();

@@ -63,19 +63,15 @@ struct SNESRenderer {
 		backend.createTexture(width, height, textureType);
 	}
 	void draw() {
-		backend.startFrame();
-		{
-			Texture texture;
-			backend.getDrawingTexture(texture);
-			assert(texture.buffer.length > 0, "No buffer");
-			draw(texture.buffer, texture.pitch);
-		}
-		backend.finishFrame();
+		Texture texture;
+		backend.getDrawingTexture(texture);
+		assert(texture.buffer.length > 0, "No buffer");
+		draw(texture.buffer, texture.pitch);
 	}
 	private void draw(ubyte[] texture, int pitch) {
 		final switch (renderer) {
 			case Renderer.bsnes:
-				.drawFrame(cast(ushort[])(texture[]), pitch, &bsnesFrame);
+				bsnesFrame.drawFrame(Array2D!RGB555(width, height, pitch / RGB555.sizeof, cast(RGB555[])(texture[])));
 				break;
 			case Renderer.neo:
 				auto buffer = Array2D!ABGR8888(width, height, pitch / ABGR8888.sizeof, cast(ABGR8888[])texture);
@@ -127,7 +123,7 @@ struct SNESRenderer {
 		final switch (renderer) {
 			case Renderer.bsnes:
 				pitch = 256 * 4;
-				return .getFrameData(&bsnesFrame);
+				return cast(ushort[])bsnesFrame.getFrameData();
 			case Renderer.neo:
 				auto frame = new ubyte[](width * height * 4);
 				pitch = width * 4;
@@ -222,6 +218,14 @@ struct SNESRenderer {
 			case Renderer.neo:
 				return neoRenderer.debugUI(state, video);
 				break;
+		}
+	}
+	Resolution getResolution() @safe pure {
+		final switch (renderer) {
+			case Renderer.bsnes:
+				return Resolution(512, 448);
+			case Renderer.neo:
+				return Resolution(256, 224);
 		}
 	}
 }

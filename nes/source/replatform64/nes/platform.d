@@ -84,6 +84,7 @@ struct NES {
 		platform.saveSettings(settings, gameSettings);
 	}
 	void initialize(Backend backendType = Backend.autoSelect) {
+		platform.nativeResolution = Resolution(PPU.width, PPU.height);
 		platform.initialize({ entryPoint(); }, backendType);
 		renderer.initialize(title, platform.backend.video);
 		platform.installAudioCallback(&apu, &audioCallback);

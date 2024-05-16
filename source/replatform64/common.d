@@ -42,14 +42,17 @@ struct DebugState {
 	string group;
 	string label;
 }
-
+struct Resolution {
+	uint width;
+	uint height;
+}
 
 // from D documentation
 struct Array2D(E) {
 	import std.format : format;
 	import std.traits : isMutable;
 	private E[] impl;
-	private size_t stride;
+	size_t stride;
 	private size_t width, height;
 
 	this(size_t width, size_t height) inout {
@@ -106,6 +109,12 @@ struct Array2D(E) {
 		auto opAssign(E element) {
 			impl[] = element;
 		}
+		void opIndexAssign(E elem) {
+			impl[] = elem;
+		}
+		void opIndexAssign(E[] elem) {
+			impl[] = elem;
+		}
 		void opIndexAssign(E elem, size_t i, size_t j) {
 			impl[i + stride * j] = elem;
 		}
@@ -120,6 +129,9 @@ struct Array2D(E) {
 		void opIndexAssign(E elem, size_t[2] i, size_t j) {
 			opIndexAssign(elem, i, [j, j+1]);
 		}
+	}
+	Array2D!NewElement opCast(T : Array2D!NewElement, NewElement)() if (NewElement.sizeof == E.sizeof) {
+		return Array2D!NewElement(width, height, stride, cast(NewElement[])impl);
 	}
 
 	// Support for `x..y` notation in slicing operator for the given dimension.
@@ -177,6 +189,11 @@ struct Array2D(E) {
 	tmp[0 .. 2, 0] = 77;
 	assert(tmp[1, 0] == 77);
 	assert(tmp[1, 1] == 31);
+
+	(cast(Array2D!(ushort[2]))tmp)[2,1] = [1, 2];
+	assert(tmp[2, 1] == 0x00020001);
+	immutable tmp2 = (cast(immutable Array2D!(ushort[2]))tmp);
+	assert(tmp2[2,1] == [1,2]);
 }
 
 auto array2D(T)(return T[] array, int width, int height) {

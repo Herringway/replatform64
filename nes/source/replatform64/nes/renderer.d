@@ -18,13 +18,9 @@ struct Renderer {
 		ppu.nesCPUVRAM = new ubyte[](0x4000);
 	}
 	void draw() {
-		backend.startFrame();
-		{
-			Texture texture;
-			backend.getDrawingTexture(texture);
-			ppu.render(cast(uint[])(texture.buffer[]));
-		}
-		backend.finishFrame();
+		Texture texture;
+		backend.getDrawingTexture(texture);
+		ppu.render(cast(uint[])(texture.buffer[]));
 	}
 	void waitNextFrame() {
 		backend.waitNextFrame();
