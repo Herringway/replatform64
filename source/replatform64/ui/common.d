@@ -4,9 +4,7 @@ import std.traits;
 
 import replatform64.backend.common.interfaces;
 import replatform64.common;
-
-import d_imgui.imgui_h;
-import ImGui = d_imgui;
+import replatform64.ui;
 
 alias DebugFunction = void delegate(const UIState);
 
@@ -136,4 +134,11 @@ struct IMGUIValueChanged(T...) {
 bool imguiAteKeyboard() {
 	const io = &ImGui.GetIO();
 	return io.WantCaptureKeyboard;
+}
+
+MemoryEditor defaultMemoryEditorSettings(string filename) {
+	MemoryEditor editor;
+	editor.Dumpable = true;
+	editor.DumpFile = filename;
+	return editor;
 }

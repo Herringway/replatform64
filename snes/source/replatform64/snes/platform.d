@@ -339,12 +339,6 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 	private void commonSNESDebugging(const UIState state) {
-		static MemoryEditor defaultMemoryEditorSettings(string filename) {
-			MemoryEditor editor;
-			editor.Dumpable = true;
-			editor.DumpFile = filename;
-			return editor;
-		}
 		static bool vramEditorActive;
 		static MemoryEditor memoryEditorVRAM = defaultMemoryEditorSettings("VRAM.bin");
 		static bool oam1EditorActive;
