@@ -39,7 +39,6 @@ struct SNES {
 	HLEReadCallback spc700HLERead;
 	private Settings settings;
 	private immutable(ubyte)[] originalData;
-	private SPC700Emulated spc700;
 	private bool useHLEAudio;
 	private PlatformCommon platform;
 	DMAChannel[8] dmaChannels; ///
@@ -76,10 +75,6 @@ struct SNES {
 			user.backend = platform.backend.audio;
 		}
 		useHLEAudio = true;
-	}
-	void initializeAudio() {
-		platform.installAudioCallback(&spc700, &spc700Callback);
-		useHLEAudio = false;
 	}
 	void run() {
 		if (settings.debugging) {
@@ -438,18 +433,10 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 	void APUIO(ubyte port, ubyte val) {
-		if (useHLEAudio) {
-			spc700HLEWrite(port, val, platform.backend.audio);
-		} else {
-			spc700.writePort(port, val);
-		}
+		spc700HLEWrite(port, val, platform.backend.audio);
 	}
 	ubyte APUIO(ubyte port) {
-		if (useHLEAudio) {
-			return spc700HLERead(port);
-		} else {
-			return spc700.readPort(port);
-		}
+		return spc700HLERead(port);
 	}
 	void APUIO0(ubyte val) {
 		APUIO(0, val);
