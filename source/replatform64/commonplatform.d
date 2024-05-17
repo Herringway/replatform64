@@ -44,6 +44,7 @@ struct PlatformCommon {
 	private HookState[][string] hooks;
 	private ubyte[][uint] sramSlotBuffer;
 	private bool metricsEnabled;
+	private bool uiMetricsEnabled;
 	private ImGui.ImGuiContext* imguiContext;
 	private bool renderUI = true;
 	private bool debuggingEnabled;
@@ -104,6 +105,7 @@ struct PlatformCommon {
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("Debugging")) {
 				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
+				ImGui.MenuItem("Enable UI metrics", null, &uiMetricsEnabled);
 				if (ImGui.MenuItem("Force crash")) {
 					assert(0, "Forced crash");
 				}
@@ -134,6 +136,9 @@ struct PlatformCommon {
 				}, &frameStatTracker.history, cast(int)frameStatTracker.history.length);
 			}
 			ImGui.End();
+		}
+		if (uiMetricsEnabled) {
+			ImGui.ShowMetricsWindow(&uiMetricsEnabled);
 		}
 	}
 	void showUI() {
