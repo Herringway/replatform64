@@ -40,6 +40,7 @@ struct SNESRenderer {
 
 	void initialize(string title, VideoBackend newBackend, RendererSettings rendererSettings) {
 		this.renderer = rendererSettings.engine;
+		infof("Initializing SNES PPU renderer %s", this.renderer);
 		PixelFormat textureType;
 		final switch (rendererSettings.engine) {
 			case Renderer.bsnes:
@@ -55,6 +56,7 @@ struct SNESRenderer {
 				neoRenderer.setExtraSideSpace((defaultWidth - 256) / 2, (defaultWidth - 256) / 2, (defaultHeight - 224) / 2);
 				break;
 		}
+		infof("SNES PPU renderer initialized");
 		WindowSettings window;
 		window.baseWidth = width;
 		window.baseHeight = height;

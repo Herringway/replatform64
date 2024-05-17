@@ -69,20 +69,22 @@ struct PlatformCommon {
 	}
 	void initialize(void delegate() dg, Backend backendType = Backend.autoSelect) {
 		this.game = new Fiber(dg);
+		infof("Loading backend");
 		backend = loadBackend(backendType, settings);
 
+		infof("Initializing UI");
 		IMGUI_CHECKVERSION();
 		imguiContext = ImGui.CreateContext();
 		ImGui.LoadIniSettingsFromMemory(settings.video.ui);
 		ImGuiIO* io = &ImGui.GetIO();
 		io.IniFilename = "";
-
 		ImGui.StyleColorsDark();
 		ImGui.GetStyle().ScaleAllSizes(settings.video.uiZoom);
 		io.FontGlobalScale = settings.video.uiZoom;
-		tracef("ImGui initialized");
+		tracef("UI initialized");
 
 		renderUI = false;
+		infof("Initializing watchdog");
 		startWatchDog();
 	}
 	void deinitialize() {
