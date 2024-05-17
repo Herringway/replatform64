@@ -14,6 +14,8 @@ struct SPC700Emulated {
 	SPC_Filter filter;
 	ubyte[65536][] songs;
 	bool initialized;
+	void delegate(scope ref SPC700Emulated spc, ubyte port, ubyte value) writePortCallback;
+	ubyte delegate(scope ref SPC700Emulated spc, ubyte port) readPortCallback;
 	void initialize() {
 		snes_spc.initialize();
 		filter = SPC_Filter();
@@ -35,13 +37,30 @@ struct SPC700Emulated {
 		waitUntilReady();
 		initialized = true;
 	}
-	void writePort(uint id, ubyte value) {
+	void writePort(ubyte id, ubyte value) {
 		snes_spc.write_port_now(id, value);
 	}
-	ubyte readPort(uint id) {
+	void writeCallback(ubyte id, ubyte value, AudioBackend) {
+		if (writePortCallback) {
+			writePortCallback(this, id, value);
+		} else {
+			writePort(id, value);
+		}
+	}
+	ubyte readPort(ubyte id) {
 		return cast(ubyte)snes_spc.read_port_now(id);
 	}
-	void fillBuffer(short[] buffer) {
+	ubyte readCallback(ubyte id) {
+		if (readPortCallback) {
+			return readPortCallback(this, id);
+		} else {
+			return readPort(id);
+		}
+	}
+	static void callback(SPC700Emulated* user, ubyte[] buffer) {
+		user.callback(cast(short[])buffer);
+	}
+	void callback(short[] buffer) {
 		if (!initialized) {
 			return;
 		}
@@ -51,34 +70,23 @@ struct SPC700Emulated {
 		// Filter samples
 		filter.run(buffer);
 	}
-	void loadNSPC(const(ubyte)[] data) {
-		songs ~= loadNSPCBuffer(data);
-	}
 }
 
 struct NSPC {
 	NSPCPlayer player;
-	Song[] loadedSongs;
 	bool initialized;
 	void delegate(scope ref NSPC nspc, ubyte port, ubyte value, AudioBackend backend) writePortCallback;
 	ubyte delegate(scope ref NSPC nspc, ubyte port) readPortCallback;
 	AudioBackend backend;
-	void changeSong(ubyte track) {
+	void changeSong(const Song track) {
 		initialized = false;
-		player.loadSong(loadedSongs[track]);
+		player.loadSong(track);
 		player.initialize();
 		player.play();
 		initialized = true;
 	}
 	void stop() {
 		player.stop();
-	}
-	void loadSong(const(ubyte)[] data) {
-		loadedSongs ~= loadNSPCFile(data);
-	}
-	void loadWAV(const ubyte[] data) {
-		assert(backend, "No backend loaded");
-		backend.loadWAV(data);
 	}
 	static void callback(NSPC* user, ubyte[] stream) {
 		if (user.initialized) {
@@ -96,9 +104,6 @@ struct NSPC {
 		}
 		return 0;
 	}
-}
-void spc700Callback(void* user, ubyte[] stream) {
-	(*cast(SPC700Emulated*)user).fillBuffer(cast(short[])stream);
 }
 
 ubyte[65536] loadNSPCBuffer(scope const ubyte[] file) @safe {

@@ -284,7 +284,7 @@ struct PlatformCommon {
 		                break sw;
 		        }
 		        default:
-		            func(archive, asset);
+		            func(archive, asset, backend);
 		            break;
 		    }
 		}
