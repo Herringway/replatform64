@@ -69,6 +69,7 @@ struct PlatformCommon {
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
 	void initialize(void delegate() dg, Backend backendType = Backend.autoSelect) {
+		detachConsoleIfUnneeded();
 		this.game = new Fiber(dg);
 		infof("Loading backend");
 		backend = loadBackend(backendType, settings);
@@ -419,4 +420,23 @@ private struct FullSettings(SystemSettings, GameSettings) {
 	SystemSettings system;
 	GameSettings game;
 	BackendSettings backend;
+}
+
+/// Make sure we only have a console window when needed.
+void detachConsoleIfUnneeded() {
+	// windows handles consoles awkwardly. with the WINDOWS subsystem, manual detection is necessary to get a console with STDOUT, and even then it doesn't seem to work seamlessly.
+	// With the CONSOLE subsystem, a console window is ALWAYS created. At least we're able to detach from it immediately if there wasn't one there before, which is mostly invisible.
+	// It still messes with focus if you're using windows terminal, but that's tolerable, at least...
+	version(Windows) {
+		import core.sys.windows.wincon : CONSOLE_SCREEN_BUFFER_INFO, FreeConsole, GetConsoleScreenBufferInfo;
+		import core.sys.windows.winbase : GetStdHandle, STD_OUTPUT_HANDLE;
+		import std.windows.syserror : wenforce;
+		CONSOLE_SCREEN_BUFFER_INFO info;
+		wenforce(GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info), "Buffer info retrieval failed");
+		// (0, 0) cursor coords means we probably don't have an existing console, detach
+		// might still happen if console was cleared immediately before running, but that's an unlikely case
+		if ((info.dwCursorPosition.X == 0) && (info.dwCursorPosition.Y == 0)) {
+			wenforce(FreeConsole(), "Console detaching failed");
+		}
+	}
 }
