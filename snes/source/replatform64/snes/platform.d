@@ -46,6 +46,7 @@ struct SNES {
 	ubyte HVBJOY;
 	ubyte NMITIMEN;
 	ubyte STAT78;
+	private DebugFunction audioDebug;
 	auto ref gameID() {
 		return platform.gameID;
 	}
@@ -73,6 +74,9 @@ struct SNES {
 		spc700HLERead = readCallback;
 		static if (__traits(compiles, user.backend = platform.backend.audio)) {
 			user.backend = platform.backend.audio;
+		}
+		static if (__traits(compiles, audioDebug = &user.debugging)) {
+			audioDebug = &user.debugging;
 		}
 		useHLEAudio = true;
 	}
@@ -369,6 +373,9 @@ struct SNES {
 		if (doDumpPPU) {
 			dumpPPU();
 			doDumpPPU = false;
+		}
+		if (audioDebug) {
+			audioDebug(state);
 		}
 	}
 	private void commonSNESDebuggingState(const UIState state) {
