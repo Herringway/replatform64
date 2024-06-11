@@ -216,8 +216,17 @@ struct PlatformCommon {
 		archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
 	}
 	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data) {
-		void extractAllData(Tid main, immutable(ubyte)[] rom) {
-		    PlanetArchive archive;
+		import std.path : buildPath, dirName;
+		void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem) {
+			PlanetArchive archive;
+			void addFile(string name, const ubyte[] data) {
+				archive.addFile(name, data);
+				if (toFilesystem) {
+					auto fullPath = buildPath("data", name);
+					mkdirRecurse(fullPath.dirName);
+					File(fullPath, "w").rawWrite(data);
+				}
+			}
 		    send(main, "Loading ROM");
 
 		    //handle data that can just be copied as-is
@@ -227,12 +236,12 @@ struct PlatformCommon {
 						enum str = "Extracting " ~ asset.name;
 			            send(main, Progress(str, i, cast(uint)asset.sources.length));
 			        }
-			        archive.addFile(asset.name, rom[element.offset .. element.offset + element.length]);
+			        addFile(asset.name, rom[element.offset .. element.offset + element.length]);
 		        }
 		    }}
 
 		    // extract extra game data that needs special handling
-			extractor(archive, (str) { send(main, str); }, rom);
+			extractor(&addFile, (str) { send(main, str); }, rom);
 
 		    // write the archive
 		    saveAssets(archive);
@@ -240,7 +249,7 @@ struct PlatformCommon {
 		    // done
 		    send(main, true);
 		}
-		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data);
+		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, true);
 		bool extractionDone;
 		auto progress = Progress("Initializing");
 		void renderExtractionUI() {
@@ -289,7 +298,7 @@ struct PlatformCommon {
 		                break sw;
 		        }
 		        default:
-		            func(archive, asset, backend);
+		            func(asset.name, data, backend);
 		            break;
 		    }
 		}
