@@ -2,9 +2,15 @@ module replatform64.assets;
 
 import std.meta;
 
+enum DataType {
+    raw,
+    bpp2intertwined
+}
+
 struct ROMSource {
 	uint offset;
 	uint length;
+    DataType type;
 }
 
 private enum isROMLoadable(alias sym) = (Filter!(typeMatches!ROMSource, __traits(getAttributes, sym)).length == 1) || (Filter!(typeMatches!(ROMSource[]), __traits(getAttributes, sym)).length == 1);
