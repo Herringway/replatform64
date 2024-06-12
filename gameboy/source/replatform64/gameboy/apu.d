@@ -29,28 +29,18 @@ SOFTWARE.
 
 import std.algorithm.comparison : max, min;
 
-enum AUDIO_SAMPLE_RATE = 32768;
+enum DMG_CLOCK_FREQ_U = 4194304;
 
-enum DMG_CLOCK_FREQ = 4194304.0;
-enum SCREEN_REFRESH_CYCLES = 70224.0;
-enum VERTICAL_SYNC = DMG_CLOCK_FREQ/SCREEN_REFRESH_CYCLES;
-
-enum AUDIO_SAMPLES = cast(uint)(AUDIO_SAMPLE_RATE / VERTICAL_SYNC);
-
-enum DMG_CLOCK_FREQ_U = cast(uint)DMG_CLOCK_FREQ;
-enum AUDIO_NSAMPLES = AUDIO_SAMPLES * 2;
-
-enum AUDIO_MEM_SIZE= 0xFF3F - 0xFF10 + 1;
 enum AUDIO_ADDR_COMPENSATION= 0xFF10;
 
 enum VOL_INIT_MAX = short.max / 8;
 enum VOL_INIT_MIN = short.min / 8;
 
 /* Handles time keeping for sound generation.
- * FREQ_INC_REF must be equal to, or larger than AUDIO_SAMPLE_RATE in order
+ * FREQ_INC_REF must be > 0
  * to avoid a division by zero error.
  * Using a square of 2 simplifies calculations. */
-enum FREQ_INC_REF = AUDIO_SAMPLE_RATE * 16;
+enum FREQ_INC_REF = 16;
 
 enum MAX_CHAN_VOLUME = 15;
 
@@ -115,14 +105,15 @@ private struct Channel {
 }
 struct APU {
 	/// Memory holding audio registers between 0xFF10 and 0xFF3F inclusive.
-	private ubyte[AUDIO_MEM_SIZE] audio_mem;
+	private ubyte[0xFF3F - 0xFF10 + 1] audio_mem;
 	Channel[4] chans;
 
 	private int vol_l, vol_r;
+	uint sampleRate = 32000;
 
 	private void set_note_freq(ref Channel c, const uint freq) nothrow @safe pure {
 		/* Lowest expected value of freq is 64. */
-		c.freq_inc = freq * (uint)(FREQ_INC_REF / AUDIO_SAMPLE_RATE);
+		c.freq_inc = freq * FREQ_INC_REF;
 	}
 
 	private void chan_enable(const ubyte i, const bool enable) nothrow @safe pure {
@@ -138,7 +129,7 @@ struct APU {
 	private void update_env(ref Channel c) nothrow @safe pure {
 		c.env.counter += c.env.inc;
 
-		while (c.env.counter > FREQ_INC_REF) {
+		while (c.env.counter > sampleRate * FREQ_INC_REF) {
 			if (c.env.step) {
 				c.volume += c.env.up ? 1 : -1;
 				if (c.volume == 0 || c.volume == MAX_CHAN_VOLUME) {
@@ -146,7 +137,7 @@ struct APU {
 				}
 				c.volume = cast(ubyte)max(0, min(MAX_CHAN_VOLUME, c.volume));
 			}
-			c.env.counter -= FREQ_INC_REF;
+			c.env.counter -= sampleRate * FREQ_INC_REF;
 		}
 	}
 
@@ -156,7 +147,7 @@ struct APU {
 		}
 
 		chans[channel].len.counter += chans[channel].len.inc;
-		if (chans[channel].len.counter > FREQ_INC_REF) {
+		if (chans[channel].len.counter > sampleRate * FREQ_INC_REF) {
 			chan_enable(cast(ubyte)channel, 0);
 			chans[channel].len.counter = 0;
 		}
@@ -167,9 +158,9 @@ struct APU {
 		uint inc = c.freq_inc - pos;
 		c.freq_counter += inc;
 
-		if (c.freq_counter > FREQ_INC_REF) {
+		if (c.freq_counter > sampleRate * FREQ_INC_REF) {
 			//import std.logger; debug infof("new frame?");
-			pos = c.freq_inc - (c.freq_counter - FREQ_INC_REF);
+			pos = c.freq_inc - (c.freq_counter - sampleRate * FREQ_INC_REF);
 			c.freq_counter = 0;
 			return true;
 		} else {
@@ -181,7 +172,7 @@ struct APU {
 	private void update_sweep(ref Channel c) nothrow @safe pure {
 		c.sweep.counter += c.sweep.inc;
 
-		while (c.sweep.counter > FREQ_INC_REF) {
+		while (c.sweep.counter > sampleRate * FREQ_INC_REF) {
 			if (c.sweep.shift) {
 				ushort inc = (c.sweep.freq >> c.sweep.shift);
 				if (!c.sweep.up) {
@@ -199,7 +190,7 @@ struct APU {
 			} else if (c.sweep.rate) {
 				c.enabled = 0;
 			}
-			c.sweep.counter -= FREQ_INC_REF;
+			c.sweep.counter -= sampleRate * FREQ_INC_REF;
 		}
 	}
 
@@ -398,8 +389,8 @@ struct APU {
 			c.env.step = val & 0x07;
 			c.env.up = val & 0x08 ? 1 : 0;
 			c.env.inc = c.env.step ?
-				(FREQ_INC_REF * 64uL) / (cast(uint)c.env.step * AUDIO_SAMPLE_RATE) :
-				(8uL * FREQ_INC_REF) / AUDIO_SAMPLE_RATE ;
+				(FREQ_INC_REF * 64uL) / (cast(uint)c.env.step) :
+				(8uL * FREQ_INC_REF);
 			c.env.counter = 0;
 		}
 
@@ -411,8 +402,8 @@ struct APU {
 			c.sweep.rate = (val >> 4) & 0x07;
 			c.sweep.up = !(val & 0x08);
 			c.sweep.shift = (val & 0x07);
-			c.sweep.inc = c.sweep.rate ? ((128 * FREQ_INC_REF) / (c.sweep.rate * AUDIO_SAMPLE_RATE)) : 0;
-			c.sweep.counter = FREQ_INC_REF;
+			c.sweep.inc = c.sweep.rate ? ((128 * FREQ_INC_REF) / c.sweep.rate) : 0;
+			c.sweep.counter = sampleRate * FREQ_INC_REF;
 		}
 
 		int len_max = 64;
@@ -425,7 +416,7 @@ struct APU {
 			c.val = VOL_INIT_MIN / MAX_CHAN_VOLUME;
 		}
 
-		c.len.inc = (256 * FREQ_INC_REF) / (AUDIO_SAMPLE_RATE * (len_max - c.len.load));
+		c.len.inc = (256 * FREQ_INC_REF) / (len_max - c.len.load);
 		c.len.counter = 0;
 	}
 
@@ -575,7 +566,8 @@ struct APU {
 		}
 	}
 
-	void initialize() @safe pure {
+	void initialize(ushort sampleRate) @safe pure {
+		this.sampleRate = sampleRate;
 		/* Initialise channels and samples. */
 		chans = chans.init;
 		chans[0].val = chans[1].val = -1;

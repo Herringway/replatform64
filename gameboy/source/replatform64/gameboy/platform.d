@@ -89,7 +89,7 @@ struct GameBoySimple {
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
-		apu.initialize();
+		apu.initialize(platform.settings.audio.sampleRate);
 		platform.nativeResolution = Resolution(PPU.width, PPU.height);
 		platform.initialize({ entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
