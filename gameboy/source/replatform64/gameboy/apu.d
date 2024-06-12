@@ -203,7 +203,7 @@ struct APU {
 		}
 	}
 
-	private void update_square(short[] samples, const bool ch2) nothrow @safe pure {
+	private void update_square(short[2][] samples, const bool ch2) nothrow @safe pure {
 		uint freq;
 		Channel* c = &chans[ch2];
 
@@ -215,7 +215,7 @@ struct APU {
 		set_note_freq(*c, freq);
 		c.freq_inc *= 8;
 
-		for (ushort i = 0; i < samples.length; i += 2) {
+		for (ushort i = 0; i < samples.length; i++) {
 			update_len(ch2);
 
 			if (!c.enabled) {
@@ -248,8 +248,8 @@ struct APU {
 			sample *= c.volume;
 			sample /= 4;
 
-			samples[i + 0] += sample * c.on_left * vol_l;
-			samples[i + 1] += sample * c.on_right * vol_r;
+			samples[i][0] += sample * c.on_left * vol_l;
+			samples[i][1] += sample * c.on_right * vol_r;
 		}
 	}
 
@@ -265,7 +265,7 @@ struct APU {
 		return volume ? (sample >> (volume - 1)) : 0;
 	}
 
-	private void update_wave(short[] samples) nothrow @safe pure {
+	private void update_wave(short[2][] samples) nothrow @safe pure {
 		uint freq;
 		Channel *c = &chans[2];
 
@@ -278,7 +278,7 @@ struct APU {
 
 		c.freq_inc *= 32;
 
-		for (ushort i = 0; i < samples.length; i += 2) {
+		for (ushort i = 0; i < samples.length; i++) {
 			update_len(2);
 
 			if (!c.enabled) {
@@ -316,12 +316,12 @@ struct APU {
 
 			sample /= 4;
 
-			samples[i + 0] += sample * c.on_left * vol_l;
-			samples[i + 1] += sample * c.on_right * vol_r;
+			samples[i][0] += sample * c.on_left * vol_l;
+			samples[i][1] += sample * c.on_right * vol_r;
 		}
 	}
 
-	private void update_noise(short[] samples) nothrow @safe pure {
+	private void update_noise(short[2][] samples) nothrow @safe pure {
 		Channel *c = &chans[3];
 
 		if (!c.powered) {
@@ -342,7 +342,7 @@ struct APU {
 			c.enabled = 0;
 		}
 
-		for (ushort i = 0; i < samples.length; i += 2) {
+		for (ushort i = 0; i < samples.length; i++) {
 			update_len(3);
 
 			if (!c.enabled) {
@@ -380,8 +380,8 @@ struct APU {
 			sample *= c.volume;
 			sample /= 4;
 
-			samples[i + 0] += sample * c.on_left * vol_l;
-			samples[i + 1] += sample * c.on_right * vol_r;
+			samples[i][0] += sample * c.on_left * vol_l;
+			samples[i][1] += sample * c.on_right * vol_r;
 		}
 	}
 
@@ -605,7 +605,7 @@ struct APU {
  */
 void audioCallback(void *userdata, ubyte[] stream) {
 	auto apu = cast(APU*)userdata;
-	short[] samples = cast(short[])stream;
+	short[2][] samples = cast(short[2][])stream;
 
 	stream[] = 0;
 	apu.update_square(samples, 0);
