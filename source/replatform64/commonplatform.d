@@ -355,7 +355,12 @@ struct PlatformCommon {
 			if (debuggingEnabled) {
 				ImGui.SetNextWindowSize(ImGui.ImVec2(gameWidth, gameHeight), ImGuiCond.FirstUseEver);
 				ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
-				ImGui.Image(backend.video.getRenderingTexture(), ImGui.GetContentRegionAvail());
+				auto drawSize = ImGui.GetContentRegionAvail();
+				if (settings.video.keepAspectRatio) {
+					const scaleFactor = min(drawSize.x / cast(float)gameWidth, drawSize.y / cast(float)gameHeight);
+					drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
+				}
+				ImGui.Image(backend.video.getRenderingTexture(), drawSize);
 				ImGui.End();
 				int areaHeight;
 				if (ImGui.BeginMainMenuBar()) {
