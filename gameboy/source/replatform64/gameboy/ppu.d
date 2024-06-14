@@ -5,6 +5,7 @@ import replatform64.gameboy.common;
 
 import replatform64.common;
 import replatform64.testhelpers;
+import replatform64.ui;
 
 import std.bitmanip : bitfields;
 
@@ -284,6 +285,65 @@ struct PPU {
 				return registers.obp1;
 			default:
 				return 0; // open bus, but we're not doing anything with that yet
+		}
+	}
+	void debugUI(const UIState state, VideoBackend video) {
+		enum height = 256;
+		enum width = 256;
+		static ushort[width * height] buffer;
+		if (ImGui.BeginTabBar("rendererpreview")) {
+			if (ImGui.BeginTabItem("Background")) {
+				static void* backgroundSurface;
+				if (backgroundSurface is null) {
+					backgroundSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.rgb555);
+				}
+				drawFullBackground(cast(ubyte[])buffer[], width * ushort.sizeof);
+				video.setSurfacePixels(backgroundSurface, cast(ubyte[])buffer[]);
+				ImGui.Image(backgroundSurface, ImVec2(width, height));
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Window")) {
+				static void* windowSurface;
+				if (windowSurface is null) {
+					windowSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.rgb555);
+				}
+				drawFullWindow(cast(ubyte[])buffer[], width * ushort.sizeof);
+				video.setSurfacePixels(windowSurface, cast(ubyte[])buffer[]);
+				ImGui.Image(windowSurface, ImVec2(width, height));
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("OAM")) {
+				static void*[40] spriteSurfaces;
+				const sprHeight = 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites));
+				enum sprWidth = 8;
+				if (ImGui.BeginTable("oamTable", 8)) {
+					foreach (idx, sprite; cast(OAMEntry[])oam) {
+						ImGui.TableNextColumn();
+						if (spriteSurfaces[idx] is null) {
+							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormat.rgb555);
+						}
+						auto sprBuffer = cast(ubyte[])(buffer[0 .. sprWidth * sprHeight]);
+						drawSprite(sprBuffer, sprWidth * ushort.sizeof, cast(uint)idx);
+						video.setSurfacePixels(spriteSurfaces[idx], sprBuffer);
+						ImGui.Image(spriteSurfaces[idx], ImVec2(sprWidth * 4.0, sprHeight * 4.0));
+						if (ImGui.BeginItemTooltip()) {
+							ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
+							ImGui.Text("Tile: %d", sprite.tile);
+							ImGui.Text("Orientation: ");
+							ImGui.SameLine();
+							ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flags >> 5) & 3]);
+							ImGui.Text("Priority: ");
+							ImGui.SameLine();
+							ImGui.Text(["Normal", "High"][sprite.flags >> 7]);
+							ImGui.Text("Palette: %d", (sprite.flags >> 4) & 1);
+							ImGui.EndTooltip();
+						}
+					}
+					ImGui.EndTable();
+				}
+				ImGui.EndTabItem();
+			}
+			ImGui.EndTabBar();
 		}
 	}
 }
