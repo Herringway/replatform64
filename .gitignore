@@ -13,3 +13,4 @@ dub.selections.json
 .vs
 *.spc
 failed
+settings.yaml

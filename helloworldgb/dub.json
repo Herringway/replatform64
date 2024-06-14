@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"Herringway"
+	],
+	"description": "Hello world (gameboy)",
+	"license": "BSL-1.0",
+	"dependencies": {
+		"replatform64:gameboy": "*"
+	},
+	"stringImportPaths": ["resources"],
+	"name": "helloworldgb"
+}

@@ -16,7 +16,8 @@
 	"subPackages": [
 		"gameboy",
 		"snes",
-		"nes"
+		"nes",
+		"helloworldgb"
 	],
 	"stringImportPaths": ["testdata"],
 	"versions": ["SDL_2018", "SDL_Mixer_200"],
