@@ -87,6 +87,20 @@ IMGUIValueChanged!V InputEditableR(ImGuiInputTextFlags flags = ImGuiInputTextFla
 	ImGui.EndGroup();
 	return result;
 }
+
+bool InputSlider(T)(string label, ref T value, T min = T.min, T max = T.max, ImGuiSliderFlags flags = ImGuiSliderFlags.None) {
+	static if (is(T == float)) {
+		return ImGui.SliderFloat(label, &value, min, max, flags: flags);
+	} else static if (is(T : int)) {
+		int val = value;
+		const ret = ImGui.SliderInt(label, &val, min, max, flags: flags);
+		if (ret) {
+			value = cast(T)val;
+		}
+		return ret;
+	}
+}
+
 void InputEditableReadonlyR(ImGuiInputTextFlags flags = ImGuiInputTextFlags.None, V...)(string label, V value) {
 	ImGui.BeginGroup();
 	ImGui.PushID(label);
