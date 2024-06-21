@@ -17,7 +17,8 @@ struct Progress {
 }
 
 alias ProgressUpdateFunction = void delegate(scope const Progress);
-alias ExtractFunction = void function(scope void delegate(string, const ubyte[]), scope ProgressUpdateFunction, immutable(ubyte)[]);
+alias AddFileFunction = void delegate(string, const ubyte[]);
+alias ExtractFunction = void function(scope AddFileFunction, scope ProgressUpdateFunction, immutable(ubyte)[]);
 alias LoadFunction = void function(const scope char[], const scope ubyte[], scope PlatformBackend);
 
 struct PlanetArchive {
