@@ -169,6 +169,9 @@ struct PPU {
 		const tileBlock = (id > 127) ? tileBlockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? tileBlockC : tileBlockA));
 		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
+	Intertwined2BPP getTileUnmapped(short id) const @safe pure {
+		return (cast(const(Intertwined2BPP)[])(vram[0x8000 .. 0x9800]))[id];
+	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
 		// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
@@ -201,6 +204,22 @@ struct PPU {
 		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, windowScreen)) {
 			const tile = getTile(tileID, true);
+			foreach (subPixelX; 0 .. 8) {
+				foreach (subPixelY; 0 .. 8) {
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
+				}
+			}
+		}
+	}
+	void drawFullTileData(Array2D!RGB555 buffer) @safe pure
+		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
+		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
+		in (buffer.dimensions[0] * buffer.dimensions[1] <= 384 * 8 * 8, "Buffer too small")
+	{
+		foreach (tileID; 0 .. 384) {
+			const tileX = (tileID % (buffer.dimensions[0] / 8));
+			const tileY = (tileID / (buffer.dimensions[0] / 8));
+			const tile = getTileUnmapped(cast(short)tileID);
 			foreach (subPixelX; 0 .. 8) {
 				foreach (subPixelY; 0 .. 8) {
 					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
@@ -310,6 +329,26 @@ struct PPU {
 				drawFullWindow(cast(ubyte[])buffer[], width * ushort.sizeof);
 				video.setSurfacePixels(windowSurface, cast(ubyte[])buffer[]);
 				ImGui.Image(windowSurface, ImVec2(width, height));
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Tiles")) {
+				static size_t zoom = 1;
+				if (ImGui.BeginCombo("Zoom", "1x")) {
+					foreach (i, label; ["1x", "2x", "3x", "4x"]) {
+						if (ImGui.Selectable(label, (i + 1) == zoom)) {
+							zoom = i + 1;
+						}
+					}
+					ImGui.EndCombo();
+				}
+				static void* windowSurface;
+				static allTilesBuffer = Array2D!RGB555(16 * 8, 24 * 8);
+				if (windowSurface is null) {
+					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.rgb555);
+				}
+				drawFullTileData(allTilesBuffer);
+				video.setSurfacePixels(windowSurface, cast(ubyte[])allTilesBuffer[]);
+				ImGui.Image(windowSurface, ImVec2(allTilesBuffer.dimensions[0] * zoom, allTilesBuffer.dimensions[1] * zoom));
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
