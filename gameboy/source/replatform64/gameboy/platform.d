@@ -132,8 +132,8 @@ struct GameBoySimple {
 	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
 		platform.registerHook(id, hook, settings);
 	}
-	void extractAssets(Modules...)(ExtractFunction func) {
-		platform.extractAssets!Modules(func, romData);
+	void extractAssets(Modules...)(ExtractFunction func, bool toFileSystem = false) {
+		platform.extractAssets!Modules(func, romData, toFileSystem);
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
 		platform.loadAssets!Modules(func);

@@ -17,12 +17,15 @@ void main() {
 	gb.gameID = "helloworld";
 	auto settings = gb.loadSettings!GameSettings();
 	gb.initialize();
+	gb.loadAssets!(mixin(__MODULE__))(null);
 	gb.run();
 	gb.saveSettings(settings);
 }
+@Asset("8x8font.png", DataType.bpp2Intertwined)
+immutable(ubyte)[] fontData;
 
-immutable ubyte[] fontData = cast(immutable(ubyte)[])import("8x8font.2bpp.bin");
-immutable ubyte[] objData = cast(immutable(ubyte)[])import("obj.2bpp.bin");
+@Asset("obj.png", DataType.bpp2Intertwined)
+immutable(ubyte)[] objData;
 
 ubyte inputPressed;
 void readInput() {

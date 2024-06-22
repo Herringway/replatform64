@@ -156,6 +156,26 @@ struct Array2D(E) {
 		}
 	}
 	int opApply(scope int delegate(size_t x, size_t y, ref E element) @safe pure dg) {
+		return opApplyImpl(dg);
+	}
+	int opApply(scope int delegate(size_t x, size_t y, ref E element) dg) {
+		return opApplyImpl(dg);
+	}
+	int opApply(scope int delegate(size_t x, size_t y, E element) dg) const {
+		return opApplyImpl(dg);
+	}
+	private int opApplyImpl(DG)(scope DG dg) {
+		foreach (iterY; 0 .. height) {
+			foreach (iterX, ref elem; this[0 .. $, iterY][]) {
+				auto result = dg(iterX, iterY, elem);
+				if (result) {
+					return result;
+				}
+			}
+		}
+		return 0;
+	}
+	private int opApplyImpl(DG)(scope DG dg) const {
 		foreach (iterY; 0 .. height) {
 			foreach (iterX, ref elem; this[0 .. $, iterY][]) {
 				auto result = dg(iterX, iterY, elem);

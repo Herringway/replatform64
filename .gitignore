@@ -14,3 +14,4 @@ dub.selections.json
 *.spc
 failed
 settings.yaml
+dump/

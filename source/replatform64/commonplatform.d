@@ -18,12 +18,15 @@ import std.algorithm.iteration;
 import std.algorithm.mutation;
 import std.concurrency;
 import std.conv;
+import std.exception;
 import std.file;
 import std.format;
 import std.logger;
 import std.stdio;
 import std.string;
+import arsd.png;
 import siryul;
+import pixelatrix;
 
 enum settingsFile = "settings.yaml";
 
@@ -213,10 +216,66 @@ struct PlatformCommon {
 		}
 		throw new Exception("Not found");
 	}
+	private const(ubyte)[] readTilesFromImage(T)(const(ubyte)[] data) {
+		if (auto img = cast(IndexedImage)readPngFromBytes(data)) {
+			auto pixelArray = Array2D!ubyte(img.width, img.height, img.width, img.data);
+			auto tiles = Array2D!T(img.width / 8, img.height / 8);
+			foreach (x, y, pixel; pixelArray) {
+				enforce(pixel < 2 ^^ T.bpp, "Source image colour out of range!");
+				tiles[x / 8, y / 8][x % 8, y % 8] = pixel;
+			}
+			return cast(ubyte[])(tiles[]);
+		} else { // not an indexed PNG?
+			throw new Exception("Invalid PNG");
+		}
+	}
+	private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) {
+		const w = min(tiles.length * 8, 16 * 8);
+		const h = max(1, cast(int)((tiles.length + 15) / 16)) * 8;
+		auto img = new IndexedImage(w, h);
+		auto pixelArray = Array2D!ubyte(w, h, img.data);
+		const colours = 1 << T.bpp;
+		foreach (i; 0 .. colours) {
+			ubyte g = cast(ubyte)((255 / colours) * (colours - i));
+			img.addColor(Color(g, g, g, i == 0 ? 0 : 255));
+		}
+		foreach (tileID, tile; tiles) {
+			foreach (colIdx; 0 .. 8) {
+				foreach (rowIdx; 0 .. 8) {
+					pixelArray[(tileID % (w / 8)) * 8 + colIdx, (tileID / (w / 8)) * 8 + rowIdx] = tile[colIdx, rowIdx];
+				}
+			}
+		}
+		return writePngToArray(img);
+	}
+	private const(ubyte)[] loadAsset(const(ubyte)[] data, DataType type) {
+		final switch (type) {
+			case DataType.raw:
+				return data;
+			case DataType.bpp2Intertwined:
+				return readTilesFromImage!Intertwined2BPP(data);
+			case DataType.bpp4Intertwined:
+				return readTilesFromImage!Intertwined4BPP(data);
+		}
+	}
+	private const(ubyte)[] saveAsset(const(ubyte)[] data, DataType type) {
+		try {
+		final switch (type) {
+			case DataType.raw:
+				return data;
+			case DataType.bpp2Intertwined:
+				return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
+			case DataType.bpp4Intertwined:
+				return saveTilesToImage(cast(const(Intertwined4BPP)[])data);
+		}} catch (Error e) {
+			writeln(e);
+			throw e;
+		}
+	}
 	void saveAssets(PlanetArchive archive) {
 		archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
 	}
-	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data) {
+	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data, bool toFilesystem = false) {
 		import std.path : buildPath, dirName;
 		void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem) {
 			PlanetArchive archive;
@@ -237,7 +296,7 @@ struct PlatformCommon {
 						enum str = "Extracting " ~ asset.name;
 			            send(main, Progress(str, i, cast(uint)asset.sources.length));
 			        }
-			        addFile(asset.name, rom[element.offset .. element.offset + element.length]);
+			        addFile(asset.name, saveAsset(rom[element.offset .. element.offset + element.length], asset.type));
 		        }
 		    }}
 
@@ -250,7 +309,7 @@ struct PlatformCommon {
 		    // done
 		    send(main, true);
 		}
-		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, true);
+		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, toFilesystem);
 		bool extractionDone;
 		auto progress = Progress("Initializing");
 		void renderExtractionUI() {
@@ -284,25 +343,41 @@ struct PlatformCommon {
 		}
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
-		const archive = assets;
-		tracef("Loaded %s assets", archive.entries.length);
-		foreach (asset; archive.entries) {
-			const data = archive.getData(asset);
-		    sw: switch (asset.name) {
-		        static foreach (Symbol; SymbolData!Modules) {
-		            case Symbol.name:
-		                static if (Symbol.array) {
-		                    Symbol.data ~= cast(typeof(Symbol.data[0]))data;
-		                } else {
-		                    Symbol.data = cast(typeof(Symbol.data))(data);
-		                }
-		                break sw;
-		        }
-		        default:
-		            func(asset.name, data, backend);
-		            break;
-		    }
+		import std.path : buildPath;
+		PlanetArchive archive;
+		if (assetsExist) {
+			archive = assets;
 		}
+		static foreach (Symbol; SymbolData!Modules) {{
+			enum path = buildPath("data", Symbol.name);
+			const(ubyte)[][] data;
+			if (path.exists) {
+				if (path.isDir) {
+					foreach (file; dirEntries(path, SpanMode.depth)) {
+						data ~= cast(ubyte[])read(file);
+					}
+				} else {
+					data ~= cast(ubyte[])read(path);
+				}
+			} else if (assetsExist) {
+				foreach (asset; archive.entries) {
+					if (asset.name == Symbol.name) {
+						data ~= archive.getData(asset);
+						break;
+					}
+				}
+			} else {
+				throw new Exception("File " ~ Symbol.name ~ " not found");
+			}
+			foreach (file; data) {
+				auto newData = loadAsset(file, Symbol.type);
+				static if (Symbol.array) {
+					Symbol.data ~= cast(typeof(Symbol.data[0]))newData;
+				} else {
+					Symbol.data = cast(typeof(Symbol.data))newData;
+				}
+			}
+		}}
 	}
 	void runHook(string id) {
 		if (auto matchingHooks = id in hooks) {
