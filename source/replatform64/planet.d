@@ -5,12 +5,15 @@ import replatform64.ui;
 
 import core.stdc.stdlib;
 import core.time;
+import std.array;
 import std.algorithm.iteration;
+import std.algorithm.searching;
 import std.bitmanip;
 import std.concurrency;
+import std.range;
 import std.string;
 import std.traits;
-import std.zip;
+import squiz_box;
 
 struct Progress {
 	string title;
@@ -24,29 +27,25 @@ alias ExtractFunction = void function(scope AddFileFunction, scope ProgressUpdat
 alias LoadFunction = void function(const scope char[], const scope ubyte[], scope PlatformBackend);
 
 struct PlanetArchive {
-	ZipArchive zip;
-	void addFile(scope const(char)[] name, const(ubyte)[] data) {
-		if (zip is null) {
-			zip = new ZipArchive;
-		}
-		auto newFile = new ArchiveMember;
-		newFile.name = name.idup;
-		newFile.expandedData = data.dup;
-		newFile.compressionMethod = CompressionMethod.deflate;
-		zip.addMember(newFile);
+	private UnboxEntry[] loaded;
+	private InfoBoxEntry[] files;
+	void addFile(scope const(char)[] name, const(ubyte)[] data)
+		in(!files.map!(x => x.path).canFind(name), name~" already exists in archive!")
+	{
+		files ~= infoEntry(BoxEntryInfo(name.idup), only(data));
 	}
 	void write(OutputRange)(OutputRange range) {
 		import std.algorithm.mutation : copy;
-		copy(cast(ubyte[])zip.build, range);
+		copy(files.boxZip(), range);
 	}
 	static PlanetArchive read(ubyte[] buffer) {
-		return PlanetArchive(new ZipArchive(buffer));
+		return PlanetArchive(buffer.unboxZip.array);
 	}
 	private struct Entry {
 		string name;
 		ubyte[] data;
 	}
 	auto entries() {
-		return zip.directory.values.map!(x => Entry(x.name, zip.expand(x)));
+		return loaded.map!(x => Entry(x.path, x.readContent));
 	}
 }
