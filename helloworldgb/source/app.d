@@ -27,6 +27,26 @@ immutable(ubyte)[] fontData;
 @Asset("obj.png", DataType.bpp2Intertwined)
 immutable(ubyte)[] objData;
 
+@Asset("config.yaml", DataType.structured)
+Config config;
+
+struct Vector {
+	ubyte x;
+	ubyte y;
+}
+struct Dimensions {
+	ubyte width;
+	ubyte height;
+}
+struct Config {
+	ubyte movementSpeed = 1;
+	string text = "Hello world";
+	Vector textCoordinates = Vector(2, 8);
+	Vector startCoordinates = Vector(64, 64);
+	Dimensions playerDimensions = Dimensions(width: 10, height: 10);
+	ubyte recoilFrames = 15;
+}
+
 ubyte inputPressed;
 void readInput() {
 	gb.writeJoy(0x20);
@@ -53,7 +73,7 @@ void start(ushort system) {
 	gb.LCDC = 0;
 	gb.vram[0x8000 .. 0x8000 + objData.length] = objData;
 	gb.vram[0x9000 .. 0x9000 + fontData.length] = fontData;
-	printText(2, 8, "Hello world");
+	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 	gb.SCY = 0;
 	gb.SCX = 0;
 	gb.NR52 = 0;
@@ -65,41 +85,41 @@ void start(ushort system) {
 	(cast(OAMEntry[])gb.oam[])[2] = OAMEntry(0, 0, 3, 0);
 	(cast(OAMEntry[])gb.oam[])[3] = OAMEntry(0, 0, 2, OAMFlags.yFlip);
 	(cast(OAMEntry[])gb.oam[])[4] = OAMEntry(0, 0, 3, OAMFlags.xFlip);
-	short x = 64;
-	short y = 64;
+	short x = config.startCoordinates.x;
+	short y = config.startCoordinates.y;
 	uint altFrames = 0;
 	while (true) {
 		readInput();
 		if (inputPressed & Pad.a) {
-			printText(13, 8, "!");
+			printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, "!");
 		} else if (inputPressed & Pad.b) {
-			printText(13, 8, ".");
+			printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, ".");
 		} else {
-			printText(13, 8, " ");
+			printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, " ");
 		}
 		if (inputPressed & Pad.left) {
-			x--;
+			x -= config.movementSpeed;
 		} else if (inputPressed & Pad.right) {
-			x++;
+			x += config.movementSpeed;
 		}
 		if (inputPressed & Pad.up) {
-			y--;
+			y -= config.movementSpeed;
 		} else if (inputPressed & Pad.down) {
-			y++;
+			y += config.movementSpeed;
 		}
 		if (x > 160) {
 			x = 160;
-			altFrames = 15;
-		} else if (x < 8) {
-			x = 8;
-			altFrames = 15;
+			altFrames = config.recoilFrames;
+		} else if (x < config.playerDimensions.width) {
+			x = config.playerDimensions.width;
+			altFrames = config.recoilFrames;
 		}
 		if (y > 144) {
 			y = 144;
-			altFrames = 15;
-		} else if (y < 8) {
-			y = 8;
-			altFrames = 15;
+			altFrames = config.recoilFrames;
+		} else if (y < config.playerDimensions.height) {
+			y = config.playerDimensions.height;
+			altFrames = config.recoilFrames;
 		}
 		bool useAltFrame;
 		if (altFrames != 0) {

@@ -248,7 +248,7 @@ struct PlatformCommon {
 		}
 		return writePngToArray(img);
 	}
-	private const(ubyte)[] loadAsset(const(ubyte)[] data, DataType type) {
+	private const(ubyte)[] loadROMAsset(const(ubyte)[] data, DataType type) {
 		final switch (type) {
 			case DataType.raw:
 				return data;
@@ -256,10 +256,11 @@ struct PlatformCommon {
 				return readTilesFromImage!Intertwined2BPP(data);
 			case DataType.bpp4Intertwined:
 				return readTilesFromImage!Intertwined4BPP(data);
+			case DataType.structured:
+				assert(0);
 		}
 	}
-	private const(ubyte)[] saveAsset(const(ubyte)[] data, DataType type) {
-		try {
+	private const(ubyte)[] saveROMAsset(const(ubyte)[] data, DataType type) {
 		final switch (type) {
 			case DataType.raw:
 				return data;
@@ -267,9 +268,8 @@ struct PlatformCommon {
 				return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
 			case DataType.bpp4Intertwined:
 				return saveTilesToImage(cast(const(Intertwined4BPP)[])data);
-		}} catch (Error e) {
-			writeln(e);
-			throw e;
+			case DataType.structured:
+				assert(0);
 		}
 	}
 	void saveAssets(PlanetArchive archive) {
@@ -278,34 +278,50 @@ struct PlatformCommon {
 	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data, bool toFilesystem = false) {
 		import std.path : buildPath, dirName;
 		void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem) {
-			PlanetArchive archive;
-			void addFile(string name, const ubyte[] data) {
-				archive.addFile(name, data);
-				if (toFilesystem) {
-					auto fullPath = buildPath("data", name);
-					mkdirRecurse(fullPath.dirName);
-					File(fullPath, "w").rawWrite(data);
+			try {
+				PlanetArchive archive;
+				void addFile(string name, const ubyte[] data) {
+					archive.addFile(name, data);
+					if (toFilesystem) {
+						auto fullPath = buildPath("data", name);
+						mkdirRecurse(fullPath.dirName);
+						File(fullPath, "w").rawWrite(data);
+					}
 				}
+				send(main, "Loading ROM");
+
+				//handle generic data
+				static foreach (asset; SymbolData!Modules) {{
+					static if (asset.sources.length > 0) {
+						static foreach (i, element; asset.sources) {{
+							{
+								enum str = "Extracting " ~ asset.name;
+								send(main, Progress(str, i, cast(uint)asset.sources.length));
+							}
+							static if (asset.sources.length == 1) {
+								addFile(asset.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.type));
+							} else {
+								import std.math : ceil, log10;
+								addFile(format!"%s/%0*d"(asset.name, cast(int)ceil(log10(cast(float)asset.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.type));
+							}
+						}}
+					} else {
+						if (asset.type == DataType.structured) {
+							addFile(asset.name, cast(immutable(ubyte)[])asset.data.toString!YAML);
+						}
+					}
+				}}
+
+			    // extract extra game data that needs special handling
+				extractor(&addFile, (str) { send(main, str); }, rom);
+
+			    // write the archive
+			    saveAssets(archive);
+
+			} catch (Throwable e) {
+				errorf("%s", e);
+				exit(1);
 			}
-		    send(main, "Loading ROM");
-
-		    //handle data that can just be copied as-is
-		    static foreach (asset; SymbolData!Modules) {{
-		        static foreach (i, element; asset.sources) {
-			        {
-						enum str = "Extracting " ~ asset.name;
-			            send(main, Progress(str, i, cast(uint)asset.sources.length));
-			        }
-			        addFile(asset.name, saveAsset(rom[element.offset .. element.offset + element.length], asset.type));
-		        }
-		    }}
-
-		    // extract extra game data that needs special handling
-			extractor(&addFile, (str) { send(main, str); }, rom);
-
-		    // write the archive
-		    saveAssets(archive);
-
 		    // done
 		    send(main, true);
 		}
@@ -366,15 +382,19 @@ struct PlatformCommon {
 						break;
 					}
 				}
-			} else {
+			} else if (Symbol.requiresExtraction) {
 				throw new Exception("File " ~ Symbol.name ~ " not found");
 			}
 			foreach (file; data) {
-				auto newData = loadAsset(file, Symbol.type);
-				static if (Symbol.array) {
-					Symbol.data ~= cast(typeof(Symbol.data[0]))newData;
+				auto newData = loadROMAsset(file, (Symbol.type == DataType.structured) ? DataType.raw : Symbol.type);
+				static if (Symbol.type == DataType.structured) {
+					Symbol.data = (cast(const(char)[])newData).fromString!(typeof(Symbol.data), YAML)(Symbol.name);
 				} else {
-					Symbol.data = cast(typeof(Symbol.data))newData;
+					static if (Symbol.array) {
+						Symbol.data ~= cast(typeof(Symbol.data[0]))newData;
+					} else {
+						Symbol.data = cast(typeof(Symbol.data))newData;
+					}
 				}
 			}
 		}}

@@ -4,6 +4,7 @@ import std.meta;
 
 enum DataType {
     raw,
+    structured,
     bpp2Intertwined,
     bpp4Intertwined,
 }
@@ -32,6 +33,9 @@ struct SymbolDataItem(alias Sym) {
     bool array;
     DataType type;
     alias data = Sym;
+    bool requiresExtraction() const @safe pure {
+        return (sources.length != 0) && (type == DataType.structured);
+    }
 }
 
 private template SymbolAssetName(alias Sym) {
