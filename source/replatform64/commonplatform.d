@@ -362,7 +362,7 @@ struct PlatformCommon {
 			} else if (assetsExist) {
 				foreach (asset; archive.entries) {
 					if (asset.name == Symbol.name) {
-						data ~= archive.getData(asset);
+						data ~= asset.data;
 						break;
 					}
 				}

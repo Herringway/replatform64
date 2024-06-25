@@ -5,10 +5,12 @@ import replatform64.ui;
 
 import core.stdc.stdlib;
 import core.time;
+import std.algorithm.iteration;
 import std.bitmanip;
 import std.concurrency;
 import std.string;
 import std.traits;
+import std.zip;
 
 struct Progress {
 	string title;
@@ -22,76 +24,29 @@ alias ExtractFunction = void function(scope AddFileFunction, scope ProgressUpdat
 alias LoadFunction = void function(const scope char[], const scope ubyte[], scope PlatformBackend);
 
 struct PlanetArchive {
-	static struct Header {
-		align(8):
-		char[8] magic = "PLANET!?";
-		ulong entries;
-		ulong dataOffset;
-		ulong entryOffset = Header.sizeof;
-		ubyte[32] reserved;
+	ZipArchive zip;
+	void addFile(scope const(char)[] name, const(ubyte)[] data) {
+		if (zip is null) {
+			zip = new ZipArchive;
+		}
+		auto newFile = new ArchiveMember;
+		newFile.name = name.idup;
+		newFile.expandedData = data.dup;
+		newFile.compressionMethod = CompressionMethod.deflate;
+		zip.addMember(newFile);
 	}
-	static struct Entry {
-		align(8):
-		char[256] _name = '\0';
-		ulong offset;
-		ulong size;
-		const(char)[] name() const return @safe pure {
-			return _name.fromStringz;
-		}
-	}
-	Header header;
-	Entry[] entries;
-	const(ubyte)[] data;
-	void write(OutputRange)(OutputRange range) const {
-		void writeLittleEndian(T)(const T structure) {
-			static foreach (i, field; structure.tupleof) {
-				static if (isArray!(typeof(field))) {
-					range.put(cast(const(ubyte)[])structure.tupleof[i]);
-				} else {
-					range.append!(typeof(field), Endian.littleEndian)(structure.tupleof[i]);
-				}
-			}
-		}
-		writeLittleEndian(header);
-		foreach (entry; entries) {
-			writeLittleEndian(entry);
-		}
-		range.put(data);
+	void write(OutputRange)(OutputRange range) {
+		import std.algorithm.mutation : copy;
+		copy(cast(ubyte[])zip.build, range);
 	}
 	static PlanetArchive read(ubyte[] buffer) {
-		static T readLittleEndian(T)(ubyte[] data) {
-			T structure;
-			static foreach (i, field; T.tupleof) {
-				static if (isArray!(typeof(field))) {
-					structure.tupleof[i] = cast(typeof(field))data[0 .. field.sizeof];
-				} else {
-					structure.tupleof[i] = data.peek!(typeof(field), Endian.littleEndian)();
-				}
-				data = data[field.sizeof .. $];
-			}
-			return structure;
-		}
-		PlanetArchive archive;
-		archive.header = readLittleEndian!Header(buffer);
-		archive.entries.reserve(archive.header.entries);
-		foreach (i; 0 .. archive.header.entries) {
-			archive.entries ~= readLittleEndian!Entry(buffer[archive.header.entryOffset + i * Entry.sizeof .. archive.header.entryOffset + (i + 1) * Entry.sizeof]);
-		}
-		archive.data = buffer[archive.header.dataOffset .. $];
-		return archive;
+		return PlanetArchive(new ZipArchive(buffer));
 	}
-	void addFile(const(char)[] name, const(ubyte)[] data) {
-		const offset = this.data.length;
-		header.entries++;
-		header.dataOffset = Header.sizeof + header.entries * Entry.sizeof;
-		Entry entry;
-		entry._name[0 .. name.length] = name;
-		entry.offset = offset;
-		entry.size = data.length;
-		entries ~= entry;
-		this.data ~= data;
+	private struct Entry {
+		string name;
+		ubyte[] data;
 	}
-	const(ubyte)[] getData(const Entry entry) const @safe pure {
-		return data[entry.offset .. entry.offset + entry.size];
+	auto entries() {
+		return zip.directory.values.map!(x => Entry(x.name, zip.expand(x)));
 	}
 }
