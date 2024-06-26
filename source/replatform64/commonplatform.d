@@ -207,6 +207,12 @@ struct PlatformCommon {
 			interrupt();
 		}
 	}
+	void handleAssets(Modules...)(immutable(ubyte)[] romData, ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
+		if (!assetsExist) {
+			extractAssets!Modules(extractor, romData, toFilesystem);
+		}
+		loadAssets!Modules(loader);
+	}
 	bool assetsExist() {
 		return (gameID~".planet").exists;
 	}

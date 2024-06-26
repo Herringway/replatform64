@@ -105,15 +105,6 @@ struct SNES {
 	void wait() {
 		platform.wait({ interruptHandler(); });
 	}
-	bool assetsExist() {
-		return platform.assetsExist();
-	}
-	PlanetArchive assets() {
-		return platform.assets();
-	}
-	void saveAssets(PlanetArchive archive) {
-		platform.saveAssets(archive);
-	}
 	void runHook(string id) {
 		platform.runHook(id);
 	}
@@ -123,11 +114,8 @@ struct SNES {
 	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
 		platform.registerHook(id, hook, settings);
 	}
-	void extractAssets(Modules...)(ExtractFunction func, bool toFileSystem = false) {
-		platform.extractAssets!Modules(func, romData, toFileSystem);
-	}
-	void loadAssets(Modules...)(LoadFunction func) {
-		platform.loadAssets!Modules(func);
+	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
+		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
 	}
 	void loadWAV(const(ubyte)[] data) {
 		platform.backend.audio.loadWAV(data);

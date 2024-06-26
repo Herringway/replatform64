@@ -17,7 +17,7 @@ void main() {
 	gb.gameID = "helloworld";
 	auto settings = gb.loadSettings!GameSettings();
 	gb.initialize();
-	gb.loadAssets!(mixin(__MODULE__))(null);
+	gb.handleAssets!(mixin(__MODULE__))();
 	gb.run();
 	gb.saveSettings(settings);
 }

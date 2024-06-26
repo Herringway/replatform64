@@ -114,15 +114,6 @@ struct GameBoySimple {
 	void wait() {
 		platform.wait({ interruptHandlerVBlank(); });
 	}
-	bool assetsExist() {
-		return platform.assetsExist();
-	}
-	PlanetArchive assets() {
-		return platform.assets();
-	}
-	void saveAssets(PlanetArchive archive) {
-		platform.saveAssets(archive);
-	}
 	void runHook(string id) {
 		platform.runHook(id);
 	}
@@ -132,11 +123,8 @@ struct GameBoySimple {
 	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
 		platform.registerHook(id, hook, settings);
 	}
-	void extractAssets(Modules...)(ExtractFunction func, bool toFileSystem = false) {
-		platform.extractAssets!Modules(func, romData, toFileSystem);
-	}
-	void loadAssets(Modules...)(LoadFunction func) {
-		platform.loadAssets!Modules(func);
+	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
+		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
 	}
 	void loadWAV(const(ubyte)[] data) {
 		platform.backend.audio.loadWAV(data);
@@ -151,7 +139,7 @@ struct GameBoySimple {
 		platform.deleteSlot(slot);
 	}
 	immutable(ubyte)[] romData() {
-		if (!originalData) {
+		if (!originalData && sourceFile.exists) {
 			originalData = (cast(ubyte[])read(sourceFile)).idup;
 		}
 		return originalData;
