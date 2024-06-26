@@ -1,8 +1,8 @@
 module replatform64.backend.common.interfaces;
 
 public import replatform64.backend.common.inputconstants;
-import replatform64.common;
 import replatform64.ui;
+import replatform64.util;
 
 import std.bitmanip;
 

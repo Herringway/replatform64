@@ -2,8 +2,8 @@ module replatform64.backend.sdl2.input;
 
 import replatform64.backend.common;
 import replatform64.backend.sdl2.common;
-import replatform64.common;
 import replatform64.ui;
+import replatform64.util;
 
 import bindbc.sdl;
 

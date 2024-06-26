@@ -1,4 +1,4 @@
-module replatform64.common;
+module replatform64.util;
 
 import std.algorithm.comparison;
 

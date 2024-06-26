@@ -7,10 +7,10 @@ import replatform64.gameboy.renderer;
 
 import replatform64.assets;
 import replatform64.backend.common;
-import replatform64.common;
 import replatform64.commonplatform;
 import replatform64.registers;
 import replatform64.ui;
+import replatform64.util;
 
 import d_imgui.imgui_h;
 import ImGui = d_imgui;

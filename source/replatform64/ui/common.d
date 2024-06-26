@@ -3,8 +3,8 @@ module replatform64.ui.common;
 import std.traits;
 
 import replatform64.backend.common.interfaces;
-import replatform64.common;
 import replatform64.ui;
+import replatform64.util;
 
 alias DebugFunction = void delegate(const UIState);
 

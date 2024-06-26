@@ -1,7 +1,7 @@
 module replatform64.snes.audio;
 
 import replatform64.backend.common;
-import replatform64.common;
+import replatform64.util;
 
 import spc700;
 import nspcplay;

@@ -1,7 +1,7 @@
 module replatform64.testhelpers;
 
 import replatform64.backend.common.interfaces;
-import replatform64.common;
+import replatform64.util;
 
 package:
 

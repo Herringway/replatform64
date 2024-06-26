@@ -2,10 +2,10 @@ module replatform64.commonplatform;
 
 import replatform64.assets;
 import replatform64.backend.common;
-import replatform64.common;
 import replatform64.dumping;
 import replatform64.framestat;
 import replatform64.ui;
+import replatform64.util;
 import replatform64.watchdog;
 
 import imgui.flamegraph;

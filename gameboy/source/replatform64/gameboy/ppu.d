@@ -3,9 +3,9 @@ module replatform64.gameboy.ppu;
 import replatform64.backend.common.interfaces;
 import replatform64.gameboy.common;
 
-import replatform64.common;
 import replatform64.testhelpers;
 import replatform64.ui;
+import replatform64.util;
 
 import std.bitmanip : bitfields;
 
