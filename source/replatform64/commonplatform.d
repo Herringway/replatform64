@@ -260,7 +260,9 @@ struct PlatformCommon {
 				}}
 
 				// extract extra game data that needs special handling
-				extractor(&addFile, (str) { send(main, str); }, rom);
+				if (extractor !is null) {
+					extractor(&addFile, (str) { send(main, str); }, rom);
+				}
 
 				// write the archive
 				saveAssets(archive);
