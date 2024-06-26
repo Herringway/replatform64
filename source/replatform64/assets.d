@@ -1,16 +1,10 @@
 module replatform64.assets;
 
-import core.stdc.stdlib;
-import core.time;
 import std.algorithm.iteration;
 import std.algorithm.searching;
 import std.array;
-import std.bitmanip;
-import std.concurrency;
 import std.meta;
 import std.range;
-import std.string;
-import std.traits;
 
 import replatform64.backend.common.interfaces;
 import replatform64.ui;
