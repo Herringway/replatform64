@@ -1,10 +1,10 @@
 module replatform64.snes.platform;
 
+import replatform64.assets;
 import replatform64.backend.common;
 import replatform64.common;
 import replatform64.commonplatform;
 import replatform64.dumping;
-import replatform64.planet;
 import replatform64.registers;
 import replatform64.snes.audio;
 import replatform64.snes.hardware;

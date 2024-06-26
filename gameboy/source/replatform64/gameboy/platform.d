@@ -5,10 +5,10 @@ import replatform64.gameboy.common;
 import replatform64.gameboy.ppu;
 import replatform64.gameboy.renderer;
 
+import replatform64.assets;
 import replatform64.backend.common;
 import replatform64.common;
 import replatform64.commonplatform;
-import replatform64.planet;
 import replatform64.registers;
 import replatform64.ui;
 
