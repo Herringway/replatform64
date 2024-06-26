@@ -239,22 +239,22 @@ struct PlatformCommon {
 
 				//handle generic data
 				static foreach (asset; SymbolData!Modules) {{
-					static if (asset.sources.length > 0) {
-						static foreach (i, element; asset.sources) {{
+					static if (asset.metadata.sources.length > 0) {
+						static foreach (i, element; asset.metadata.sources) {{
 							{
-								enum str = "Extracting " ~ asset.name;
-								send(main, Progress(str, i, cast(uint)asset.sources.length));
+								enum str = "Extracting " ~ asset.metadata.name;
+								send(main, Progress(str, i, cast(uint)asset.metadata.sources.length));
 							}
-							static if (asset.sources.length == 1) {
-								addFile(asset.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.type));
+							static if (asset.metadata.sources.length == 1) {
+								addFile(asset.metadata.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata.type));
 							} else {
 								import std.math : ceil, log10;
-								addFile(format!"%s/%0*d"(asset.name, cast(int)ceil(log10(cast(float)asset.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.type));
+								addFile(format!"%s/%0*d"(asset.metadata.name, cast(int)ceil(log10(cast(float)asset.metadata.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata.type));
 							}
 						}}
 					} else {
-						if (asset.type == DataType.structured) {
-							addFile(asset.name, cast(immutable(ubyte)[])asset.data.toString!YAML);
+						if (asset.metadata.type == DataType.structured) {
+							addFile(asset.metadata.name, cast(immutable(ubyte)[])asset.data.toString!YAML);
 						}
 					}
 				}}
@@ -314,7 +314,7 @@ struct PlatformCommon {
 			archive = assets;
 		}
 		static foreach (Symbol; SymbolData!Modules) {{
-			enum path = buildPath("data", Symbol.name);
+			enum path = buildPath("data", Symbol.metadata.name);
 			const(ubyte)[][] data;
 			if (path.exists) {
 				if (path.isDir) {
@@ -326,20 +326,20 @@ struct PlatformCommon {
 				}
 			} else if (assetsExist) {
 				foreach (asset; archive.entries) {
-					if (asset.name == Symbol.name) {
+					if (asset.name == Symbol.metadata.name) {
 						data ~= asset.data;
 						break;
 					}
 				}
-			} else if (Symbol.requiresExtraction) {
-				throw new Exception("File " ~ Symbol.name ~ " not found");
+			} else if (Symbol.metadata.requiresExtraction) {
+				throw new Exception("File " ~ Symbol.metadata.name ~ " not found");
 			}
 			foreach (file; data) {
-				auto newData = loadROMAsset(file, (Symbol.type == DataType.structured) ? DataType.raw : Symbol.type);
-				static if (Symbol.type == DataType.structured) {
-					Symbol.data = (cast(const(char)[])newData).fromString!(typeof(Symbol.data), YAML)(Symbol.name);
+				auto newData = loadROMAsset(file, (Symbol.metadata.type == DataType.structured) ? DataType.raw : Symbol.metadata.type);
+				static if (Symbol.metadata.type == DataType.structured) {
+					Symbol.data = (cast(const(char)[])newData).fromString!(typeof(Symbol.data), YAML)(Symbol.metadata.name);
 				} else {
-					static if (Symbol.array) {
+					static if (Symbol.metadata.array) {
 						Symbol.data ~= cast(typeof(Symbol.data[0]))newData;
 					} else {
 						Symbol.data = cast(typeof(Symbol.data))newData;

@@ -47,11 +47,14 @@ template typeMatches(T) {
 }
 
 struct SymbolDataItem(alias Sym) {
+	alias data = Sym;
+	SymbolMetadata metadata;
+}
+struct SymbolMetadata {
 	ROMSource[] sources;
 	string name;
 	bool array;
 	DataType type;
-	alias data = Sym;
 	bool requiresExtraction() const @safe pure {
 		return (sources.length != 0) && (type == DataType.structured);
 	}
@@ -76,12 +79,12 @@ private template SymbolDataSingle(alias Sym) {
 	}
 	static if (isROMLoadable!Sym) {
 		static if (SingleSource.length == 1) { // single source
-			SymbolDataSingle = AliasSeq!(SymbolDataItem!Sym([SingleSource], SymbolAssetName!Sym, ThisAsset.array, ThisAsset.type));
+			SymbolDataSingle = AliasSeq!(SymbolDataItem!Sym(SymbolMetadata([SingleSource], SymbolAssetName!Sym, ThisAsset.array, ThisAsset.type)));
 		} else static if (MultiSources.length == 1) { // array of sources
-			SymbolDataSingle = AliasSeq!(SymbolDataItem!Sym(MultiSources, SymbolAssetName!Sym, ThisAsset.array, ThisAsset.type));
+			SymbolDataSingle = AliasSeq!(SymbolDataItem!Sym(SymbolMetadata(MultiSources, SymbolAssetName!Sym, ThisAsset.array, ThisAsset.type)));
 		}
 	} else static if (isAsset!Sym) { // not extracted, but expected to exist
-		SymbolDataSingle = AliasSeq!(SymbolDataItem!Sym([], SymbolAssetName!Sym, ThisAsset.array, ThisAsset.type));
+		SymbolDataSingle = AliasSeq!(SymbolDataItem!Sym(SymbolMetadata([], SymbolAssetName!Sym, ThisAsset.array, ThisAsset.type)));
 	}
 }
 
