@@ -23,9 +23,7 @@ import std.format;
 import std.logger;
 import std.stdio;
 import std.string;
-import arsd.png;
 import siryul;
-import pixelatrix;
 
 enum settingsFile = "settings.yaml";
 
@@ -220,62 +218,6 @@ struct PlatformCommon {
 			return PlanetArchive.read(cast(ubyte[])read(gameID~".planet"));
 		}
 		throw new Exception("Not found");
-	}
-	private const(ubyte)[] readTilesFromImage(T)(const(ubyte)[] data) {
-		if (auto img = cast(IndexedImage)readPngFromBytes(data)) {
-			auto pixelArray = Array2D!ubyte(img.width, img.height, img.width, img.data);
-			auto tiles = Array2D!T(img.width / 8, img.height / 8);
-			foreach (x, y, pixel; pixelArray) {
-				enforce(pixel < 2 ^^ T.bpp, "Source image colour out of range!");
-				tiles[x / 8, y / 8][x % 8, y % 8] = pixel;
-			}
-			return cast(ubyte[])(tiles[]);
-		} else { // not an indexed PNG?
-			throw new Exception("Invalid PNG");
-		}
-	}
-	private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) {
-		const w = min(tiles.length * 8, 16 * 8);
-		const h = max(1, cast(int)((tiles.length + 15) / 16)) * 8;
-		auto img = new IndexedImage(w, h);
-		auto pixelArray = Array2D!ubyte(w, h, img.data);
-		const colours = 1 << T.bpp;
-		foreach (i; 0 .. colours) {
-			ubyte g = cast(ubyte)((255 / colours) * (colours - i));
-			img.addColor(Color(g, g, g, i == 0 ? 0 : 255));
-		}
-		foreach (tileID, tile; tiles) {
-			foreach (colIdx; 0 .. 8) {
-				foreach (rowIdx; 0 .. 8) {
-					pixelArray[(tileID % (w / 8)) * 8 + colIdx, (tileID / (w / 8)) * 8 + rowIdx] = tile[colIdx, rowIdx];
-				}
-			}
-		}
-		return writePngToArray(img);
-	}
-	private const(ubyte)[] loadROMAsset(const(ubyte)[] data, DataType type) {
-		final switch (type) {
-			case DataType.raw:
-				return data;
-			case DataType.bpp2Intertwined:
-				return readTilesFromImage!Intertwined2BPP(data);
-			case DataType.bpp4Intertwined:
-				return readTilesFromImage!Intertwined4BPP(data);
-			case DataType.structured:
-				assert(0);
-		}
-	}
-	private const(ubyte)[] saveROMAsset(const(ubyte)[] data, DataType type) {
-		final switch (type) {
-			case DataType.raw:
-				return data;
-			case DataType.bpp2Intertwined:
-				return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
-			case DataType.bpp4Intertwined:
-				return saveTilesToImage(cast(const(Intertwined4BPP)[])data);
-			case DataType.structured:
-				assert(0);
-		}
 	}
 	void saveAssets(PlanetArchive archive) {
 		archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
