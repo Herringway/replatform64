@@ -318,18 +318,18 @@ struct PlatformCommon {
 					}
 				}}
 
-			    // extract extra game data that needs special handling
+				// extract extra game data that needs special handling
 				extractor(&addFile, (str) { send(main, str); }, rom);
 
-			    // write the archive
-			    saveAssets(archive);
+				// write the archive
+				saveAssets(archive);
 
 			} catch (Throwable e) {
 				errorf("%s", e);
 				exit(1);
 			}
-		    // done
-		    send(main, true);
+			// done
+			send(main, true);
 		}
 		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, toFilesystem);
 		bool extractionDone;
@@ -337,7 +337,7 @@ struct PlatformCommon {
 		void renderExtractionUI() {
 			ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, ImVec2(0.5f, 0.5f));
 			ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
-				Spinner("##spinning", 15, 6,  ImGui.GetColorU32(ImGuiCol.ButtonHovered));
+				Spinner("##spinning", 15, 6, ImGui.GetColorU32(ImGuiCol.ButtonHovered));
 				ImGui.SameLine();
 				ImGui.Text("Extracting assets. Please wait.");
 				ImGui.Text(progress.title);
