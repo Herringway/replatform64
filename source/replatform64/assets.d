@@ -67,6 +67,13 @@ private template SymbolAssetName(alias Sym) {
 		enum SymbolAssetName = __traits(identifier, Sym);
 	}
 }
+@safe pure unittest {
+	static immutable foo = 3;
+	assert(SymbolAssetName!foo == "foo");
+	@Asset("whatever")
+	static immutable bar = 5;
+	assert(SymbolAssetName!bar == "whatever");
+}
 private template SymbolDataSingle(alias Sym) {
 	alias SymbolDataSingle = AliasSeq!();
 	alias AssetDefs = Filter!(typeMatches!Asset, __traits(getAttributes, Sym));
@@ -88,6 +95,57 @@ private template SymbolDataSingle(alias Sym) {
 	}
 }
 
+@safe pure unittest {
+	static int nothing;
+	assert(SymbolDataSingle!nothing.length == 0);
+	@Asset("foo")
+	static immutable foo = 3;
+	with(SymbolDataSingle!foo[0]) {
+		assert(metadata.name == "foo");
+		assert(metadata.sources == []);
+		assert(!metadata.array);
+		assert(metadata.type == DataType.raw);
+	}
+	@Asset("foo2", DataType.bpp2Intertwined)
+	static immutable foo2 = 3;
+	with(SymbolDataSingle!foo2[0]) {
+		assert(data == 3);
+		assert(metadata.sources == []);
+		assert(metadata.name == "foo2");
+		assert(!metadata.array);
+		assert(metadata.type == DataType.bpp2Intertwined);
+	}
+	@Asset("foo3", DataType.bpp2Intertwined, array: true)
+	static immutable int[4] foo3;
+	with(SymbolDataSingle!foo3[0]) {
+		assert(metadata.name == "foo3");
+		assert(metadata.sources == []);
+		assert(metadata.array);
+		assert(metadata.type == DataType.bpp2Intertwined);
+	}
+	@ROMSource(123, 0x456)
+	@Asset("foo4")
+	static immutable int[4] foo4;
+	with(SymbolDataSingle!foo4[0]) {
+		assert(metadata.name == "foo4");
+		assert(metadata.sources[0].offset == 123);
+		assert(metadata.sources[0].length == 0x456);
+		assert(!metadata.array);
+		assert(metadata.type == DataType.raw);
+	}
+	@([ROMSource(123, 0x456), ROMSource(1234, 0x4567)])
+	@Asset("foo5")
+	static immutable int[4] foo5;
+	with(SymbolDataSingle!foo5[0]) {
+		assert(metadata.name == "foo5");
+		assert(metadata.sources[0].offset == 123);
+		assert(metadata.sources[0].length == 0x456);
+		assert(metadata.sources[1].offset == 1234);
+		assert(metadata.sources[1].length == 0x4567);
+		assert(metadata.array);
+		assert(metadata.type == DataType.raw);
+	}
+}
 template SymbolData(mods...) {
 	alias SymbolData = AliasSeq!();
 	static foreach (mod; mods) {
