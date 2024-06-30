@@ -219,20 +219,19 @@ private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) {
 	}
 	return writePngToArray(img);
 }
-const(ubyte)[] loadROMAsset(const(ubyte)[] data, DataType type) {
-	final switch (type) {
+const(ubyte)[] loadROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
+	final switch (asset.type) {
 		case DataType.raw:
+		case DataType.structured: // array of characters, array of bytes. same thing
 			return data;
 		case DataType.bpp2Intertwined:
 			return readTilesFromImage!Intertwined2BPP(data);
 		case DataType.bpp4Intertwined:
 			return readTilesFromImage!Intertwined4BPP(data);
-		case DataType.structured:
-			assert(0);
 	}
 }
-const(ubyte)[] saveROMAsset(const(ubyte)[] data, DataType type) {
-	final switch (type) {
+const(ubyte)[] saveROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
+	final switch (asset.type) {
 		case DataType.raw:
 			return data;
 		case DataType.bpp2Intertwined:

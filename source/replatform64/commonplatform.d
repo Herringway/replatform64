@@ -246,7 +246,7 @@ struct PlatformCommon {
 								send(main, Progress(str, i, cast(uint)asset.metadata.sources.length));
 							}
 							static if (asset.metadata.sources.length == 1) {
-								addFile(asset.metadata.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata.type));
+								addFile(asset.metadata.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
 							} else {
 								import std.math : ceil, log10;
 								addFile(format!"%s/%0*d"(asset.metadata.name, cast(int)ceil(log10(cast(float)asset.metadata.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata.type));
@@ -335,7 +335,7 @@ struct PlatformCommon {
 				throw new Exception("File " ~ Symbol.metadata.name ~ " not found");
 			}
 			foreach (file; data) {
-				auto newData = loadROMAsset(file, (Symbol.metadata.type == DataType.structured) ? DataType.raw : Symbol.metadata.type);
+				auto newData = loadROMAsset(file, Symbol.metadata);
 				static if (Symbol.metadata.type == DataType.structured) {
 					Symbol.data = (cast(const(char)[])newData).fromString!(typeof(Symbol.data), YAML)(Symbol.metadata.name);
 				} else {
