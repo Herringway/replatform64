@@ -134,7 +134,7 @@ private template SymbolDataSingle(alias Sym) {
 		assert(metadata.type == DataType.raw);
 	}
 	@([ROMSource(123, 0x456), ROMSource(1234, 0x4567)])
-	@Asset("foo5")
+	//@Asset("foo5")
 	static immutable int[4] foo5;
 	with(SymbolDataSingle!foo5[0]) {
 		assert(metadata.name == "foo5");
