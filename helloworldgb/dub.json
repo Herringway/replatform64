@@ -7,5 +7,6 @@
 	"dependencies": {
 		"replatform64:gameboy": "*"
 	},
+	"workingDirectory": ".",
 	"name": "helloworldgb"
 }
