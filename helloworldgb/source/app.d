@@ -58,8 +58,31 @@ void readInput() {
 	inputPressed = tmp;
 	gb.writeJoy(0x30);
 }
-
+void writeToVRAM(scope const ubyte[] data, ushort addr) {
+	gb.vram[addr .. addr + data.length] = data;
+}
+void init() {
+	gb.LCDC = 0;
+}
+void load() {
+	writeToVRAM(objData, 0x8000);
+	writeToVRAM(fontData, 0x9000);
+	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
+}
+void startRendering() {
+	gb.SCY = 0;
+	gb.SCX = 0;
+	gb.NR52 = 0;
+	gb.BGP = 0b11100100;
+	gb.LCDC = 0b10000011;
+}
+void finishFrame() {
+	gb.wait();
+}
 void printText(ubyte x, ubyte y, string str) {
+	ubyte[16] buffer;
+	size_t position;
+	ushort addr = cast(ushort)(0x9800 + y * 32 + x);
 	foreach (chr; str) {
 		if (chr < ' ') {
 			continue;
@@ -67,20 +90,22 @@ void printText(ubyte x, ubyte y, string str) {
 		if (chr > 0x7F) {
 			continue;
 		}
-		gb.vram[0x9800 + y * 32 + x++] = cast(ubyte)(chr - 0x20);
+		buffer[position++] = cast(ubyte)(chr - 0x20);
+		if (position == 16) {
+			writeToVRAM(buffer[], addr);
+			addr += 16;
+			position = 0;
+		}
+	}
+	if (position != 0) {
+		writeToVRAM(buffer[0 .. position], addr);
 	}
 }
 string punctuation = "!";
 void start(ushort system) {
-	gb.LCDC = 0;
-	gb.vram[0x8000 .. 0x8000 + objData.length] = objData;
-	gb.vram[0x9000 .. 0x9000 + fontData.length] = fontData;
-	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
-	gb.SCY = 0;
-	gb.SCX = 0;
-	gb.NR52 = 0;
-	gb.BGP = 0b11100100;
-	gb.LCDC = 0b10000011;
+	init();
+	load();
+	startRendering();
 	oam[0] = OAMEntry(0, 0, 0, 0);
 	oam[1] = OAMEntry(0, 0, 2, 0);
 	oam[2] = OAMEntry(0, 0, 3, 0);
@@ -138,7 +163,7 @@ void start(ushort system) {
 		oam[3].y = cast(ubyte)(y + 16);
 		oam[4].x = cast(ubyte)(x + 8);
 		oam[4].y = cast(ubyte)(y + 8);
-		gb.wait();
+		finishFrame();
 	}
 }
 void vblank() {
