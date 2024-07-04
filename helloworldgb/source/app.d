@@ -8,6 +8,8 @@ import std.logger;
 struct GameSettings {}
 GameBoySimple gb;
 
+OAMEntry[5] oam;
+
 void main() {
 	(cast(Logger)sharedLog).logLevel = LogLevel.trace;
 	gb.entryPoint = &start;
@@ -79,12 +81,11 @@ void start(ushort system) {
 	gb.NR52 = 0;
 	gb.BGP = 0b11100100;
 	gb.LCDC = 0b10000011;
-	(cast(OAMEntry[])gb.oam[])[] = OAMEntry(-1, -1, 64, 0);
-	(cast(OAMEntry[])gb.oam[])[0] = OAMEntry(0, 0, 0, 0);
-	(cast(OAMEntry[])gb.oam[])[1] = OAMEntry(0, 0, 2, 0);
-	(cast(OAMEntry[])gb.oam[])[2] = OAMEntry(0, 0, 3, 0);
-	(cast(OAMEntry[])gb.oam[])[3] = OAMEntry(0, 0, 2, OAMFlags.yFlip);
-	(cast(OAMEntry[])gb.oam[])[4] = OAMEntry(0, 0, 3, OAMFlags.xFlip);
+	oam[0] = OAMEntry(0, 0, 0, 0);
+	oam[1] = OAMEntry(0, 0, 2, 0);
+	oam[2] = OAMEntry(0, 0, 3, 0);
+	oam[3] = OAMEntry(0, 0, 2, OAMFlags.yFlip);
+	oam[4] = OAMEntry(0, 0, 3, OAMFlags.xFlip);
 	short x = config.startCoordinates.x;
 	short y = config.startCoordinates.y;
 	uint altFrames = 0;
@@ -126,20 +127,21 @@ void start(ushort system) {
 			altFrames--;
 			useAltFrame = true;
 		}
-		(cast(OAMEntry[])gb.oam[])[0].x = cast(ubyte)x;
-		(cast(OAMEntry[])gb.oam[])[0].y = cast(ubyte)(y + 8);
-		(cast(OAMEntry[])gb.oam[])[1].x = cast(ubyte)x;
-		(cast(OAMEntry[])gb.oam[])[1].y = cast(ubyte)y;
-		(cast(OAMEntry[])gb.oam[])[2].x = cast(ubyte)(x - 8);
-		(cast(OAMEntry[])gb.oam[])[2].y = cast(ubyte)(y + 8);
-		(cast(OAMEntry[])gb.oam[])[3].x = cast(ubyte)x;
-		(cast(OAMEntry[])gb.oam[])[3].y = cast(ubyte)(y + 16);
-		(cast(OAMEntry[])gb.oam[])[4].x = cast(ubyte)(x + 8);
-		(cast(OAMEntry[])gb.oam[])[4].y = cast(ubyte)(y + 8);
-		(cast(OAMEntry[])gb.oam[])[0].tile = useAltFrame ? 1 : 0;
+		oam[0].x = cast(ubyte)x;
+		oam[0].y = cast(ubyte)(y + 8);
+		oam[0].tile = useAltFrame ? 1 : 0;
+		oam[1].x = cast(ubyte)x;
+		oam[1].y = cast(ubyte)y;
+		oam[2].x = cast(ubyte)(x - 8);
+		oam[2].y = cast(ubyte)(y + 8);
+		oam[3].x = cast(ubyte)x;
+		oam[3].y = cast(ubyte)(y + 16);
+		oam[4].x = cast(ubyte)(x + 8);
+		oam[4].y = cast(ubyte)(y + 8);
 		gb.wait();
 	}
 }
 void vblank() {
-
+	(cast(OAMEntry[])(gb.oam))[] = OAMEntry(-1, -1, 64, 0);
+	(cast(OAMEntry[])(gb.oam))[0 .. 5] = oam;
 }
