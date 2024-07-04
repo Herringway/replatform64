@@ -70,7 +70,7 @@ void printText(ubyte x, ubyte y, string str) {
 		gb.vram[0x9800 + y * 32 + x++] = cast(ubyte)(chr - 0x20);
 	}
 }
-
+string punctuation = "!";
 void start(ushort system) {
 	gb.LCDC = 0;
 	gb.vram[0x8000 .. 0x8000 + objData.length] = objData;
@@ -92,11 +92,11 @@ void start(ushort system) {
 	while (true) {
 		readInput();
 		if (inputPressed & Pad.a) {
-			printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, "!");
+			punctuation = "!";
 		} else if (inputPressed & Pad.b) {
-			printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, ".");
+			punctuation = ".";
 		} else {
-			printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, " ");
+			punctuation = " ";
 		}
 		if (inputPressed & Pad.left) {
 			x -= config.movementSpeed;
@@ -144,4 +144,5 @@ void start(ushort system) {
 void vblank() {
 	(cast(OAMEntry[])(gb.oam))[] = OAMEntry(-1, -1, 64, 0);
 	(cast(OAMEntry[])(gb.oam))[0 .. 5] = oam;
+	printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
 }
