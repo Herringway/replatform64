@@ -19,6 +19,8 @@ jobs:
           dub test :nes
           dub test :snes
           dub test :gameboy
+          dub build :helloworldgb
+          dub build :helloworldsnes
       - uses: actions/upload-artifact@v4
         with:
           name: build
