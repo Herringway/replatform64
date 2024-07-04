@@ -15,3 +15,4 @@ dub.selections.json
 failed
 settings.yaml
 dump/
+*.planet

@@ -18,6 +18,7 @@
 		"gameboy",
 		"snes",
 		"nes",
+		"helloworldsnes",
 		"helloworldgb"
 	],
 	"stringImportPaths": ["testdata"],

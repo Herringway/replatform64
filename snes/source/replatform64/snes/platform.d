@@ -92,7 +92,7 @@ struct SNES {
 		}
 	}
 	immutable(ubyte)[] romData() {
-		if (!originalData) {
+		if (!originalData && (gameID ~ ".sfc").exists) {
 			originalData = (cast(ubyte[])read(gameID~".sfc")).idup;
 			const result = detect(originalData, matchingInternalID);
 			info("Loaded ", title, " ROM", result.header ? " (with header)" : "");
