@@ -7,7 +7,9 @@ import replatform64.testhelpers;
 import replatform64.ui;
 import replatform64.util;
 
+import std.algorithm.iteration;
 import std.bitmanip : bitfields;
+import std.range;
 
 import pixelatrix.bpp2;
 
@@ -307,10 +309,90 @@ struct PPU {
 		}
 	}
 	void debugUI(const UIState state, VideoBackend video) {
+		static void registerBit(string label, ref ubyte register, ubyte offset) {
+			bool boolean = !!(register & (1 << offset));
+			if (ImGui.Checkbox(label, &boolean)) {
+				register = cast(ubyte)((register & ~(1 << offset)) | (boolean << offset));
+			}
+		}
+		static void registerBitSel(size_t bits = 1, size_t opts = 1 << bits)(string label, ref ubyte register, ubyte offset, string[opts] labels) {
+			const mask = (((1 << bits) - 1) << offset);
+			size_t idx = (register & mask) >> offset;
+			if (ImGui.BeginCombo(label, labels[idx])) {
+				foreach (i, itemLabel; labels) {
+					if (ImGui.Selectable(itemLabel, i == idx)) {
+						register = cast(ubyte)((register & ~mask) | (i << offset));
+					}
+				}
+				ImGui.EndCombo();
+			}
+		}
+		static void inputPaletteRegister(string label, ref ubyte palette) {
+			if (ImGui.TreeNode(label)) {
+				foreach (i; 0 .. 4) {
+					ImGui.Text("Colour %d", i);
+					foreach (colourIdx, colour; pocketPalette.map!(x => ImVec4(x.red / 31.0, x.green / 31.0, x.blue / 31.0, 1.0)).enumerate) {
+						ImGui.PushStyleColor(ImGuiCol.CheckMark, colour);
+						ImGui.SameLine();
+						if (ImGui.RadioButton("", ((palette >> (i * 2)) & 3) == colourIdx)) {
+							palette = cast(ubyte)((palette & ~(3 << (i * 2))) | (colourIdx << (i * 2)));
+						}
+						ImGui.PopStyleColor();
+					}
+				}
+				ImGui.TreePop();
+			}
+		}
 		enum height = 256;
 		enum width = 256;
 		static ushort[width * height] buffer;
 		if (ImGui.BeginTabBar("rendererpreview")) {
+			if (ImGui.BeginTabItem("State")) {
+				if (ImGui.TreeNode("STAT", "STAT: %02X", registers.stat)) {
+					registerBitSel!2("PPU mode", registers.stat, 0, ["HBlank", "VBlank", "OAM scan", "Drawing"]);
+					ImGui.SetItemTooltip("Current PPU rendering mode. (not currently emulated)");
+					registerBit("LY = LYC", registers.stat, 2);
+					ImGui.SetItemTooltip("Flag set if LY == LYC. (not currently emulated)");
+					registerBit("Mode 0 interrupt enabled", registers.stat, 3);
+					ImGui.SetItemTooltip("HBlank interrupt is enabled.");
+					registerBit("Mode 1 interrupt enabled", registers.stat, 4);
+					ImGui.SetItemTooltip("VBlank interrupt is enabled.");
+					registerBit("Mode 2 interrupt enabled", registers.stat, 5);
+					ImGui.SetItemTooltip("OAM scan interrupt is enabled.");
+					registerBit("LY == LYC interrupt enabled", registers.stat, 6);
+					ImGui.SetItemTooltip("Interrupt is enabled for when LY == LYC.");
+					ImGui.TreePop();
+				}
+				if (ImGui.TreeNode("LCDC", "LCDC: %02X", registers.lcdc)) {
+					registerBit("BG+window enable", registers.lcdc, 0);
+					ImGui.SetItemTooltip("If disabled, the BG and window layers will not be rendered.");
+					registerBit("OBJ enable", registers.lcdc, 1);
+					ImGui.SetItemTooltip("Whether or not sprites are enabled.");
+					registerBitSel("OBJ size", registers.lcdc, 2, ["8x8", "8x16"]);
+					ImGui.SetItemTooltip("The size of all sprites currently being rendered.");
+					registerBitSel("BG tilemap area", registers.lcdc, 3, ["$9800", "$9C00"]);
+					ImGui.SetItemTooltip("The region of VRAM where the BG tilemap is located.");
+					registerBitSel("BG+Window tile area", registers.lcdc, 4, ["$8800", "$8000"]);
+					ImGui.SetItemTooltip("The region of VRAM where the BG and window tile data is located.");
+					registerBit("Window enable", registers.lcdc, 5);
+					ImGui.SetItemTooltip("Whether or not the window layer is enabled.");
+					registerBitSel("Window tilemap area", registers.lcdc, 6, ["$9800", "$9C00"]);
+					ImGui.SetItemTooltip("The region of VRAM where the window tilemap is located.");
+					registerBit("LCD+PPU enable", registers.lcdc, 7);
+					ImGui.SetItemTooltip("Whether or not the LCD and PPU are active.");
+					ImGui.TreePop();
+				}
+				ImGui.InputScalar("SCX", ImGuiDataType.U8, &registers.scx, null, null, "%02X");
+				ImGui.InputScalar("SCY", ImGuiDataType.U8, &registers.scy, null, null, "%02X");
+				ImGui.InputScalar("LY", ImGuiDataType.U8, &registers.ly, null, null, "%02X");
+				ImGui.InputScalar("LYC", ImGuiDataType.U8, &registers.lyc, null, null, "%02X");
+				inputPaletteRegister("BGP", registers.bgp);
+				inputPaletteRegister("OBP0", registers.obp0);
+				inputPaletteRegister("OBP1", registers.obp1);
+				ImGui.InputScalar("WX", ImGuiDataType.U8, &registers.wx, null, null, "%02X");
+				ImGui.InputScalar("WY", ImGuiDataType.U8, &registers.wy, null, null, "%02X");
+				ImGui.EndTabItem();
+			}
 			if (ImGui.BeginTabItem("Background")) {
 				static void* backgroundSurface;
 				if (backgroundSurface is null) {
