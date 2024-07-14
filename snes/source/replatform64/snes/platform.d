@@ -6,9 +6,9 @@ import replatform64.commonplatform;
 import replatform64.dumping;
 import replatform64.registers;
 import replatform64.snes.audio;
+import replatform64.snes.dma;
 import replatform64.snes.hardware;
 import replatform64.snes.rendering;
-import replatform64.snes.sfcdma;
 import replatform64.ui;
 import replatform64.util;
 
@@ -134,94 +134,16 @@ struct SNES {
 	}
 	// SNES-specific functions
 	void handleHDMA() {
-		import std.algorithm.sorting : sort;
-		import std.algorithm.mutation : SwapStrategy;
-		renderer.numHDMA = 0;
-		const channels = HDMAEN;
-		for(auto i = 0; i < 8; i += 1) {
-			if (((channels >> i) & 1) == 0) continue;
-			queueHDMA(dmaChannels[i], renderer.hdmaData[renderer.numHDMA .. $], renderer.numHDMA);
-		}
-		auto writes = renderer.hdmaData[0 .. renderer.numHDMA];
-		// Stable sorting is required - when there are back-to-back writes to
-		// the same register, they may need to be completed in the correct order.
-		// Example: when writing the scroll registers by HDMA, writing (0x80, 0x00)
-		// is completely different than writing (0x00, 0x80)
-		sort!((x,y) => x.vcounter < y.vcounter, SwapStrategy.stable)(writes);
-		if (writes.length > 0) {
-			debug(printHDMA) tracef("Transfer: %s", writes);
-		}
+		.handleHDMA(renderer, HDMAEN, dmaChannels);
 	}
 	void handleOAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort oamaddr) {
-		assert((dmap & 0x80) == 0); // Can't go from B bus to A bus
-		assert((dmap & 0x10) == 0); // Can't decrement pointer
-		assert((dmap & 0x07) == 0);
-		ubyte* dest, wrapAt, wrapTo;
-		int transferSize = 1, srcAdjust = 0, dstAdjust = 0;
-
-		wrapTo = cast(ubyte *)(&renderer.oam1[0]);
-		dest = wrapTo + (oamaddr << 1);
-		wrapAt = wrapTo + 0x220;
-
-		// If the "Fixed Transfer" bit is set, transfer same data repeatedly
-		if ((dmap & 0x08) != 0) srcAdjust = -transferSize;
-		// Perform actual copy
-		dmaCopy(cast(const(ubyte)*)a1t, dest, wrapAt, wrapTo, das, transferSize, srcAdjust, dstAdjust);
+		.handleOAMDMA(renderer, dmap, bbad, a1t, das, oamaddr);
 	}
 	void handleCGRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort cgadd) {
-		assert((dmap & 0x80) == 0); // Can't go from B bus to A bus
-		assert((dmap & 0x10) == 0); // Can't decrement pointer
-		assert((dmap & 0x07) == 0);
-		ubyte* dest, wrapAt, wrapTo;
-		int transferSize = 1, srcAdjust = 0, dstAdjust = 0;
-		// Dest is CGRAM
-		wrapTo = cast(ubyte *)(&renderer.cgram[0]);
-		dest = wrapTo + (cgadd << 1);
-		wrapAt = wrapTo + 0x200;
-
-		// If the "Fixed Transfer" bit is set, transfer same data repeatedly
-		if ((dmap & 0x08) != 0) srcAdjust = -transferSize;
-		// Perform actual copy
-		dmaCopy(cast(const(ubyte)*)a1t, dest, wrapAt, wrapTo, das, transferSize, srcAdjust, dstAdjust);
+		.handleCGRAMDMA(renderer, dmap, bbad, a1t, das, cgadd);
 	}
 	void handleVRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort vmaddr, ubyte vmain) {
-		assert((dmap & 0x80) == 0); // Can't go from B bus to A bus
-		assert((dmap & 0x10) == 0); // Can't decrement pointer
-		ubyte* dest, wrapAt, wrapTo;
-		int transferSize = 1, srcAdjust = 0, dstAdjust = 0;
-		// Dest is VRAM
-		auto hibyte = bbad == 0x19;
-		// Ensure we're only doing single byte to $2119
-		assert(!hibyte || (dmap & 0x07) == 0);
-		// Set transfer size
-		// Ensure we're either copying one or two bytes
-		assert((dmap & 0x07) <= 1);
-		if ((dmap & 0x07) == 1) {
-			transferSize = 2;
-			dstAdjust = 0;
-		} else {
-			transferSize = 1;
-			dstAdjust = 1; // skip byte when copying
-		}
-		// Handle VMAIN
-		auto addrIncrementAmount = [1, 32, 128, 256][vmain & 0x03];
-		// Skip ahead by addrIncrementAmount words, less the word we just
-		// dealt with by setting transferSize and dstAdjust.
-		dstAdjust += (addrIncrementAmount - 1) * 2;
-		// Address mapping is not implemented.
-		assert((vmain & 0x0C) == 0);
-		// Address increment is only supported for the used cases:
-		// - writing word value and increment after writing $2119
-		// - writing byte to $2119 and increment after writing $2119
-		// - writing byte to $2118 and increment after writing $2118
-		assert((vmain & 0x80) || (!hibyte && transferSize == 1));
-		wrapTo = cast(ubyte *)(&renderer.vram[0]);
-		dest = wrapTo + ((vmaddr << 1) + (hibyte ? 1 : 0));
-		wrapAt = wrapTo + 0x10000;
-		// If the "Fixed Transfer" bit is set, transfer same data repeatedly
-		if ((dmap & 0x08) != 0) srcAdjust = -transferSize;
-		// Perform actual copy
-		dmaCopy(cast(const(ubyte)*)a1t, dest, wrapAt, wrapTo, das, transferSize, srcAdjust, dstAdjust);
+		.handleVRAMDMA(renderer, dmap, bbad, a1t, das, vmaddr, vmain);
 	}
 	void setFixedColourData(ubyte val) {
 		COLDATA = val;
@@ -441,18 +363,6 @@ struct SNES {
 	}
 }
 
-unittest {
-	SNES snes;
-	import std.meta : aliasSeqOf;
-	import std.range : iota;
-	immutable ubyte[100] testSource = [aliasSeqOf!(iota(0, 100))];
-	snes.handleVRAMDMA(0x01, 0x18, &testSource[0], 100, 0, 0x80);
-	assert(snes.renderer.vram[0 .. 100] == testSource);
-	immutable ubyte[2] testFixedHigh = [0x30, 0];
-	snes.handleVRAMDMA(0x08, 0x19, &testFixedHigh[0], 0x400, 0x5800, 0x80);
-	assert(snes.renderer.vram[0 .. 100] == testSource);
-	assert(snes.renderer.vram[0xB001] == 0x30);
-}
 private auto detect(const scope ubyte[] data, scope string identifier) @safe pure {
 	struct Result {
 		bool header;

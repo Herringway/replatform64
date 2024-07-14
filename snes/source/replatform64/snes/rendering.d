@@ -133,7 +133,7 @@ struct SNESRenderer {
 				return cast(ushort[])frame;
 		}
 	}
-	ref inout(ushort) numHDMA() inout {
+	ref inout(ushort) numHDMA() inout pure {
 		final switch (renderer) {
 			case Renderer.bsnes:
 				return bsnesFrame.numHdmaWrites;
@@ -141,7 +141,7 @@ struct SNESRenderer {
 				return neoNumHDMA;
 		}
 	}
-	inout(HDMAWrite)[] hdmaData() inout {
+	inout(HDMAWrite)[] hdmaData() inout pure {
 		final switch (renderer) {
 			case Renderer.bsnes:
 				return bsnesFrame.hdmaData[];
@@ -149,7 +149,7 @@ struct SNESRenderer {
 				return neoHDMAData[];
 			}
 	}
-	ubyte[] vram() {
+	ubyte[] vram() pure {
 		final switch (renderer) {
 			case Renderer.bsnes:
 				return cast(ubyte[])bsnesFrame.vram[];
@@ -157,7 +157,7 @@ struct SNESRenderer {
 				return cast(ubyte[])(neoRenderer.vram[]);
 		}
 	}
-	ushort[] cgram() {
+	ushort[] cgram() pure {
 		final switch (renderer) {
 			case Renderer.bsnes:
 				return bsnesFrame.cgram[];
@@ -165,7 +165,7 @@ struct SNESRenderer {
 				return cast(ushort[])(neoRenderer.cgram[]);
 		}
 	}
-	OAMEntry[] oam1() {
+	OAMEntry[] oam1() pure {
 		final switch (renderer) {
 			case Renderer.bsnes:
 				return cast(OAMEntry[])(bsnesFrame.oam1[]);

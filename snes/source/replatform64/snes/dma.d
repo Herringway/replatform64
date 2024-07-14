@@ -5,7 +5,7 @@ import replatform64.snes.rendering;
 
 import std.experimental.logger;
 
-void dmaCopy(const(ubyte)* src, ubyte* dst, ubyte* wrapAt, ubyte* wrapTo, int count, int transferSize, int srcAdjust, int dstAdjust) {
+void dmaCopy(const(ubyte)* src, ubyte* dst, ubyte* wrapAt, ubyte* wrapTo, int count, int transferSize, int srcAdjust, int dstAdjust) pure {
 	if(count == 0) count = 0x10000;
 	for(int i = 0; i < count;) {
 		for(int j = 0; i < count && j < transferSize; i += 1, j += 1) {
@@ -28,7 +28,7 @@ unittest {
 	assert(testBuffer[0 .. 2] == [2, 3]);
 }
 
-void handleOAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort oamaddr) {
+void handleOAMDMA(ref SNESRenderer renderer, ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort oamaddr) pure {
 	assert((dmap & 0x80) == 0); // Can't go from B bus to A bus
 	assert((dmap & 0x10) == 0); // Can't decrement pointer
 	assert((dmap & 0x07) == 0);
@@ -44,7 +44,7 @@ void handleOAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort o
 	// Perform actual copy
 	dmaCopy(cast(const(ubyte)*)a1t, dest, wrapAt, wrapTo, das, transferSize, srcAdjust, dstAdjust);
 }
-void handleCGRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort cgadd) {
+void handleCGRAMDMA(ref SNESRenderer renderer, ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort cgadd) pure {
 	assert((dmap & 0x80) == 0); // Can't go from B bus to A bus
 	assert((dmap & 0x10) == 0); // Can't decrement pointer
 	assert((dmap & 0x07) == 0);
@@ -60,7 +60,7 @@ void handleCGRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort
 	// Perform actual copy
 	dmaCopy(cast(const(ubyte)*)a1t, dest, wrapAt, wrapTo, das, transferSize, srcAdjust, dstAdjust);
 }
-void handleVRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort vmaddr, ubyte vmain) {
+void handleVRAMDMA(ref SNESRenderer renderer, ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort vmaddr, ubyte vmain) pure {
 	assert((dmap & 0x80) == 0); // Can't go from B bus to A bus
 	assert((dmap & 0x10) == 0); // Can't decrement pointer
 	ubyte* dest, wrapAt, wrapTo;
@@ -101,18 +101,21 @@ void handleVRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort 
 }
 
 unittest {
+	import replatform64.backend.nullbackend : NullVideo;
 	import std.meta : aliasSeqOf;
 	import std.range : iota;
+	SNESRenderer renderer;
+	renderer.initialize("", new NullVideo, RendererSettings(engine: Renderer.neo));
 	immutable ubyte[100] testSource = [aliasSeqOf!(iota(0, 100))];
-	handleVRAMDMA(0x01, 0x18, &testSource[0], 100, 0, 0x80);
+	handleVRAMDMA(renderer, 0x01, 0x18, &testSource[0], 100, 0, 0x80);
 	assert(renderer.vram[0 .. 100] == testSource);
 	immutable ubyte[2] testFixedHigh = [0x30, 0];
-	handleVRAMDMA(0x08, 0x19, &testFixedHigh[0], 0x400, 0x5800, 0x80);
+	handleVRAMDMA(renderer, 0x08, 0x19, &testFixedHigh[0], 0x400, 0x5800, 0x80);
 	assert(renderer.vram[0 .. 100] == testSource);
 	assert(renderer.vram[0xB001] == 0x30);
 }
 
-void handleHDMA(ubyte hdmaChannelsEnabled, DMAChannel[] dmaChannels) {
+void handleHDMA(ref SNESRenderer renderer, ubyte hdmaChannelsEnabled, DMAChannel[] dmaChannels) pure {
 	import std.algorithm.sorting : sort;
 	import std.algorithm.mutation : SwapStrategy;
 	renderer.numHDMA = 0;
