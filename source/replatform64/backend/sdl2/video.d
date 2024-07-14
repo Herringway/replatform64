@@ -40,12 +40,13 @@ class SDL2Video : VideoBackend {
 	{
 		enum windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
 		this.window = window;
+		infof("Creating window with size %sx%s", settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)), settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)));
 		sdlWindow = SDL_CreateWindow(
 			title.toStringz,
-			settings.window.x < settings.window.x.max ? settings.window.x : SDL_WINDOWPOS_UNDEFINED,
-			settings.window.y < settings.window.y.max ? settings.window.y : SDL_WINDOWPOS_UNDEFINED,
-			settings.window.width < settings.window.width.max ? settings.window.width : (window.baseWidth * max(1, settings.uiZoom, settings.zoom)),
-			settings.window.height < settings.window.height.max ? settings.window.height : (window.baseHeight * max(1, settings.uiZoom, settings.zoom)),
+			settings.window.x.get(SDL_WINDOWPOS_UNDEFINED),
+			settings.window.y.get(SDL_WINDOWPOS_UNDEFINED),
+			settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)),
+			settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)),
 			windowFlags | (settings.window.mode == WindowMode.maximized ? SDL_WINDOW_MAXIMIZED : 0)
 		);
 		final switch (settings.window.mode) {

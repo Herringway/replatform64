@@ -98,7 +98,7 @@ struct PlatformCommon {
 	}
 	void enableDebuggingFeatures() @safe {
 		debuggingEnabled = true;
-		if (settings.video.window.width == settings.video.window.width.max) {
+		if (settings.video.window.width.isNull) {
 			//resetWindowSize(true);
 		}
 	}
@@ -395,17 +395,28 @@ struct PlatformCommon {
 		state.window = backend.video.getWindowState();
 		const gameWidth = nativeResolution.width * settings.video.zoom;
 		const gameHeight = nativeResolution.height * settings.video.zoom;
-		if (renderUI) {
-			if (debuggingEnabled) {
+		void renderGameWindow(bool fill) {
+			if (fill) {
+				ImGui.GetStyle().WindowPadding = ImVec2(0, 0);
+				ImGui.GetStyle().WindowBorderSize = 0;
+				ImGui.SetNextWindowSize(ImGui.ImVec2(state.window.width.get(gameWidth), state.window.height.get(gameHeight)));
+				ImGui.SetNextWindowPos(ImGui.ImVec2(0, 0));
+				ImGui.Begin("Game", null, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoSavedSettings);
+			} else {
 				ImGui.SetNextWindowSize(ImGui.ImVec2(gameWidth, gameHeight), ImGuiCond.FirstUseEver);
 				ImGui.Begin("Game", null, ImGuiWindowFlags.NoScrollbar);
-				auto drawSize = ImGui.GetContentRegionAvail();
-				if (settings.video.keepAspectRatio) {
-					const scaleFactor = min(drawSize.x / cast(float)gameWidth, drawSize.y / cast(float)gameHeight);
-					drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
-				}
-				ImGui.Image(backend.video.getRenderingTexture(), drawSize);
-				ImGui.End();
+			}
+			auto drawSize = ImGui.GetContentRegionAvail();
+			if (settings.video.keepAspectRatio) {
+				const scaleFactor = min(drawSize.x / cast(float)gameWidth, drawSize.y / cast(float)gameHeight);
+				drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
+			}
+			ImGui.Image(backend.video.getRenderingTexture(), drawSize);
+			ImGui.End();
+		}
+		if (renderUI) {
+			renderGameWindow(!debuggingEnabled);
+			if (debuggingEnabled) {
 				int areaHeight;
 				if (ImGui.BeginMainMenuBar()) {
 					areaHeight = cast(int)ImGui.GetWindowSize().y;
@@ -425,25 +436,12 @@ struct PlatformCommon {
 				}
 				if (debugState) {
 					enum debugWidth = 500;
-					ImGui.SetNextWindowSize(ImGui.ImVec2(debugWidth, state.window.height - (areaHeight - 1)), ImGuiCond.FirstUseEver);
+					ImGui.SetNextWindowSize(ImGui.ImVec2(debugWidth, state.window.height.get(0) - (areaHeight - 1)), ImGuiCond.FirstUseEver);
 					ImGui.SetNextWindowPos(ImGui.ImVec2(0, areaHeight - 1), ImGuiCond.FirstUseEver);
 					ImGui.Begin("Debugging");
 					debugState(state);
 					ImGui.End();
 				}
-			} else {
-				ImGui.GetStyle().WindowPadding = ImVec2(0, 0);
-				ImGui.GetStyle().WindowBorderSize = 0;
-				ImGui.SetNextWindowSize(ImGui.ImVec2(state.window.width, state.window.height));
-				ImGui.SetNextWindowPos(ImGui.ImVec2(0, 0));
-				ImGui.Begin("Game", null, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoSavedSettings);
-				auto drawSize = ImGui.GetContentRegionAvail();
-				if (settings.video.keepAspectRatio) {
-					const scaleFactor = min(state.window.width / cast(float)gameWidth, state.window.height / cast(float)gameHeight);
-					drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
-				}
-				ImGui.Image(backend.video.getRenderingTexture(), drawSize);
-				ImGui.End();
 			}
 		}
 

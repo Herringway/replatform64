@@ -5,6 +5,7 @@ import replatform64.ui;
 import replatform64.util;
 
 import std.bitmanip;
+import std.typecons;
 
 alias AudioCallback = void function(void*, ubyte[]);
 interface AudioBackend {
@@ -58,10 +59,10 @@ struct BackendSettings {
 
 struct WindowState {
 	WindowMode mode;
-	uint x = uint.max;
-	uint y = uint.max;
-	uint width = uint.max;
-	uint height = uint.max;
+	Nullable!uint x;
+	Nullable!uint y;
+	Nullable!uint width;
+	Nullable!uint height;
 }
 
 struct VideoSettings {
