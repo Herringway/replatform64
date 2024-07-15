@@ -233,7 +233,6 @@ align:
 						boolean = entry.flipHorizontal;
 						ImGui.Checkbox("Horizontal flip", &boolean);
 						ImGui.Text(format!"Priority: %s"(entry.priority));
-						ImGui.Text(format!"Priority: %s"(entry.nameTable));
 						boolean = size;
 						ImGui.Checkbox("Use alt size", &boolean);
 						ImGui.EndDisabled();
