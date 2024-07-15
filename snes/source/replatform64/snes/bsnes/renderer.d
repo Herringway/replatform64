@@ -11,6 +11,7 @@ import std.format;
 import std.logger;
 import std.range;
 
+import bindbc.common;
 import bindbc.loader;
 
 public enum ImgW = 512;
@@ -306,7 +307,6 @@ align:
 	}
 	public void drawFrame(Array2D!RGB555 texture) const {
 		assert(texture.stride == 512);
-		assert(libsfcppu_drawFrame, "libsfcppu not loaded?");
 		texture[] = getFrameData();
 	}
 	RGB555[] getFrameData() const {
@@ -315,59 +315,12 @@ align:
 	}
 }
 
+mixin(makeDynloadFns("LibSFCPPU", makeLibPaths(["libsfcppu"]), ["replatform64.snes.bsnes.renderer"]));
 
-extern(C) @nogc nothrow {
-	alias plibsfcppu_init = bool function();
-	alias plibsfcppu_drawFrame = ushort * function(const(SnesDrawFrameData)* d);
-}
-
-__gshared {
-	plibsfcppu_init libsfcppu_init;
-	plibsfcppu_drawFrame libsfcppu_drawFrame;
-}
-
-private {
-	SharedLib lib;
-}
-
-public bool loadSnesDrawFrame() {
-	version(Windows) {
-		const(char)[][1] libNames = [
-			"libsfcppu.dll",
-		];
-	} else version(OSX) {
-		const(char)[][1] libNames = [
-			"libsfcppu.dylib",
-		];
-	} else version(Posix) {
-		const(char)[][1] libNames = [
-			"libsfcppu.so",
-		];
-	} else static assert(0, "libsfcppu is not yet supported on this platform.");
-
-	bool ret;
-	foreach(name; libNames) {
-		ret = loadDynamicLibrary(name);
-		if(ret) break;
-	}
+mixin(joinFnBinds!(false)((){
+	FnBind[] ret = [
+		{q{bool}, q{libsfcppu_init}, q{}},
+		{q{ushort*}, q{libsfcppu_drawFrame}, q{const(SnesDrawFrameData)* d}},
+	];
 	return ret;
-}
-
-bool loadDynamicLibrary(const(char)[] libName) {
-	lib = load(libName.ptr);
-	if(lib == invalidHandle) {
-		return false;
-	}
-
-	auto errCount = errorCount();
-	lib.bindSymbol(cast(void**)&libsfcppu_init, "libsfcppu_init");
-	lib.bindSymbol(cast(void**)&libsfcppu_drawFrame, "libsfcppu_drawFrame");
-	if(errorCount() != errCount) return false;
-	return true;
-}
-
-
-public bool initSnesDrawFrame() {
-	assert(libsfcppu_init, "libsfcppu not loaded?");
-	return libsfcppu_init();
-}
+}()));

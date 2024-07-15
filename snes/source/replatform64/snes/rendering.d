@@ -14,6 +14,7 @@ import std.range;
 import std.stdio;
 
 import arsd.png;
+import bindbc.loader;
 
 enum Renderer {
 	bsnes,
@@ -47,8 +48,8 @@ struct SNESRenderer {
 				textureType = PixelFormat.rgb555;
 				width = defaultWidth * 2;
 				height = defaultHeight * 2;
-				enforce(loadSnesDrawFrame(), "Could not load SnesDrawFrame");
-				enforce(initSnesDrawFrame(), "Could not initialize SnesDrawFrame");
+				enforce(loadLibSFCPPU() == LoadMsg.success, "Could not load SnesDrawFrame");
+				enforce(libsfcppu_init(), "Could not initialize SnesDrawFrame");
 				break;
 			case Renderer.neo:
 				textureType = PixelFormat.abgr8888;
