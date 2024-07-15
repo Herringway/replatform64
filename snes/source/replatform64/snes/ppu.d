@@ -1153,7 +1153,7 @@ struct PPU {
 				break;
 			}
 			// get some data for the sprite and y-flip row if needed
-			const objAdr = lowOBJ.nameTable ? objTileAdr2 : objTileAdr1;
+			const objAdr = (lowOBJ.tile & 0x100) ? objTileAdr2 : objTileAdr1;
 			if (lowOBJ.flipVertical) {
 				row = spriteSize - 1 - row;
 			}

@@ -90,32 +90,52 @@ enum Pad {
 	b = 0x8000, ///
 }
 
+enum OAMFlags : ubyte {
+	nameTable = 0b00000001,
+	palette = 0b00001110,
+	priority = 0b00110000,
+	hFlip = 0b01000000,
+	vFlip = 0b10000000,
+}
+
 ///
 struct OAMEntry {
 	align(1):
 	ubyte xCoord; ///
 	ubyte yCoord; ///
-	ubyte startingTile; ///
-	ubyte flags; ///
-	///
-	bool flipVertical() const @safe pure {
-		return !!(flags & 0b10000000);
+	union {
+		ushort raw;
+		struct {
+			ubyte startingTile;
+			ubyte flags;
+		}
+		struct {
+			mixin(bitfields!(
+				ushort, "tile", 9,
+				ubyte, "palette", 3,
+				ubyte, "priority", 2,
+				bool, "flipHorizontal", 1,
+				bool, "flipVertical", 1,
+			));
+		}
 	}
-	///
-	bool flipHorizontal() const @safe pure {
-		return !!(flags & 0b01000000);
+	static OAMEntry offscreen() {
+		return OAMEntry(ubyte(0), ubyte(240), ubyte(0), ubyte(0));
 	}
-	///
-	ubyte priority() const @safe pure {
-		return (flags & 0b00110000) >> 4;
+	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) {
+		this.xCoord = x;
+		this.yCoord = y;
+		this.startingTile = tileLower;
+		this.flags = flags;
 	}
-	///
-	ubyte palette() const @safe pure {
-		return (flags & 0b00001110) >> 1;
-	}
-	///
-	bool nameTable() const @safe pure {
-		return !!(flags & 0b00000001);
+	this(ubyte x, ubyte y, ushort tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) {
+		this.xCoord = x;
+		this.yCoord = y;
+		this.tile = tile;
+		this.palette = palette;
+		this.priority = priority;
+		this.flipHorizontal = hFlip;
+		this.flipVertical = vFlip;
 	}
 }
 
