@@ -444,7 +444,6 @@ struct PlatformCommon {
 				}
 			}
 		}
-
 	}
 }
 
