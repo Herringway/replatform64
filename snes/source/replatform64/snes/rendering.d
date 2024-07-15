@@ -17,6 +17,7 @@ import arsd.png;
 import bindbc.loader;
 
 enum Renderer {
+	autoSelect,
 	bsnes,
 	neo,
 }
@@ -24,7 +25,7 @@ enum Renderer {
 SNESRenderer renderer;
 
 struct RendererSettings {
-	Renderer engine = Renderer.bsnes;
+	Renderer engine = Renderer.autoSelect;
 }
 
 struct SNESRenderer {
@@ -40,10 +41,14 @@ struct SNESRenderer {
 	private VideoBackend backend;
 
 	void initialize(string title, VideoBackend newBackend, RendererSettings rendererSettings) {
+		if (rendererSettings.engine == Renderer.autoSelect) {
+			rendererSettings.engine = (loadLibSFCPPU() == LoadMsg.success) ? Renderer.bsnes : Renderer.neo;
+		}
 		this.renderer = rendererSettings.engine;
 		infof("Initializing SNES PPU renderer %s", this.renderer);
 		PixelFormat textureType;
 		final switch (rendererSettings.engine) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				textureType = PixelFormat.rgb555;
 				width = defaultWidth * 2;
@@ -73,6 +78,7 @@ struct SNESRenderer {
 	}
 	private void draw(ubyte[] texture, int pitch) {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				bsnesFrame.drawFrame(Array2D!RGB555(width, height, pitch / RGB555.sizeof, cast(RGB555[])(texture[])));
 				break;
@@ -124,6 +130,7 @@ struct SNESRenderer {
 	}
 	ushort[] getFrameData(out uint pitch) {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				pitch = 256 * 4;
 				return cast(ushort[])bsnesFrame.getFrameData();
@@ -136,6 +143,7 @@ struct SNESRenderer {
 	}
 	ref inout(ushort) numHDMA() inout pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.numHdmaWrites;
 			case Renderer.neo:
@@ -144,6 +152,7 @@ struct SNESRenderer {
 	}
 	inout(HDMAWrite)[] hdmaData() inout pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.hdmaData[];
 			case Renderer.neo:
@@ -152,6 +161,7 @@ struct SNESRenderer {
 	}
 	ubyte[] vram() pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return cast(ubyte[])bsnesFrame.vram[];
 			case Renderer.neo:
@@ -160,6 +170,7 @@ struct SNESRenderer {
 	}
 	ushort[] cgram() pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.cgram[];
 			case Renderer.neo:
@@ -168,6 +179,7 @@ struct SNESRenderer {
 	}
 	OAMEntry[] oam1() pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return cast(OAMEntry[])(bsnesFrame.oam1[]);
 			case Renderer.neo:
@@ -176,6 +188,7 @@ struct SNESRenderer {
 	}
 	ubyte[] oam2() {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.oam2[];
 			case Renderer.neo:
@@ -184,6 +197,7 @@ struct SNESRenderer {
 	}
 	const(ubyte)[] registers() const {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.getRegistersConst;
 			case Renderer.neo:
@@ -195,6 +209,7 @@ struct SNESRenderer {
 	}
 	void writeRegister(ushort addr, ubyte value) @safe pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				bsnesFrame.writeRegister(addr, value);
 				break;
@@ -205,6 +220,7 @@ struct SNESRenderer {
 	}
 	ubyte readRegister(ushort addr) @safe pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.readRegister(addr);
 				break;
@@ -215,6 +231,7 @@ struct SNESRenderer {
 	}
 	void debugUI(const UIState state, VideoBackend video) {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return bsnesFrame.debugUI(state, video);
 				break;
@@ -225,6 +242,7 @@ struct SNESRenderer {
 	}
 	Resolution getResolution() @safe pure {
 		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
 				return Resolution(512, 448);
 			case Renderer.neo:
