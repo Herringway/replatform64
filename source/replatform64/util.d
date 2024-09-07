@@ -212,3 +212,34 @@ struct RecordedInputState {
 	InputState state;
 	uint frames;
 }
+
+void printRegisterAccess(A, V)(A addr, V val) {
+	debug(logRegisters) try {
+		import std.algorithm.searching : canFind;
+		import std.conv : text;
+		import std.logger : tracef;
+		import core.runtime;
+		auto trace = defaultTraceHandler(null);
+		const(char)[] fun;
+		foreach (idx, t; trace) {
+			// find the first non-replatform64 function
+			if (!t.canFind("replatform64.")) {
+				// if we got to main(), it's probably a write originating from this library
+				if (t.canFind("D main")) {
+					break;
+				}
+				fun = t;
+				break;
+			}
+		}
+		enum hexPaddingAddress = text(A.sizeof * 2);
+		enum hexPaddingValue = text(V.sizeof * 2);
+		// didn't find anything
+		if (fun == null) {
+			tracef("WRITE: $%0" ~ hexPaddingAddress ~ "X, %0" ~ hexPaddingValue ~ "X", addr, val);
+		} else {
+			tracef("WRITE: $%0" ~ hexPaddingAddress ~ "X, %0" ~ hexPaddingValue ~ "X (%s)", addr, val, fun);
+		}
+		defaultTraceDeallocator(trace);
+	} catch (Exception) {}
+}

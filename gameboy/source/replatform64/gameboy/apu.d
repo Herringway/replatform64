@@ -451,22 +451,6 @@ struct APU {
 		/* Find sound channel corresponding to register address. */
 		ubyte i;
 
-		debug {
-			try {
-				import core.runtime;
-				auto trace = defaultTraceHandler(null);
-				const(char)[] fun;
-				foreach (idx, t; trace) {
-					if (idx == 0) {
-						fun = t;
-						break;
-					}
-				}
-				tracef("WRITE: %04X, %02X (%s)", addr, val, fun);
-				defaultTraceDeallocator(trace);
-			} catch (Exception) {}
-		}
-
 		if (addr == 0xFF26) {
 			audio_mem[addr - AUDIO_ADDR_COMPENSATION] = val & 0x80;
 			// On APU power off, clear all registers apart from wave RAM.
