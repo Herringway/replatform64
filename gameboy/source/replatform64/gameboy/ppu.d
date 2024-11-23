@@ -11,7 +11,7 @@ import std.algorithm.iteration;
 import std.bitmanip : bitfields;
 import std.range;
 
-import pixelatrix.bpp2;
+import tilemagic.tiles.bpp2;
 
 enum LCDCFlags {
 	bgEnabled = 1 << 0,

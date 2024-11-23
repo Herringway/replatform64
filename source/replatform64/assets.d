@@ -13,7 +13,7 @@ import replatform64.ui;
 import replatform64.util;
 
 import arsd.png;
-import pixelatrix;
+import tilemagic;
 import squiz_box;
 
 alias ProgressUpdateFunction = void delegate(scope const Progress);

@@ -9,7 +9,7 @@
 		"bindbc-sdl": "~>1.4.1",
 		"arsd-official:png": "~>11.0",
 		"siryul": "~>0.6",
-		"pixelatrix": "~>0.0",
+		"tilemagic": "*",
 		"squiz-box": "~>0.3",
 		"d_imgui": { "repository": "git+https://github.com/Herringway/imgui.git", "version": "d88d230e58c85866a1225f53256f2bbdc5d1f8d3" },
 		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "bde2685e3441a2f9145f2195973744a585ddb350" }

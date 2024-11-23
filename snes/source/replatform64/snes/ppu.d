@@ -32,7 +32,7 @@ import replatform64.snes.hardware;
 import replatform64.ui;
 import replatform64.util;
 
-import pixelatrix;
+import tilemagic.tiles;
 
 import std.algorithm.comparison;
 import std.algorithm.iteration;
