@@ -47,6 +47,8 @@ struct SNES {
 	ubyte NMITIMEN;
 	ubyte STAT78;
 	private DebugFunction audioDebug;
+	enum screenHeight = 224;
+	enum screenWidth = 256;
 	auto ref gameID() {
 		return platform.gameID;
 	}
