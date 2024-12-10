@@ -249,7 +249,7 @@ struct PlatformCommon {
 								addFile(asset.metadata.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
 							} else {
 								import std.math : ceil, log10;
-								addFile(format!"%s/%0*d"(asset.metadata.name, cast(int)ceil(log10(cast(float)asset.metadata.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata.type));
+								addFile(format!"%s/%0*d"(asset.metadata.name, cast(int)ceil(log10(cast(float)asset.metadata.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
 							}
 						}}
 					} else {
