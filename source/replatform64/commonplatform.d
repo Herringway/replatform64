@@ -162,9 +162,12 @@ struct PlatformCommon {
 
 			if (!paused || inputState.step) {
 				inputState.step = false;
-				Throwable t = game.call(Fiber.Rethrow.no);
-				if(t) {
-					writeDebugDump(t.msg, t.info);
+				if (game.state != Fiber.State.HOLD) {
+					infof("Game exited normally");
+					return true;
+				}
+				if (auto thrown = game.call(Fiber.Rethrow.no)) {
+					writeDebugDump(thrown.msg, thrown.info);
 					return true;
 				}
 				interrupt();
