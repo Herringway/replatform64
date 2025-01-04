@@ -173,7 +173,9 @@ struct PlanetArchive {
 	}
 	void write(OutputRange)(OutputRange range) {
 		import std.algorithm.mutation : copy;
-		copy(files.boxZip(), range);
+		if (files.length > 0) {
+			copy(files.boxZip(), range);
+		}
 	}
 	static PlanetArchive read(ubyte[] buffer) {
 		return PlanetArchive(buffer.unboxZip.array);
@@ -184,6 +186,9 @@ struct PlanetArchive {
 	}
 	auto entries() {
 		return loaded.map!(x => Entry(x.path, x.readContent));
+	}
+	bool empty() const @safe pure {
+		return files.length == 0;
 	}
 }
 

@@ -265,7 +265,9 @@ struct PlatformCommon {
 				}
 
 				// write the archive
-				saveAssets(archive);
+				if (!archive.empty) {
+					saveAssets(archive);
+				}
 
 			} catch (Throwable e) {
 				errorf("%s", e);
