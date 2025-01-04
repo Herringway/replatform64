@@ -46,7 +46,7 @@ enum GameBoyModel : ushort {
 
 struct GameBoySimple {
 	void function(ushort) entryPoint;
-	void function() interruptHandlerVBlank;
+	void function() interruptHandlerVBlank = () {};
 	DebugFunction debugMenuRenderer;
 	string title;
 	string sourceFile;
