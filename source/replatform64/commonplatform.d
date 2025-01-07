@@ -148,6 +148,7 @@ struct PlatformCommon {
 	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
 		// pet the dog each frame so it knows we're ok
 		watchDog.pet();
+		const lastInput = inputState;
 		{
 			frameStatTracker.startFrame();
 			scope(exit) frameStatTracker.endFrame();
@@ -183,7 +184,7 @@ struct PlatformCommon {
 			backend.video.waitNextFrame();
 		}
 
-		if (inputState.pause) {
+		if (inputState.pause && !lastInput.pause) {
 			paused = !paused;
 			inputState.pause = false;
 		}
