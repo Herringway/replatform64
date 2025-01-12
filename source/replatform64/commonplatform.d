@@ -186,7 +186,6 @@ struct PlatformCommon {
 
 		if (inputState.pause && !lastInput.pause) {
 			paused = !paused;
-			inputState.pause = false;
 		}
 		return false;
 	}
