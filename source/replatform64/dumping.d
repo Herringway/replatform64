@@ -13,7 +13,7 @@ import replatform64.util;
 
 alias CrashHandler = void delegate(string);
 
-CrashHandler crashHandler;
+CrashHandler crashHandler = (dir) {};
 string repositoryURL;
 
 package shared string otherThreadCrashMsg;
@@ -49,9 +49,7 @@ void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
 	mkdirRecurse(crashDir);
 	File(buildPath(crashDir, "trace.txt"), "w").write(msg, "\n", traceInfo);
 	dumpStateToFile(buildPath(crashDir, "state.yaml"));
-	if (crashHandler) {
-		crashHandler(crashDir);
-	}
+	crashHandler(crashDir);
 	if (repositoryURL != "") {
 		infof("Game crashed! Details written to '%s', please report this bug at %s with as many details as you can include.", crashDir, repositoryURL);
 	} else {
