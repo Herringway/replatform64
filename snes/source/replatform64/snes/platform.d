@@ -28,11 +28,10 @@ struct Settings {
 
 struct SNES {
 	void function() entryPoint;
-	void function() interruptHandler;
+	void function() interruptHandlerVBlank;
+	deprecated("Use interruptHandlerVBlank instead") alias interruptHandler = interruptHandlerVBlank;
 	string title;
 	SNESRenderer renderer;
-	DebugFunction debugMenuRenderer;
-	DebugFunction gameStateMenu;
 	string matchingInternalID;
 	HLEWriteCallback spc700HLEWrite;
 	HLEReadCallback spc700HLERead;
@@ -40,6 +39,7 @@ struct SNES {
 	private immutable(ubyte)[] originalData;
 	private bool useHLEAudio;
 	private PlatformCommon platform;
+	private ushort[2] pads;
 	DMAChannel[8] dmaChannels; ///
 	ubyte HDMAEN;
 	ubyte HVBJOY;
@@ -48,26 +48,14 @@ struct SNES {
 	private DebugFunction audioDebug;
 	enum screenHeight = 224;
 	enum screenWidth = 256;
-	auto ref gameID() {
-		return platform.gameID;
-	}
-	T loadSettings(T)() {
-		auto allSettings = platform.loadSettings!(Settings, T)();
-		settings = allSettings.system;
-		return allSettings.game;
-	}
-	void saveSettings(T)(T gameSettings) {
-		platform.saveSettings(settings, gameSettings);
-	}
+
+	mixin PlatformCommonForwarders;
+
 	void initialize(Backend backendType = Backend.autoSelect) {
-		platform.initialize({ entryPoint(); }, backendType);
-		renderer.initialize(title, platform.backend.video, backendType == Backend.none ? RendererSettings(engine: Renderer.neo) : settings.renderer);
-		platform.nativeResolution = renderer.getResolution();
+		renderer.selectRenderer(backendType == Backend.none ? RendererSettings(engine: Renderer.neo) : settings.renderer);
+		commonInitialization(renderer.getResolution(), { entryPoint(); }, backendType);
+		renderer.initialize(title, platform.backend.video);
 		crashHandler = &dumpSNESDebugData;
-		platform.debugMenu = debugMenuRenderer;
-		platform.platformDebugMenu = &commonSNESDebugging;
-		platform.debugState = gameStateMenu;
-		platform.platformDebugState = &commonSNESDebuggingState;
 		platform.registerMemoryRange("VRAM", renderer.vram);
 		platform.registerMemoryRange("OAM1", cast(ubyte[])renderer.oam1);
 		platform.registerMemoryRange("OAM2", renderer.oam2);
@@ -84,17 +72,6 @@ struct SNES {
 		}
 		useHLEAudio = true;
 	}
-	void run() {
-		if (settings.debugging) {
-			platform.enableDebuggingFeatures();
-		}
-		platform.showUI();
-		while(true) {
-			if (platform.runFrame({ interruptHandler(); }, { renderer.draw(); })) {
-				break;
-			}
-		}
-	}
 	immutable(ubyte)[] romData() {
 		if (!originalData && (gameID ~ ".sfc").exists) {
 			originalData = (cast(ubyte[])read(gameID~".sfc")).idup;
@@ -106,37 +83,6 @@ struct SNES {
 		}
 		return originalData;
 	}
-	void wait() {
-		platform.wait({ interruptHandler(); });
-	}
-	void runHook(string id) {
-		platform.runHook(id);
-	}
-	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
-		platform.registerHook(id, hook.toDelegate(), settings);
-	}
-	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
-		platform.registerHook(id, hook, settings);
-	}
-	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
-		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
-	}
-	void loadWAV(const(ubyte)[] data) {
-		platform.backend.audio.loadWAV(data);
-	}
-	ref T sram(T)(uint slot) {
-		return platform.sram!T(slot);
-	}
-	void commitSRAM() {
-		platform.commitSRAM();
-	}
-	void deleteSlot(uint slot) {
-		platform.deleteSlot(slot);
-	}
-	void playbackDemo(const RecordedInputState[] demo) @safe pure {
-		platform.playbackDemo(demo);
-	}
-	// SNES-specific functions
 	void handleHDMA() {
 		.handleHDMA(renderer, HDMAEN, dmaChannels);
 	}
@@ -187,25 +133,29 @@ struct SNES {
 			default: assert(0);
 		}
 	}
+	private void copyInputState(InputState state) @safe pure {
+		pads = 0;
+		foreach (idx, ref pad; pads) {
+			if (platform.inputState.controllers[idx] & ControllerMask.y) { pad |= Pad.y; }
+			if (platform.inputState.controllers[idx] & ControllerMask.b) { pad |= Pad.b; }
+			if (platform.inputState.controllers[idx] & ControllerMask.x) { pad |= Pad.x; }
+			if (platform.inputState.controllers[idx] & ControllerMask.a) { pad |= Pad.a; }
+			if (platform.inputState.controllers[idx] & ControllerMask.r) { pad |= Pad.r; }
+			if (platform.inputState.controllers[idx] & ControllerMask.l) { pad |= Pad.l; }
+			if (platform.inputState.controllers[idx] & ControllerMask.start) { pad |= Pad.start; }
+			if (platform.inputState.controllers[idx] & ControllerMask.select) { pad |= Pad.select; }
+			if (platform.inputState.controllers[idx] & ControllerMask.up) { pad |= Pad.up; }
+			if (platform.inputState.controllers[idx] & ControllerMask.down) { pad |= Pad.down; }
+			if (platform.inputState.controllers[idx] & ControllerMask.left) { pad |= Pad.left; }
+			if (platform.inputState.controllers[idx] & ControllerMask.right) { pad |= Pad.right; }
+			if (platform.inputState.controllers[idx] & ControllerMask.extra1) { pad |= Pad.extra1; }
+			if (platform.inputState.controllers[idx] & ControllerMask.extra2) { pad |= Pad.extra2; }
+			if (platform.inputState.controllers[idx] & ControllerMask.extra3) { pad |= Pad.extra3; }
+			if (platform.inputState.controllers[idx] & ControllerMask.extra4) { pad |= Pad.extra4; }
+		}
+	}
 	ushort getControllerState(ubyte playerID) const @safe pure {
-		ushort result = 0;
-		if (platform.inputState.controllers[playerID] & ControllerMask.y) { result |= Pad.y; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.b) { result |= Pad.b; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.x) { result |= Pad.x; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.a) { result |= Pad.a; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.r) { result |= Pad.r; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.l) { result |= Pad.l; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.start) { result |= Pad.start; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.select) { result |= Pad.select; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.up) { result |= Pad.up; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.down) { result |= Pad.down; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.left) { result |= Pad.left; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.right) { result |= Pad.right; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.extra1) { result |= Pad.extra1; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.extra2) { result |= Pad.extra2; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.extra3) { result |= Pad.extra3; }
-		if (platform.inputState.controllers[playerID] & ControllerMask.extra4) { result |= Pad.extra4; }
-		return result;
+		return pads[playerID];
 	}
 	mixin DoubleWriteRegisterRedirect!("BG1HOFS", "renderer", Register.BG1HOFS);
 	mixin DoubleWriteRegisterRedirect!("BG2HOFS", "renderer", Register.BG2HOFS);
@@ -253,7 +203,7 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
-	private void commonSNESDebugging(const UIState state) {
+	private void commonDebugMenu(const UIState state) {
 		static bool platformDebugWindowOpen;
 		bool doDumpPPU;
 		if (ImGui.BeginMainMenuBar()) {
@@ -271,7 +221,7 @@ struct SNES {
 			audioDebug(state);
 		}
 	}
-	private void commonSNESDebuggingState(const UIState state) {
+	private void commonDebugState(const UIState state) {
 		//ImGui.Text("Layers");
 		//foreach (idx, layer; ["BG1", "BG2", "BG3", "BG4", "OBJ"]) {
 		//	const mask = (1 << idx);

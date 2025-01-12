@@ -48,6 +48,7 @@ struct PlatformCommon {
 	private ImGui.ImGuiContext* imguiContext;
 	private bool renderUI = true;
 	private bool debuggingEnabled;
+	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
 		string name;
 		ubyte[] range;
@@ -75,7 +76,7 @@ struct PlatformCommon {
 		settings.video.window = backend.video.getWindowState();
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
-	void initialize(void delegate() dg, Backend backendType = Backend.autoSelect) {
+	void initialize(EntryPoint dg, Backend backendType = Backend.autoSelect) {
 		detachConsoleIfUnneeded();
 		this.game = new Fiber(dg);
 		infof("Loading backend");
@@ -537,6 +538,72 @@ struct PlatformCommon {
 	assert(FakeModule.someStruct == FakeModule.SomeStruct(4, [1, 2, 3], "blah"));
 	assert(FakeModule.someStructArray == [FakeModule.SomeStruct(2, [2, 3], "bleh"), FakeModule.SomeStruct(6, [222, 3], "!!!")]);
 	assert(count == 2);
+}
+
+mixin template PlatformCommonForwarders() {
+	DebugFunction debugMenuRenderer;
+	DebugFunction gameStateMenu;
+	void commonInitialization(Resolution resolution, PlatformCommon.EntryPoint entry, Backend backendType) {
+		platform.nativeResolution = resolution;
+		platform.initialize(entry, backendType);
+		platform.debugMenu = debugMenuRenderer;
+		platform.platformDebugMenu = &commonDebugMenu;
+		platform.debugState = gameStateMenu;
+		platform.platformDebugState = &commonDebugState;
+	}
+	auto ref gameID() {
+		return platform.gameID;
+	}
+	void run() {
+		if (settings.debugging) {
+			platform.enableDebuggingFeatures();
+		}
+		platform.showUI();
+		while (true) {
+			if (platform.runFrame({ static if (__traits(hasMember, this, "interruptHandlerVBlank")) { interruptHandlerVBlank(); } }, { renderer.draw(); })) {
+				break;
+			}
+			copyInputState(platform.inputState);
+		}
+	}
+	void wait() {
+		platform.wait({ interruptHandlerVBlank(); });
+	}
+	T loadSettings(T)() {
+		auto allSettings = platform.loadSettings!(Settings, T)();
+		settings = allSettings.system;
+		return allSettings.game;
+	}
+	void saveSettings(T)(T gameSettings) {
+		platform.saveSettings(settings, gameSettings);
+	}
+	void runHook(string id) {
+		platform.runHook(id);
+	}
+	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook.toDelegate(), settings);
+	}
+	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
+		platform.registerHook(id, hook, settings);
+	}
+	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
+		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
+	}
+	void loadWAV(const(ubyte)[] data) {
+		platform.backend.audio.loadWAV(data);
+	}
+	ref T sram(T)(uint slot) {
+		return platform.sram!T(slot);
+	}
+	void commitSRAM() {
+		platform.commitSRAM();
+	}
+	void deleteSlot(uint slot) {
+		platform.deleteSlot(slot);
+	}
+	void playbackDemo(const RecordedInputState[] demo) @safe pure {
+		platform.playbackDemo(demo);
+	}
 }
 
 enum HookType {

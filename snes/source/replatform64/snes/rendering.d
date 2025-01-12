@@ -39,14 +39,14 @@ struct SNESRenderer {
 	ushort height = defaultHeight;
 	private Renderer renderer;
 	private VideoBackend backend;
+	private PixelFormat textureType;
 
-	void initialize(string title, VideoBackend newBackend, RendererSettings rendererSettings) {
+	void selectRenderer(RendererSettings rendererSettings) {
 		if (rendererSettings.engine == Renderer.autoSelect) {
 			rendererSettings.engine = (loadLibSFCPPU() == LoadMsg.success) ? Renderer.bsnes : Renderer.neo;
 		}
 		this.renderer = rendererSettings.engine;
 		infof("Initializing SNES PPU renderer %s", this.renderer);
-		PixelFormat textureType;
 		final switch (rendererSettings.engine) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
@@ -63,6 +63,9 @@ struct SNESRenderer {
 				break;
 		}
 		infof("SNES PPU renderer initialized");
+	}
+
+	void initialize(string title, VideoBackend newBackend) {
 		WindowSettings window;
 		window.baseWidth = width;
 		window.baseHeight = height;

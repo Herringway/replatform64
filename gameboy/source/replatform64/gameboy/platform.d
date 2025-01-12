@@ -48,7 +48,6 @@ enum GameBoyModel : ushort {
 struct GameBoySimple {
 	void function(ushort) entryPoint;
 	void function() interruptHandlerVBlank = () {};
-	DebugFunction debugMenuRenderer;
 	string title;
 	string sourceFile;
 	ubyte lcdYUpdateValue = 1;
@@ -61,74 +60,25 @@ struct GameBoySimple {
 	private APU apu;
 	private immutable(ubyte)[] originalData;
 	private bool showRendererLayerWindow;
+	private ubyte pad;
+	private bool dpad;
+	private bool noneSelected;
 
 	private PlatformCommon platform;
-	auto ref gameID() {
-		return platform.gameID;
-	}
-	T loadSettings(T)() {
-		auto allSettings = platform.loadSettings!(Settings, T)();
-		settings = allSettings.system;
-		return allSettings.game;
-	}
-	void saveSettings(T)(T gameSettings) {
-		platform.saveSettings(settings, gameSettings);
-	}
+
+	mixin PlatformCommonForwarders;
+
 	void initialize(Backend backendType = Backend.autoSelect) {
 		crashHandler = &dumpGBDebugData;
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
 		apu.initialize(platform.settings.audio.sampleRate);
-		platform.nativeResolution = Resolution(PPU.width, PPU.height);
-		platform.initialize({ entryPoint(model); }, backendType);
+		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
 		renderer.initialize(title, platform.backend.video);
-		platform.debugMenu = debugMenuRenderer;
-		platform.platformDebugMenu = &commonGBDebugging;
-		platform.debugState = null;
-		platform.platformDebugState = null;
 		platform.registerMemoryRange("VRAM", vram[0x8000 .. 0xA000]);
 		platform.registerMemoryRange("OAM", vram[0xFE00 .. 0xFEA0]);
-	}
-	void run() {
-		if (settings.debugging) {
-			platform.enableDebuggingFeatures();
-		}
-		platform.showUI();
-		while (true) {
-			if (platform.runFrame({ interruptHandlerVBlank(); }, { renderer.draw(); })) {
-				break;
-			}
-			copyInputState(platform.inputState);
-		}
-	}
-	void wait() {
-		platform.wait({ interruptHandlerVBlank(); });
-	}
-	void runHook(string id) {
-		platform.runHook(id);
-	}
-	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
-		platform.registerHook(id, hook.toDelegate(), settings);
-	}
-	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
-		platform.registerHook(id, hook, settings);
-	}
-	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
-		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
-	}
-	void loadWAV(const(ubyte)[] data) {
-		platform.backend.audio.loadWAV(data);
-	}
-	ref T sram(T)(uint slot) {
-		return platform.sram!T(slot);
-	}
-	void commitSRAM() {
-		platform.commitSRAM();
-	}
-	void deleteSlot(uint slot) {
-		platform.deleteSlot(slot);
 	}
 	immutable(ubyte)[] romData() {
 		if (!originalData && sourceFile.exists) {
@@ -139,13 +89,7 @@ struct GameBoySimple {
 	void enableSRAM() {
 		//enableSRAM(saveSize);
 	}
-	void disableSRAM() {
-		platform.commitSRAM();
-	}
-	void playbackDemo(const RecordedInputState[] demo) @safe pure {
-		platform.playbackDemo(demo);
-	}
-	// GB-specific features
+	alias disableSRAM = commitSRAM;
 	void interruptHandlerSTAT(void function() fun) {
 		renderer.statInterrupt = fun;
 	}
@@ -177,10 +121,6 @@ struct GameBoySimple {
 	ubyte[] vram() {
 		return renderer.ppu.vram;
 	}
-	private ubyte pad;
-
-	private bool dpad;
-	private bool noneSelected;
 
 	void writeJoy(ubyte v) {
 		dpad = (v & 0x30) == 0x20;
@@ -207,7 +147,8 @@ struct GameBoySimple {
 		if (state.controllers[0] & ControllerMask.left) { pad |= Pad.left; }
 		if (state.controllers[0] & ControllerMask.right) { pad |= Pad.right; }
 	}
-	private void commonGBDebugging(const UIState state) {
+	private void commonDebugState(const UIState state) {}
+	private void commonDebugMenu(const UIState state) {
 		bool dumpVRAM;
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("RAM")) {

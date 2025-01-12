@@ -61,9 +61,9 @@ enum Register {
 
 struct NES {
 	void function() entryPoint;
-	void function() interruptHandler;
+	void function() interruptHandlerVBlank;
+	deprecated("Use interruptHandlerVBlank instead") alias interruptHandler = interruptHandlerVBlank;
 	string title;
-	DebugFunction debugMenuRenderer;
 	bool interruptsEnabled;
 
 	private Settings settings;
@@ -72,71 +72,17 @@ struct NES {
 	private immutable(ubyte)[] romData;
 
 	private PlatformCommon platform;
-	auto ref gameID() {
-		return platform.gameID;
-	}
-	T loadSettings(T)() {
-		auto allSettings = platform.loadSettings!(Settings, T)();
-		settings = allSettings.system;
-		return allSettings.game;
-	}
-	void saveSettings(T)(T gameSettings) {
-		platform.saveSettings(settings, gameSettings);
-	}
+
+	mixin PlatformCommonForwarders;
+
 	void initialize(Backend backendType = Backend.autoSelect) {
-		platform.nativeResolution = Resolution(PPU.width, PPU.height);
-		platform.initialize({ entryPoint(); }, backendType);
+		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(); }, backendType);
 		renderer.initialize(title, platform.backend.video);
 		platform.installAudioCallback(&apu, &audioCallback);
-		platform.debugMenu = debugMenuRenderer;
-		platform.platformDebugMenu = null;
-		platform.debugState = null;
-		platform.platformDebugState = null;
 	}
-	void run() {
-		if (settings.debugging) {
-			platform.enableDebuggingFeatures();
-		}
-		platform.showUI();
-		while (true) {
-			if (platform.runFrame({ interruptHandler(); }, { renderer.draw(); })) {
-				break;
-			}
-			//copyInputState(platform.inputState);
-		}
-	}
-	void wait() {
-		platform.wait({ interruptHandler(); });
-	}
-	void runHook(string id) {
-		platform.runHook(id);
-	}
-	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
-		platform.registerHook(id, hook.toDelegate(), settings);
-	}
-	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
-		platform.registerHook(id, hook, settings);
-	}
-	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
-		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
-	}
-	void loadWAV(const(ubyte)[] data) {
-		platform.backend.audio.loadWAV(data);
-	}
-	ref T sram(T)(uint slot) {
-		return platform.sram!T(slot);
-	}
-	void commitSRAM() {
-		platform.commitSRAM();
-	}
-	void deleteSlot(uint slot) {
-		platform.deleteSlot(slot);
-	}
-	void playbackDemo(const RecordedInputState[] demo) @safe pure {
-		platform.playbackDemo(demo);
-	}
-	// NES-specific features
-	private void commonNESDebugging(const UIState state) {}
+	private void copyInputState(InputState state) @safe pure {}
+	private void commonDebugMenu(const UIState state) {}
+	private void commonDebugState(const UIState state) {}
 	mixin RegisterRedirect!("PPUCTRL", "renderer", Register.PPUCTRL);
 	mixin RegisterRedirect!("PPUMASK", "renderer", Register.PPUMASK);
 	mixin RegisterRedirect!("PPUSTATUS", "renderer", Register.PPUSTATUS);

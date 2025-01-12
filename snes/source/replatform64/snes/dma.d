@@ -105,7 +105,8 @@ unittest {
 	import std.meta : aliasSeqOf;
 	import std.range : iota;
 	SNESRenderer renderer;
-	renderer.initialize("", new NullVideo, RendererSettings(engine: Renderer.neo));
+	renderer.selectRenderer(RendererSettings(engine: Renderer.neo));
+	renderer.initialize("", new NullVideo);
 	immutable ubyte[100] testSource = [aliasSeqOf!(iota(0, 100))];
 	handleVRAMDMA(renderer, 0x01, 0x18, &testSource[0], 100, 0, 0x80);
 	assert(renderer.vram[0 .. 100] == testSource);
