@@ -7,6 +7,7 @@ import std.traits;
 import std.string;
 
 import replatform64.gameboy.ppu;
+import replatform64.util;
 
 struct Renderer {
 	PPU ppu;
@@ -25,7 +26,10 @@ struct Renderer {
 	void draw() {
 		Texture texture;
 		backend.getDrawingTexture(texture);
-		ppu.beginDrawing(texture.buffer[], texture.pitch);
+		draw(texture.buffer[], texture.pitch);
+	}
+	void draw(scope ubyte[] texture, int pitch) {
+		ppu.beginDrawing(texture, pitch);
 		foreach (i; 0 .. height) {
 			if (ppu.registers.ly == ppu.registers.lyc) {
 				ppu.registers.stat |= 0b00000100;
@@ -46,6 +50,12 @@ struct Renderer {
 				statInterrupt();
 			}
 		}
+	}
+	const(ubyte)[] getRGBA8888() {
+		enum pitch = width * ushort.sizeof;
+		auto buffer = new ubyte[](width * height * ushort.sizeof);
+		draw(buffer, pitch);
+		return bgr555ToRGBA8888(buffer, pitch);
 	}
 	void waitNextFrame() {
 		backend.waitNextFrame();

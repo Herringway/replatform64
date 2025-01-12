@@ -8,6 +8,7 @@ import replatform64.gameboy.renderer;
 import replatform64.assets;
 import replatform64.backend.common;
 import replatform64.commonplatform;
+import replatform64.dumping;
 import replatform64.registers;
 import replatform64.ui;
 import replatform64.util;
@@ -80,6 +81,7 @@ struct GameBoySimple {
 			editor.OptShowDataPreview = false;
 			editor.OptShowAscii = false;
 		}
+		crashHandler = &dumpGBDebugData;
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
@@ -338,6 +340,9 @@ struct GameBoySimple {
 	}
 	ubyte[] windowScreen() @safe pure {
 		return renderer.ppu.windowScreen;
+	}
+	void dumpGBDebugData(string crashDir) {
+		dumpScreen(cast(ubyte[])renderer.getRGBA8888(), crashDir, renderer.width, renderer.height);
 	}
 }
 

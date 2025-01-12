@@ -1,6 +1,8 @@
 module replatform64.util;
 
 import std.algorithm.comparison;
+import std.bitmanip;
+import std.range;
 
 /// Dumps the game state to a human-readable file
 void function(string path) dumpStateToFile = (str) {};
@@ -288,4 +290,27 @@ void printRegisterAccess(A, V)(A addr, V val) {
 		}
 		defaultTraceDeallocator(trace);
 	} catch (Exception) {}
+}
+
+package const(ubyte)[] bgr555ToRGBA8888(const ubyte[] source, uint sourceStride) @safe pure {
+	static union PixelConverter {
+		ushort data;
+		struct {
+			mixin(bitfields!(
+				ubyte, "r", 5,
+				ubyte, "g", 5,
+				ubyte, "b", 5,
+				bool, "", 1,
+			));
+		}
+	}
+	const(uint)[] result;
+	result.reserve(source.length / 2);
+	foreach (rowRaw; source.chunks(sourceStride)) {
+		foreach (pixel; cast(const ushort[])rowRaw) {
+			const pixelParsed = PixelConverter(pixel);
+			result ~= 0xFF000000 | (pixelParsed.r << 19) | (pixelParsed.g << 11) | (pixelParsed.b << 3);
+		}
+	}
+	return cast(const(ubyte)[])result;
 }

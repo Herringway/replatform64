@@ -101,29 +101,10 @@ struct SNESRenderer {
 		return getFrameData(_);
 	}
 	const(ubyte)[] getRGBA8888() {
-		static union PixelConverter {
-			ushort data;
-			struct {
-				mixin(bitfields!(
-					ubyte, "r", 5,
-					ubyte, "g", 5,
-					ubyte, "b", 5,
-					bool, "", 1,
-				));
-			}
-		}
 		uint stride;
 		const source = cast(ubyte[])getFrameData(stride);
 		if (renderer == Renderer.bsnes) {
-			const(uint)[] result;
-			result.reserve(width * height);
-			foreach (rowRaw; source.chunks(stride)) {
-				foreach (pixel; cast(const ushort[])rowRaw) {
-					const pixelParsed = PixelConverter(pixel);
-					result ~= 0xFF000000 | (pixelParsed.r << 19) | (pixelParsed.g << 11) | (pixelParsed.b << 3);
-				}
-			}
-			return cast(const(ubyte)[])result;
+			return bgr555ToRGBA8888(source, stride);
 		} else {
 			return source;
 		}
