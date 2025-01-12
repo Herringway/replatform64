@@ -59,7 +59,6 @@ struct GameBoySimple {
 	private Renderer renderer;
 	private APU apu;
 	private immutable(ubyte)[] originalData;
-	private bool showRendererLayerWindow;
 	private ubyte pad;
 	private bool dpad;
 	private bool noneSelected;
@@ -147,7 +146,15 @@ struct GameBoySimple {
 		if (state.controllers[0] & ControllerMask.left) { pad |= Pad.left; }
 		if (state.controllers[0] & ControllerMask.right) { pad |= Pad.right; }
 	}
-	private void commonDebugState(const UIState state) {}
+	private void commonDebugState(const UIState state) {
+		if (ImGui.BeginTabBar("platformdebug")) {
+			if (ImGui.BeginTabItem("PPU")) {
+				renderer.ppu.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
+			ImGui.EndTabBar();
+		}
+	}
 	private void commonDebugMenu(const UIState state) {
 		bool dumpVRAM;
 		if (ImGui.BeginMainMenuBar()) {
@@ -155,15 +162,7 @@ struct GameBoySimple {
 				ImGui.MenuItem("Dump VRAM", null, &dumpVRAM);
 				ImGui.EndMenu();
 			}
-			if (ImGui.BeginMenu("Renderer")) {
-				ImGui.MenuItem("Show state", null, &showRendererLayerWindow);
-				ImGui.EndMenu();
-			}
 			ImGui.EndMainMenuBar();
-		}
-		if (showRendererLayerWindow && ImGui.Begin("Renderer", &showRendererLayerWindow)) {
-			renderer.ppu.debugUI(state, platform.backend.video);
-			ImGui.End();
 		}
 		if (dumpVRAM) {
 			File("vram.bin", "w").rawWrite(renderer.ppu.vram);

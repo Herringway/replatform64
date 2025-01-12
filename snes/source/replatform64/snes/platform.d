@@ -222,50 +222,13 @@ struct SNES {
 		}
 	}
 	private void commonDebugState(const UIState state) {
-		//ImGui.Text("Layers");
-		//foreach (idx, layer; ["BG1", "BG2", "BG3", "BG4", "OBJ"]) {
-		//	const mask = (1 << idx);
-		//	bool layerEnabled = !(layersDisabled & mask);
-		//	ImGui.SameLine();
-		//	if (ImGui.Checkbox(layer, &layerEnabled)) {
-		//		layersDisabled = cast(ubyte)((layersDisabled & ~mask) | (!layerEnabled * mask));
-		//	}
-		//}
-		renderer.debugUI(state, platform.backend.video);
-		//if (ImGui.TreeNode("Registers")) {
-		//	InputEditableR("INIDISP", INIDISP);
-		//	InputEditableR("OBSEL", OBSEL);
-		//	InputEditableR("OAMADDR", OAMADDR);
-		//	InputEditableR("BGMODE", BGMODE);
-		//	InputEditableR("MOSAIC", MOSAIC);
-		//	InputEditableR("BGxSC", BG1SC, BG2SC, BG3SC, BG4SC);
-		//	InputEditableR("BGxNBA", BG12NBA, BG34NBA);
-		//	InputEditableR("BG1xOFS", BG1HOFS, BG1VOFS);
-		//	InputEditableR("BG2xOFS", BG2HOFS, BG2VOFS);
-		//	InputEditableR("BG3xOFS", BG3HOFS, BG3VOFS);
-		//	InputEditableR("BG4xOFS", BG4HOFS, BG4VOFS);
-		//	InputEditableR("M7SEL", M7SEL);
-		//	InputEditableR("M7A", M7A);
-		//	InputEditableR("M7B", M7B);
-		//	InputEditableR("M7C", M7C);
-		//	InputEditableR("M7D", M7D);
-		//	InputEditableR("M7X", M7X);
-		//	InputEditableR("M7Y", M7Y);
-		//	InputEditableR("WxSEL", W12SEL, W34SEL);
-		//	InputEditableR("WOBJSEL", WOBJSEL);
-		//	InputEditableR("WHx", WH0, WH1, WH2, WH3);
-		//	InputEditableR("WBGLOG", WBGLOG);
-		//	InputEditableR("WOBJLOG", WOBJLOG);
-		//	InputEditableR("TM", TM);
-		//	InputEditableR("TS", TS);
-		//	InputEditableR("TMW", TMW);
-		//	InputEditableR("TSW", TSW);
-		//	InputEditableR("CGWSEL", CGWSEL);
-		//	InputEditableR("CGADSUB", CGADSUB);
-		//	//InputEditableR("FIXED_COLOUR_DATA", renderer.FIXED_COLOUR_DATA_R, renderer.FIXED_COLOUR_DATA_G, renderer.FIXED_COLOUR_DATA_B);
-		//	InputEditableR("SETINI", SETINI);
-		//	ImGui.TreePop();
-		//}
+		if (ImGui.BeginTabBar("platformdebug")) {
+			if (ImGui.BeginTabItem("PPU")) {
+				renderer.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
+			ImGui.EndTabBar();
+		}
 	}
 	void dumpPPU() {
 		const dir = prepareDumpDirectory();
