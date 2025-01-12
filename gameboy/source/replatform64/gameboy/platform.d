@@ -75,12 +75,6 @@ struct GameBoySimple {
 		platform.saveSettings(settings, gameSettings);
 	}
 	void initialize(Backend backendType = Backend.autoSelect) {
-		static void initMemoryEditor(ref MemoryEditor editor) {
-			editor.Cols = 8;
-			editor.OptShowOptions = false;
-			editor.OptShowDataPreview = false;
-			editor.OptShowAscii = false;
-		}
 		crashHandler = &dumpGBDebugData;
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
