@@ -314,8 +314,19 @@ struct GameBoySimple {
 	ubyte IE; /// NYI
 	ubyte SB; /// NYI
 	ubyte SC; /// NYI
+	ubyte TIMA; /// NYI
 	ubyte TMA; /// NYI
+	ubyte TAC; /// NYI
 	ubyte DIV; /// NYI
+	void writeRegister(ushort addr, ubyte value) {
+		if ((addr >= GameBoyRegister.NR10) && (addr <= GameBoyRegister.NR52)) {
+			apu.writeRegister(addr, value);
+		} else if ((addr >= GameBoyRegister.LCDC) && (addr <= GameBoyRegister.WX)) {
+			renderer.writeRegister(addr, value);
+		} else {
+			assert(0, "Not yet implemented");
+		}
+	}
 	ubyte[] tileBlockA() @safe pure {
 		return renderer.ppu.tileBlockA;
 	}
