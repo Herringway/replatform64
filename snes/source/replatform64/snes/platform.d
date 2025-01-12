@@ -33,7 +33,6 @@ struct SNES {
 	SNESRenderer renderer;
 	DebugFunction debugMenuRenderer;
 	DebugFunction gameStateMenu;
-	CrashHandler gameStateDumper;
 	string matchingInternalID;
 	HLEWriteCallback spc700HLEWrite;
 	HLEReadCallback spc700HLERead;
@@ -245,9 +244,6 @@ struct SNES {
 	void dumpSNESDebugData(string crashDir) {
 		dumpScreen(cast(ubyte[])renderer.getRGBA8888(), crashDir, renderer.width, renderer.height);
 		dumpVRAMToDir(crashDir);
-		if (gameStateDumper) {
-			gameStateDumper(crashDir);
-		}
 	}
 	void dumpVRAMToDir(string dir) {
 		File(buildPath(dir, "gfxstate.regs"), "wb").rawWrite(renderer.registers);
