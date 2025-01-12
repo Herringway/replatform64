@@ -14,6 +14,7 @@ import replatform64.util;
 alias CrashHandler = void delegate(string);
 
 CrashHandler crashHandler;
+string repositoryURL;
 
 package shared string otherThreadCrashMsg;
 package shared Throwable.TraceInfo otherThreadCrashTrace;
@@ -51,7 +52,11 @@ void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
 	if (crashHandler) {
 		crashHandler(crashDir);
 	}
-	infof("Game crashed! Details written to '%s', please report this bug at https://github.com/Herringway/earthbound/issues with as many details as you can include.", crashDir);
+	if (repositoryURL != "") {
+		infof("Game crashed! Details written to '%s', please report this bug at %s with as many details as you can include.", crashDir, repositoryURL);
+	} else {
+		infof("Game crashed! Details written to '%s'.", crashDir);
+	}
 	debug writeln(msg, "\n", traceInfo);
 }
 
