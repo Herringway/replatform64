@@ -223,12 +223,9 @@ struct PlatformCommon {
 		}
 		throw new Exception("Not found");
 	}
-	void saveAssets(PlanetArchive archive) {
-		archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
-	}
 	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data, bool toFilesystem = false) {
 		import std.path : buildPath, dirName;
-		void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem) {
+		static void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem, ExtractFunction extractor, string gameID) {
 			try {
 				PlanetArchive archive;
 				void addFile(string name, const ubyte[] data) {
@@ -244,17 +241,12 @@ struct PlatformCommon {
 				//handle generic data
 				static foreach (asset; SymbolData!Modules) {{
 					static if (asset.metadata.sources.length > 0) {
-						static foreach (i, element; asset.metadata.sources) {{
+						foreach (i, element; asset.metadata.sources) {{
 							{
 								enum str = "Extracting " ~ asset.metadata.name;
-								send(main, Progress(str, i, cast(uint)asset.metadata.sources.length));
+								send(main, Progress(str, cast(uint)i, cast(uint)asset.metadata.sources.length));
 							}
-							static if (asset.metadata.sources.length == 1) {
-								addFile(asset.metadata.name, saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
-							} else {
-								import std.math : ceil, log10;
-								addFile(format!"%s/%0*d"(asset.metadata.name, cast(int)ceil(log10(cast(float)asset.metadata.sources.length)), i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
-							}
+							addFile(asset.metadata.assetPath(i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
 						}}
 					} else {
 						if (asset.metadata.type == DataType.structured) {
@@ -270,7 +262,7 @@ struct PlatformCommon {
 
 				// write the archive
 				if (!archive.empty) {
-					saveAssets(archive);
+					archive.write(File(gameID~".planet", "w").lockingBinaryWriter);
 				}
 
 			} catch (Throwable e) {
@@ -280,7 +272,7 @@ struct PlatformCommon {
 			// done
 			send(main, true);
 		}
-		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, toFilesystem);
+		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, toFilesystem, extractor, gameID);
 		bool extractionDone;
 		auto progress = Progress("Initializing");
 		void renderExtractionUI() {
@@ -302,57 +294,63 @@ struct PlatformCommon {
 				(bool) { extractionDone = true; },
 				(const Progress msg) { progress = msg; }
 			)) {}
-			assert(backend);
-			if (backend.processEvents() || backend.input.getState().exit) {
-				exit(0);
-			}
-			backend.video.startFrame();
 			watchDog.pet();
-			renderExtractionUI();
-			backend.video.finishFrame();
-			backend.video.waitNextFrame();
+			if (backend) {
+				if (backend.processEvents() || backend.input.getState().exit) {
+					exit(0);
+				}
+				backend.video.startFrame();
+				renderExtractionUI();
+				backend.video.finishFrame();
+				backend.video.waitNextFrame();
+			}
 		}
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
-		import std.path : buildPath;
+		import std.algorithm.sorting : sort;
+		//import std.path : buildPath;
 		PlanetArchive archive;
 		if (assetsExist) {
 			archive = assets;
 		}
-		static foreach (Symbol; SymbolData!Modules) {{
-			enum path = buildPath("data", Symbol.metadata.name);
-			const(ubyte)[][] data;
-			if (path.exists) {
-				if (path.isDir) {
-					foreach (file; dirEntries(path, SpanMode.depth)) {
-						data ~= cast(ubyte[])read(file);
-					}
-				} else {
-					data ~= cast(ubyte[])read(path);
-				}
-			} else if (assetsExist) {
-				foreach (asset; archive.entries) {
-					if (asset.name == Symbol.metadata.name) {
-						data ~= asset.data;
-						break;
-					}
-				}
-			} else if (Symbol.metadata.requiresExtraction) {
-				throw new Exception("File " ~ Symbol.metadata.name ~ " not found");
-			}
-			foreach (file; data) {
-				auto newData = loadROMAsset(file, Symbol.metadata);
-				static if (Symbol.metadata.type == DataType.structured) {
-					Symbol.data = (cast(const(char)[])newData).fromString!(typeof(Symbol.data), YAML)(Symbol.metadata.name);
-				} else {
+		const(ubyte)[][string] arrayAssets;
+		foreach (asset; archive.entries) {
+			bool matched;
+			static foreach (Symbol; SymbolData!Modules) {
+				if (asset.name.matches(Symbol.metadata)) {
+					matched = true;
+					auto data = loadROMAsset(asset.data, Symbol.metadata);
 					static if (Symbol.metadata.array) {
-						Symbol.data ~= cast(typeof(Symbol.data[0]))newData;
+						arrayAssets[asset.name] = data;
+						Symbol.data = [];
 					} else {
-						Symbol.data = cast(typeof(Symbol.data))newData;
+						tracef("Loading %s", asset.name);
+						static if (Symbol.metadata.type == DataType.structured) {
+							Symbol.data = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(asset.name);
+						} else {
+							Symbol.data = cast(Symbol.ReadableElementType!())data;
+						}
 					}
 				}
 			}
-		}}
+			if (!matched) {
+				func(asset.name, asset.data, backend);
+			}
+		}
+		foreach (file; arrayAssets.keys.sort) {
+			static foreach (Symbol; SymbolData!Modules) {
+				static if (Symbol.metadata.array) {
+					if (file.matches(Symbol.metadata)) {
+						tracef("Loading %s", file);
+						static if (Symbol.metadata.type == DataType.structured) {
+							Symbol.data ~= (cast(const(char)[])arrayAssets[file]).fromString!(typeof(Symbol.data), YAML)(file);
+						} else {
+							Symbol.data ~= cast(Symbol.ReadableElementType!())arrayAssets[file];
+						}
+					}
+				}
+			}
+		}
 	}
 	void runHook(string id) {
 		if (auto matchingHooks = id in hooks) {
@@ -451,6 +449,61 @@ struct PlatformCommon {
 			}
 		}
 	}
+}
+
+@system unittest {
+	static struct FakeModule {
+		static struct SomeStruct {
+			ubyte a;
+			int[] b;
+			string c;
+		}
+		@ROMSource(0x0, 0x4)
+		@Asset("test/bytes", DataType.raw)
+		static ubyte[] sample;
+		@([ROMSource(0x0, 0x1), ROMSource(0x1, 0x1), ROMSource(0x2, 0x1), ROMSource(0x3, 0x1)])
+		@Asset("test/bytes2", DataType.raw)
+		static ubyte[] sample2;
+		@([ROMSource(0, 1), ROMSource(1, 3)])
+		static immutable(ubyte[])[] sample3;
+		@Asset("test/structure.yaml", DataType.structured)
+		static SomeStruct someStruct = SomeStruct(4, [1, 2, 3], "blah");
+		@Asset("test/structures.yaml", DataType.structured)
+		static SomeStruct[] someStructArray = [SomeStruct(2, [2, 3], "bleh"), SomeStruct(6, [222, 3], "!!!")];
+	}
+	immutable(ubyte)[] fakeData = [0, 1, 2, 3];
+	static void extractor(scope AddFileFunction addFile, scope ProgressUpdateFunction, immutable(ubyte)[]) {
+		addFile("big test.bin", [4, 6, 8, 10]);
+	}
+	static count = 0;
+	static void loader(const scope char[] name, const scope ubyte[] data, scope PlatformBackend) {
+		assert(name == "big test.bin");
+		assert(data == [4, 6, 8, 10]);
+		count++;
+	}
+	PlatformCommon sample;
+	sample.gameID = "TEST";
+	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader, toFilesystem: false);
+	assert("TEST.planet".exists);
+	assert(count == 1);
+	scope(exit) std.file.remove("TEST.planet");
+	assert(FakeModule.sample == [0, 1, 2, 3]);
+	assert(FakeModule.sample2 == [0, 1, 2, 3]);
+	assert(FakeModule.sample3 == [[0], [1, 2, 3]]);
+	assert(FakeModule.someStruct == FakeModule.SomeStruct(4, [1, 2, 3], "blah"));
+	assert(FakeModule.someStructArray == [FakeModule.SomeStruct(2, [2, 3], "bleh"), FakeModule.SomeStruct(6, [222, 3], "!!!")]);
+	FakeModule.sample = [];
+	FakeModule.sample2 = [];
+	FakeModule.sample3 = [];
+	FakeModule.someStruct = FakeModule.SomeStruct(2, [], "???");
+	FakeModule.someStructArray = [];
+	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader, toFilesystem: false);
+	assert(FakeModule.sample == [0, 1, 2, 3]);
+	assert(FakeModule.sample2 == [0, 1, 2, 3]);
+	assert(FakeModule.sample3 == [[0], [1, 2, 3]]);
+	assert(FakeModule.someStruct == FakeModule.SomeStruct(4, [1, 2, 3], "blah"));
+	assert(FakeModule.someStructArray == [FakeModule.SomeStruct(2, [2, 3], "bleh"), FakeModule.SomeStruct(6, [222, 3], "!!!")]);
+	assert(count == 2);
 }
 
 enum HookType {
