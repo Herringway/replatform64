@@ -2,6 +2,52 @@ module replatform64.util;
 
 import std.algorithm.comparison;
 
+/// Dumps the game state to a human-readable file
+void function(string path) dumpStateToFile = (str) {};
+
+template typeMatches(T) {
+	enum typeMatches(alias t) = is(typeof(t) == T);
+}
+
+private struct _NoDump {}
+enum NoDump = _NoDump();
+
+private struct _GameState {}
+enum GameState = _GameState();
+
+mixin template generateStateDumpFunctions() {
+	private import std.meta : Filter;
+	private enum isIgnoredStateVar(alias sym) = Filter!(typeMatches!(typeof(NoDump)), __traits(getAttributes, sym)).length == 1;
+	private enum isStateVar(alias sym) =
+		!isIgnoredStateVar!sym &&
+		(Filter!(typeMatches!(typeof(GameState)), __traits(getAttributes, sym)).length == 1) &&
+		__traits(compiles, { sym = sym.init; }) &&
+		!__traits(isDeprecated, sym);
+	shared static this() {
+		dumpStateToFile = &dumpStateToYAML;
+	}
+	void dumpStateToYAML(string outPath) {
+		import siryul : toFile, YAML;
+		getState().toFile!YAML(outPath);
+	}
+	auto getState() {
+		static struct State {
+			static foreach (mem; __traits(allMembers, mixin(__MODULE__))) {
+				static if (isStateVar!(__traits(getMember, mixin(__MODULE__), mem))) {
+					mixin("typeof(__traits(getMember, mixin(__MODULE__), mem)) ", mem, ";");
+				}
+			}
+		}
+		State result;
+		static foreach (mem; __traits(allMembers, mixin(__MODULE__))) {
+			static if (isStateVar!(__traits(getMember, mixin(__MODULE__), mem))) {
+				__traits(getMember, result, mem) = __traits(getMember, mixin(__MODULE__), mem);
+			}
+		}
+		return result;
+	}
+}
+
 void wrappedLoad(scope ubyte[] dest, scope const(ubyte)[] source, size_t start) @safe pure {
 	const wrappedStart = dest.length - start;
 	dest[start .. min(start + source.length, dest.length)] = source[0 .. min(wrappedStart, $)];

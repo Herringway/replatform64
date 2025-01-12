@@ -44,10 +44,6 @@ struct Asset {
 private enum isROMLoadable(alias sym) = (Filter!(typeMatches!ROMSource, __traits(getAttributes, sym)).length == 1) || (Filter!(typeMatches!(ROMSource[]), __traits(getAttributes, sym)).length == 1);
 private enum isAsset(alias sym) = Filter!(typeMatches!Asset, __traits(getAttributes, sym)).length == 1;
 
-template typeMatches(T) {
-	enum typeMatches(alias t) = is(typeof(t) == T);
-}
-
 struct SymbolDataItem(alias Sym) {
 	alias data = Sym;
 	SymbolMetadata metadata;

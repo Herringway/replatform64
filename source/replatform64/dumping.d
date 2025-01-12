@@ -5,8 +5,11 @@ import std.file;
 import std.format;
 import std.logger;
 import std.path;
+import std.stdio;
 
 import arsd.png;
+
+import replatform64.util;
 
 alias CrashHandler = void delegate(string);
 
@@ -41,13 +44,10 @@ noreturn writeDebugDumpOtherThread(string msg, Throwable.TraceInfo traceInfo) no
 	while(true) {}
 }
 void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
-	import std.datetime : Clock;
-	import std.file : mkdirRecurse;
-	import std.path : absolutePath, buildNormalizedPath, buildPath;
-	import std.stdio : File, writeln;
 	auto crashDir = buildNormalizedPath("dump", format!"crash %s"(Clock.currTime.toISOString)).absolutePath;
 	mkdirRecurse(crashDir);
 	File(buildPath(crashDir, "trace.txt"), "w").write(msg, "\n", traceInfo);
+	dumpStateToFile(buildPath(crashDir, "state.yaml"));
 	if (crashHandler) {
 		crashHandler(crashDir);
 	}
