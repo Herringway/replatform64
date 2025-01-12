@@ -70,6 +70,9 @@ struct SNES {
 		static if (__traits(compiles, audioDebug = &user.debugging)) {
 			audioDebug = &user.debugging;
 		}
+		if (user.aram !is null) {
+			platform.registerMemoryRange("ARAM", user.aram);
+		}
 		useHLEAudio = true;
 	}
 	immutable(ubyte)[] romData() {
@@ -217,14 +220,15 @@ struct SNES {
 			dumpPPU();
 			doDumpPPU = false;
 		}
-		if (audioDebug) {
-			audioDebug(state);
-		}
 	}
 	private void commonDebugState(const UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
 			if (ImGui.BeginTabItem("PPU")) {
 				renderer.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("APU")) {
+				audioDebug(state);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();
