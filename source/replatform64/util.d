@@ -12,15 +12,15 @@ template typeMatches(T) {
 private struct _NoDump {}
 enum NoDump = _NoDump();
 
-private struct _GameState {}
-enum GameState = _GameState();
+private struct _DumpableGameState {}
+enum DumpableGameState = _DumpableGameState();
 
 mixin template generateStateDumpFunctions() {
 	private import std.meta : Filter;
 	private enum isIgnoredStateVar(alias sym) = Filter!(typeMatches!(typeof(NoDump)), __traits(getAttributes, sym)).length == 1;
 	private enum isStateVar(alias sym) =
 		!isIgnoredStateVar!sym &&
-		(Filter!(typeMatches!(typeof(GameState)), __traits(getAttributes, sym)).length == 1) &&
+		(Filter!(typeMatches!(typeof(DumpableGameState)), __traits(getAttributes, sym)).length == 1) &&
 		__traits(compiles, { sym = sym.init; }) &&
 		!__traits(isDeprecated, sym);
 	shared static this() {
