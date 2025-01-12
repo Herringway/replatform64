@@ -48,6 +48,13 @@ struct PlatformCommon {
 	private ImGui.ImGuiContext* imguiContext;
 	private bool renderUI = true;
 	private bool debuggingEnabled;
+	static struct MemoryEditorState {
+		string name;
+		ubyte[] range;
+		MemoryEditor editor;
+		bool active;
+	}
+	MemoryEditorState[] memoryEditors;
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
 		inputPlayback = demo;
 	}
@@ -102,17 +109,44 @@ struct PlatformCommon {
 			//resetWindowSize(true);
 		}
 	}
+	void registerMemoryRange(string name, ubyte[] range) @safe pure {
+		static MemoryEditor initMemoryEditor() {
+			MemoryEditor editor;
+			editor.Cols = 8;
+			editor.OptShowOptions = false;
+			editor.OptShowDataPreview = false;
+			editor.OptShowAscii = false;
+			return editor;
+		}
+		memoryEditors ~= MemoryEditorState(
+			name: name,
+			range: range,
+			editor: initMemoryEditor(),
+			active: false,
+		);
+	}
 	void debuggingUI(const UIState) {
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("Debugging")) {
 				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
 				ImGui.MenuItem("Enable UI metrics", null, &uiMetricsEnabled);
+				if (ImGui.BeginMenu("Memory")) {
+					foreach (ref memoryEditor; memoryEditors) {
+						ImGui.MenuItem(memoryEditor.name, null, &memoryEditor.active);
+					}
+					ImGui.EndMenu();
+				}
 				if (ImGui.MenuItem("Force crash")) {
 					assert(0, "Forced crash");
 				}
 				ImGui.EndMenu();
 			}
 			ImGui.EndMainMenuBar();
+		}
+		foreach (ref memoryEditor; memoryEditors) {
+			if (memoryEditor.active) {
+				memoryEditor.active = memoryEditor.editor.DrawWindow(memoryEditor.name, memoryEditor.range);
+			}
 		}
 		if (metricsEnabled) {
 			if (ImGui.Begin("Metrics")) {

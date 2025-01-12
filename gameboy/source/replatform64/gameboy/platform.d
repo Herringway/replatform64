@@ -59,10 +59,6 @@ struct GameBoySimple {
 	private Renderer renderer;
 	private APU apu;
 	private immutable(ubyte)[] originalData;
-	private bool vramEditorActive;
-	private MemoryEditor memoryEditorVRAM;
-	private bool oamEditorActive;
-	private MemoryEditor memoryEditorOAM;
 	private bool showRendererLayerWindow;
 
 	private PlatformCommon platform;
@@ -84,8 +80,6 @@ struct GameBoySimple {
 			editor.OptShowDataPreview = false;
 			editor.OptShowAscii = false;
 		}
-		initMemoryEditor(memoryEditorVRAM);
-		initMemoryEditor(memoryEditorOAM);
 		rng = Random(seed);
 		renderer.ppu.vram = new ubyte[](0x10000);
 
@@ -98,6 +92,8 @@ struct GameBoySimple {
 		platform.platformDebugMenu = &commonGBDebugging;
 		platform.debugState = null;
 		platform.platformDebugState = null;
+		platform.registerMemoryRange("VRAM", vram[0x8000 .. 0xA000]);
+		platform.registerMemoryRange("OAM", vram[0xFE00 .. 0xFEA0]);
 	}
 	void run() {
 		if (settings.debugging) {
@@ -220,8 +216,6 @@ struct GameBoySimple {
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("RAM")) {
 				ImGui.MenuItem("Dump VRAM", null, &dumpVRAM);
-				ImGui.MenuItem("VRAM", null, &vramEditorActive);
-				ImGui.MenuItem("OAM", null, &oamEditorActive);
 				ImGui.EndMenu();
 			}
 			if (ImGui.BeginMenu("Renderer")) {
@@ -229,12 +223,6 @@ struct GameBoySimple {
 				ImGui.EndMenu();
 			}
 			ImGui.EndMainMenuBar();
-		}
-		if (vramEditorActive) {
-			vramEditorActive = memoryEditorVRAM.DrawWindow("VRAM", vram[0x8000 .. 0xA000]);
-		}
-		if (oamEditorActive) {
-			oamEditorActive = memoryEditorOAM.DrawWindow("OAM", vram[0xFE00 .. 0xFEA0]);
 		}
 		if (showRendererLayerWindow && ImGui.Begin("Renderer", &showRendererLayerWindow)) {
 			renderer.ppu.debugUI(state, platform.backend.video);

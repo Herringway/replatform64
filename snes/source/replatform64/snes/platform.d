@@ -69,6 +69,9 @@ struct SNES {
 		platform.platformDebugMenu = &commonSNESDebugging;
 		platform.debugState = gameStateMenu;
 		platform.platformDebugState = &commonSNESDebuggingState;
+		platform.registerMemoryRange("VRAM", renderer.vram);
+		platform.registerMemoryRange("OAM1", cast(ubyte[])renderer.oam1);
+		platform.registerMemoryRange("OAM2", renderer.oam2);
 	}
 	void initializeAudio(T)(T* user, void function(T* user, ubyte[] buffer) callback, HLEWriteCallback writeCallback, HLEReadCallback readCallback) {
 		platform.installAudioCallback(user, cast(void function(void*, ubyte[]))callback);
@@ -255,32 +258,14 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 	private void commonSNESDebugging(const UIState state) {
-		static bool vramEditorActive;
-		static MemoryEditor memoryEditorVRAM = defaultMemoryEditorSettings("VRAM.bin");
-		static bool oam1EditorActive;
-		static MemoryEditor memoryEditorOAM1 = defaultMemoryEditorSettings("OAM1.bin");
-		static bool oam2EditorActive;
-		static MemoryEditor memoryEditorOAM2 = defaultMemoryEditorSettings("OAM2.bin");
 		static bool platformDebugWindowOpen;
 		bool doDumpPPU;
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("RAM")) {
 				ImGui.MenuItem("Dump VRAM", null, &doDumpPPU);
-				ImGui.MenuItem("VRAM", null, &vramEditorActive);
-				ImGui.MenuItem("OAM1", null, &oam1EditorActive);
-				ImGui.MenuItem("OAM2", null, &oam2EditorActive);
 				ImGui.EndMenu();
 			}
 			ImGui.EndMainMenuBar();
-		}
-		if (vramEditorActive) {
-			vramEditorActive = memoryEditorVRAM.DrawWindow("VRAM", renderer.vram);
-		}
-		if (oam1EditorActive) {
-			oam1EditorActive = memoryEditorOAM1.DrawWindow("OAM1", renderer.oam1);
-		}
-		if (oam2EditorActive) {
-			oam2EditorActive = memoryEditorOAM2.DrawWindow("OAM2", renderer.oam2);
 		}
 		if (doDumpPPU) {
 			dumpPPU();
