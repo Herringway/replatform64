@@ -67,8 +67,13 @@ align:
 
 	ushort[0x8000] vram;
 	ushort[0x100] cgram;
-	OAMEntry[128] oam1;
-	ubyte[32] oam2;
+	union {
+		struct {
+			OAMEntry[128] oam1;
+			ubyte[32] oam2;
+		}
+		ubyte[oam1.sizeof + oam2.sizeof] oamFull;
+	}
 
 	ushort numHdmaWrites;
 	HDMAWrite[4*8*240] hdmaData;

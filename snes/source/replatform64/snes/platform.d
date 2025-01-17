@@ -89,14 +89,23 @@ struct SNES {
 	void handleHDMA() {
 		.handleHDMA(renderer, HDMAEN, dmaChannels);
 	}
-	void handleOAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort oamaddr) {
-		.handleOAMDMA(renderer, dmap, bbad, a1t, das, oamaddr);
+	void handleOAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort oamaddr) pure {
+		.handleOAMDMA(renderer.oamFull, dmap, bbad, a1t, das, oamaddr);
 	}
-	void handleCGRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort cgadd) {
-		.handleCGRAMDMA(renderer, dmap, bbad, a1t, das, cgadd);
+	void handleCGRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort cgadd) pure {
+		.handleCGRAMDMA(cast(ubyte[])renderer.cgram, dmap, bbad, a1t, das, cgadd);
 	}
-	void handleVRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort vmaddr, ubyte vmain) {
-		.handleVRAMDMA(renderer, dmap, bbad, a1t, das, vmaddr, vmain);
+	void handleVRAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort vmaddr, ubyte vmain) pure {
+		.handleVRAMDMA(renderer.vram, dmap, bbad, a1t, das, vmaddr, vmain);
+	}
+	void handleOAMDMA(ubyte dmap, ubyte bbad, const(ubyte)[] a1t, ushort das, ushort oamaddr) @safe pure {
+		.handleOAMDMA(renderer.oamFull, dmap, bbad, a1t, das, oamaddr);
+	}
+	void handleCGRAMDMA(ubyte dmap, ubyte bbad, const(ubyte)[] a1t, ushort das, ushort cgadd) @safe pure {
+		.handleCGRAMDMA(cast(ubyte[])renderer.cgram, dmap, bbad, a1t, das, cgadd);
+	}
+	void handleVRAMDMA(ubyte dmap, ubyte bbad, const(ubyte)[] a1t, ushort das, ushort vmaddr, ubyte vmain) @safe pure {
+		.handleVRAMDMA(renderer.vram, dmap, bbad, a1t, das, vmaddr, vmain);
 	}
 	void setFixedColourData(ubyte val) {
 		COLDATA = val;

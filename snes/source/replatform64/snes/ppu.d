@@ -161,8 +161,13 @@ struct PPU {
 	int m7startX = 0;
 	int m7startY = 0;
 
-	OAMEntry[128] oam;
-	ubyte[oam.length / 4] oamHigh;
+	union {
+		struct {
+			OAMEntry[128] oam;
+			ubyte[oam.length / 4] oamHigh;
+		}
+		ubyte[oam.sizeof + oamHigh.sizeof] oamRaw;
+	}
 
 	// store 31 extra entries to remove the need for clamp
 	ubyte[32 + 31] brightnessMult;

@@ -143,7 +143,7 @@ struct SNESRenderer {
 				return neoHDMAData[];
 			}
 	}
-	ubyte[] vram() pure {
+	ubyte[] vram() return @safe pure {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
@@ -152,7 +152,7 @@ struct SNESRenderer {
 				return cast(ubyte[])(neoRenderer.vram[]);
 		}
 	}
-	ushort[] cgram() pure {
+	ushort[] cgram() return @safe pure {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
@@ -161,7 +161,7 @@ struct SNESRenderer {
 				return cast(ushort[])(neoRenderer.cgram[]);
 		}
 	}
-	OAMEntry[] oam1() pure {
+	OAMEntry[] oam1() return @safe pure {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
@@ -170,7 +170,16 @@ struct SNESRenderer {
 				return neoRenderer.oam;
 		}
 	}
-	ubyte[] oam2() {
+	ubyte[] oamFull() return @safe pure {
+		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
+			case Renderer.bsnes:
+				return bsnesFrame.oamFull[];
+			case Renderer.neo:
+				return neoRenderer.oamRaw[];
+		}
+	}
+	ubyte[] oam2() return @safe pure {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
