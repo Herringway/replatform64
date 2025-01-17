@@ -152,6 +152,10 @@ struct GameBoySimple {
 				renderer.ppu.debugUI(state, platform.backend.video);
 				ImGui.EndTabItem();
 			}
+			if (ImGui.BeginTabItem("APU")) {
+				apu.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
 			ImGui.EndTabBar();
 		}
 	}

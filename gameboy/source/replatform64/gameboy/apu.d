@@ -1,7 +1,12 @@
 module replatform64.gameboy.apu;
 
+import std.algorithm.iteration;
+import std.conv;
 import std.logger;
+import std.range;
 import std.string;
+import replatform64.backend.common;
+import replatform64.ui;
 
 /*
 Copyright (c) 2017 Alex Baines <alex@abaines.me.uk>
@@ -110,6 +115,90 @@ struct APU {
 
 	private int vol_l, vol_r;
 	uint sampleRate = 32000;
+
+	void debugUI(const UIState state, VideoBackend video) {
+		InputSlider("Volume (left)", vol_l, 0, 7);
+		InputSlider("Volume (right)", vol_r, 0, 7);
+		if (ImGui.BeginTable("Channels_", chans.length + 1)) {
+			int counter = 0x18760000; // semi-randomly chosen
+			void addTableItemCommon(FieldType)(ref FieldType field) {
+				ImGui.TableNextColumn();
+				ImGui.PushID(counter++);
+				static if (is(FieldType == bool)) {
+					ImGui.Checkbox("", &field);
+				} else static if (is(FieldType : int)) {
+					int value = field;
+					if (ImGui.InputInt("", &value)) {
+						field = cast(FieldType)value;
+					}
+				}
+				ImGui.PopID();
+			}
+			void addTableItem(string field)(string label) {
+				ImGui.TableNextColumn();
+				ImGui.TextUnformatted(label);
+				foreach (ref channel; chans[]) {
+					addTableItemCommon(__traits(getMember, channel, field));
+				}
+			}
+			void addTableItemSquare(string field)(string label) {
+				ImGui.TableNextColumn();
+				ImGui.TextUnformatted(label);
+				foreach (ref channel; chans[0 .. 2]) {
+					addTableItemCommon(__traits(getMember, channel.square, field));
+				}
+				ImGui.TableNextColumn();
+				ImGui.TableNextColumn();
+			}
+			void addTableItemNoise(string field)(string label) {
+				ImGui.TableNextColumn();
+				ImGui.TextUnformatted(label);
+				ImGui.TableNextColumn();
+				ImGui.TableNextColumn();
+				ImGui.TableNextColumn();
+				foreach (ref channel; chans[3 .. 4]) {
+					addTableItemCommon(__traits(getMember, channel.noise, field));
+				}
+			}
+			void addTableItemWave(string field)(string label) {
+				ImGui.TableNextColumn();
+				ImGui.TextUnformatted(label);
+				ImGui.TableNextColumn();
+				ImGui.TableNextColumn();
+				foreach (ref channel; chans[2 .. 3]) {
+					addTableItemCommon(__traits(getMember, channel.wave, field));
+				}
+				ImGui.TableNextColumn();
+			}
+			enum headers = iota(chans.length).map!(x => x.text).array;
+			ImGui.TableSetupColumn("");
+			foreach (header; headers) {
+				ImGui.TableSetupColumn(header);
+			}
+			ImGui.TableHeadersRow();
+			addTableItem!"enabled"("Enabled");
+			addTableItem!"powered"("Powered");
+			addTableItem!"on_left"("On (left)");
+			addTableItem!"on_right"("On (right)");
+			addTableItem!"muted"("Muted");
+			addTableItem!"volume"("Volume");
+			addTableItem!"volume_init"("Volume (init)");
+			addTableItem!"freq"("Frequency");
+			addTableItem!"freq_counter"("Frequency counter");
+			addTableItem!"freq_inc"("Frequency increment");
+			addTableItem!"val"("Value");
+			addTableItem!"len"("Length");
+			addTableItem!"env"("Envelope");
+			addTableItem!"sweep"("Sweep");
+			addTableItemSquare!"duty"("Duty (square)");
+			addTableItemSquare!"duty_counter"("Duty counter (square)");
+			addTableItemNoise!"lfsr_reg"("Clock shift (noise)");
+			addTableItemNoise!"lfsr_wide"("LFSR width (noise)");
+			addTableItemNoise!"lfsr_div"("Clock divider (noise)");
+			addTableItemWave!"sample"("Sample (Wave)");
+			ImGui.EndTable();
+		}
+	}
 
 	private void set_note_freq(ref Channel c, const uint freq) nothrow @safe pure {
 		/* Lowest expected value of freq is 64. */
