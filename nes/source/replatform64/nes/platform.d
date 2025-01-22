@@ -1,11 +1,12 @@
 module replatform64.nes.platform;
 
-import replatform64.assets;
-import replatform64.backend.common;
-import replatform64.commonplatform;
 import replatform64.nes.apu;
 import replatform64.nes.ppu;
 import replatform64.nes.renderer;
+
+import replatform64.assets;
+import replatform64.backend.common;
+import replatform64.commonplatform;
 import replatform64.registers;
 import replatform64.ui;
 import replatform64.util;

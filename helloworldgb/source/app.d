@@ -1,4 +1,3 @@
-import replatform64;
 import replatform64.gameboy;
 
 import std.format;

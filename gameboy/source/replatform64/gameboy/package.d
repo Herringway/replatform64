@@ -1,5 +1,7 @@
 module replatform64.gameboy;
 
+public import replatform64;
+
 public import replatform64.gameboy.apu;
 public import replatform64.gameboy.cpu;
 public import replatform64.gameboy.platform;
