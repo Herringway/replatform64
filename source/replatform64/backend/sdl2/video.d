@@ -1,5 +1,7 @@
 module replatform64.backend.sdl2.video;
 
+import bindbc.sdl;
+static if (SDL_MAJOR_VERSION == 2) {
 import replatform64.backend.common;
 import replatform64.backend.sdl2.common;
 
@@ -8,13 +10,11 @@ import replatform64.ui;
 import imgui.sdl2;
 import imgui.sdl2renderer;
 
-import bindbc.sdl;
 
 import std.algorithm.comparison;
 import std.logger;
 import std.string;
 
-static if (SDL_MAJOR_VERSION == 2) {
 class SDL2Video : VideoBackend {
 	private SDL_Window* sdlWindow;
 	private SDL_Renderer* renderer;

@@ -32,19 +32,22 @@ class SDL3Video : VideoBackend {
 		in(window.width > 0, "Zero width is invalid")
 		in(window.height > 0, "Zero height is invalid")
 	{
-		const windowFlags = SDL_WINDOW_RESIZABLE | (settings.window.mode == WindowMode.maximized ? SDL_WINDOW_MAXIMIZED : 0);
+		//const windowFlags = SDL_WINDOW_RESIZABLE | (settings.window.mode == WindowMode.maximized ? SDL_WINDOW_MAXIMIZED : 0);
 		this.window = window;
-		infof("Creating window with size %sx%s", settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)), settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)));
+		const finalZoom = max(1, settings.uiZoom, settings.zoom);
+		const finalWidth = settings.window.width.get(window.baseWidth * finalZoom);
+		const finalHeight = settings.window.height.get(window.baseHeight * finalZoom);
+		tracef("Want window %sx%s with zoom %s", settings.window.width.get(-1), settings.window.height.get(-1), finalZoom);
+		infof("Creating window with size %sx%s", finalWidth, finalHeight);
 
 		SDL_PropertiesID props = SDL_CreateProperties();
 		SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, title.toStringz);
 		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, settings.window.x.get(SDL_WINDOWPOS_UNDEFINED));
 		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, settings.window.y.get(SDL_WINDOWPOS_UNDEFINED));
-		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)));
-		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)));
-		// For window flags you should use separate window creation properties,
-		// but for easier migration from SDL2 you can use the following:
-		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, windowFlags);
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, finalWidth);
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, finalHeight);
+		SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+		SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, settings.window.mode == WindowMode.maximized);
 		sdlWindow = SDL_CreateWindowWithProperties(props);
 		SDL_DestroyProperties(props);
 
@@ -66,8 +69,6 @@ class SDL3Video : VideoBackend {
 		renderer = SDL_CreateRenderer(sdlWindow, null);
 		enforceSDL(renderer !is null, "Error creating SDL renderer");
 		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-		//SDL_RendererInfo renderInfo;
-		//SDL_GetRendererInfo(renderer, &renderInfo);
 		infof("SDL renderer initialized (%s)", SDL_GetRendererName(renderer).fromStringz);
 
 		ImGui_ImplSDL3_InitForSDLRenderer(sdlWindow, renderer);
@@ -96,8 +97,8 @@ class SDL3Video : VideoBackend {
 	}
 	void startFrame() @trusted {
 		lastTime = SDL_GetTicks();
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-		SDL_RenderClear(renderer);
+		enforceSDL(SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255), "SDL_SetRenderDrawColor failed");
+		enforceSDL(SDL_RenderClear(renderer), "SDL_RenderClear failed");
 		// ImGui
 		ImGui_ImplSDL3_NewFrame();
 		ImGui_ImplSDLRenderer3_NewFrame();
@@ -128,7 +129,7 @@ class SDL3Video : VideoBackend {
 	void getDrawingTexture(out Texture result) @trusted {
 		ubyte* drawBuffer;
 		int pitch;
-		SDL_LockTexture(drawTexture, null, cast(void**)&drawBuffer, &pitch);
+		enforceSDL(SDL_LockTexture(drawTexture, null, cast(void**)&drawBuffer, &pitch), "Failed to lock texture");
 		result.pitch = pitch;
 		result.width = window.baseWidth;
 		result.height = window.baseHeight;
@@ -151,8 +152,9 @@ class SDL3Video : VideoBackend {
 		auto texture = cast(SDL_Texture*)surface;
 		ubyte* drawBuffer;
 		int pitch;
-		enforceSDL(SDL_LockTexture(texture, null, cast(void**)&drawBuffer, &pitch) == 0, "Failed to lock surface");
+		enforceSDL(SDL_LockTexture(texture, null, cast(void**)&drawBuffer, &pitch), "Failed to lock surface");
 		const props = SDL_GetTextureProperties(texture);
+		enforceSDL(!!props, "SDL_GetTextureProperties failed");
 		const height = SDL_GetNumberProperty(props, SDL_PROP_TEXTURE_HEIGHT_NUMBER, 0);
 		assert(buffer.length <= pitch * height, format!"Expected at least %s bytes in texture, got %s"(buffer.length, pitch * height));
 		drawBuffer[0 .. buffer.length] = buffer;
