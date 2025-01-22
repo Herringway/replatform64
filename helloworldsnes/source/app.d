@@ -78,7 +78,9 @@ ushort inputPressed;
 void readInput() {
 	inputPressed = snes.getControllerState(0);
 }
-void writeToVRAM(scope const ubyte[] data, ushort addr) {
+void writeToVRAM(scope const ubyte[] data, ushort addr)
+	in(data.length)
+{
 	snes.handleVRAMDMA(0b00000001, 0x18, data.ptr, cast(ushort)data.length, addr, 0b10000000);
 }
 void init() {

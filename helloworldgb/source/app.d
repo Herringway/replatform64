@@ -67,7 +67,9 @@ void init() {
 }
 void load() {
 	writeToVRAM(objData, 0x8000);
+	assert(objData.length, "Could not load OBJ data");
 	writeToVRAM(fontData, 0x9000);
+	assert(fontData.length, "Could not load font data");
 	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 }
 void startRendering() {
