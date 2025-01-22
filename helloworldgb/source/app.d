@@ -9,8 +9,10 @@ GameBoySimple gb;
 
 OAMEntry[5] oam;
 
-void main() {
-	(cast(Logger)sharedLog).logLevel = LogLevel.trace;
+void main(string[] args) {
+	if (gb.parseArgs(args)) {
+		return;
+	}
 	gb.entryPoint = &start;
 	gb.interruptHandlerVBlank = &vblank;
 	gb.title = "Hello World";

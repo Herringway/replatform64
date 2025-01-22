@@ -20,6 +20,7 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.format;
+import std.getopt;
 import std.logger;
 import std.stdio;
 import std.string;
@@ -75,6 +76,16 @@ struct PlatformCommon {
 		settings.video.ui = strip(ImGui.SaveIniSettingsToMemory());
 		settings.video.window = backend.video.getWindowState();
 		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
+	}
+	auto parseArgs(string[] args) {
+		bool verbose;
+		auto result = getopt(args, config.passThrough,
+			"v|verbose", "Verbose logging", &verbose
+		);
+		if (verbose) {
+			(cast(Logger)sharedLog).logLevel = LogLevel.trace;
+		}
+		return result;
 	}
 	void initialize(EntryPoint dg, Backend backendType = Backend.autoSelect) {
 		detachConsoleIfUnneeded();
@@ -553,6 +564,22 @@ mixin template PlatformCommonForwarders() {
 	}
 	auto ref gameID() {
 		return platform.gameID;
+	}
+	bool parseArgs(T...)(string[] args, T opts) {
+		import std.getopt : defaultGetoptPrinter, getopt;
+		auto result = platform.parseArgs(args);
+		static if (__traits(hasMember, this, "handlePlatformOptions")) {
+			auto platformOptions = handlePlatformOptions(args);
+			result.options ~= platformOptions.options;
+		}
+		static if (T.length > 0) {
+			auto gameOptions = getopt(args, opts);
+			result.options ~= gameOptions.options;
+		}
+		if (result.helpWanted) {
+			defaultGetoptPrinter("", result.options);
+		}
+		return result.helpWanted;
 	}
 	void run() {
 		if (settings.debugging) {

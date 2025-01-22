@@ -34,8 +34,10 @@ RGB555[16][16] palettes = [
 
 OAMEntry[128] oam = OAMEntry.offscreen; // all unused sprites should render offscreen
 
-void main() {
-	(cast(Logger)sharedLog).logLevel = LogLevel.trace;
+void main(string[] args) {
+	if (snes.parseArgs(args)) {
+		return;
+	}
 	snes.entryPoint = &start;
 	snes.interruptHandler = &vblank;
 	snes.title = "Hello World";
