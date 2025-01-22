@@ -6,7 +6,7 @@
 	"description": "Console port helper library",
 	"license": "BSL-1.0",
 	"dependencies": {
-		"bindbc-sdl": "~>1.4.1",
+		"bindbc-sdl": "2.0.0-prerelease.3",
 		"arsd-official:png": "~>11.0",
 		"siryul": "~>0.6",
 		"tilemagic": "*",

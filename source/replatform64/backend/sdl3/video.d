@@ -1,12 +1,12 @@
-module replatform64.backend.sdl2.video;
+module replatform64.backend.sdl3.video;
 
 import replatform64.backend.common;
-import replatform64.backend.sdl2.common;
+import replatform64.backend.sdl3.common;
 
 import replatform64.ui;
 
-import imgui.sdl2;
-import imgui.sdl2renderer;
+import imgui.sdl3;
+import imgui.sdl3renderer;
 
 import bindbc.sdl;
 
@@ -14,75 +14,72 @@ import std.algorithm.comparison;
 import std.logger;
 import std.string;
 
-static if (SDL_MAJOR_VERSION == 2) {
-class SDL2Video : VideoBackend {
+class SDL3Video : VideoBackend {
 	private SDL_Window* sdlWindow;
 	private SDL_Renderer* renderer;
 	private SDL_Texture* drawTexture;
 	private WindowSettings window;
 	private VideoSettings settings;
-	private int lastTime;
+	private ulong lastTime;
 	void initialize(VideoSettings settings) @trusted
 		in(settings.uiZoom > 0, "Zoom is invalid")
 	{
 		this.settings = settings;
-		enforceSDL(SDL_Init(SDL_INIT_VIDEO) == 0, "Error initializing SDL");
+		enforceSDL(SDL_Init(SDL_INIT_VIDEO), "Error initializing SDL");
 		infof("SDL video subsystem initialized (%s)", SDL_GetCurrentVideoDriver().fromStringz);
 	}
-	//void resetWindowSize(bool debugMode) @trusted {
-	//	SDL_SetWindowSize(sdlWindow,
-	//		(window.baseWidth + (250 * debugMode)) * max(1, settings.uiZoom, settings.zoom),
-	//		(window.baseHeight + (150 * debugMode)) * max(1, settings.uiZoom, settings.zoom));
-	//	SDL_SetWindowPosition(sdlWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-	//}
 	void createWindow(string title, WindowSettings window) @trusted
 		in(window.width > 0, "Zero width is invalid")
 		in(window.height > 0, "Zero height is invalid")
 	{
-		enum windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+		const windowFlags = SDL_WINDOW_RESIZABLE | (settings.window.mode == WindowMode.maximized ? SDL_WINDOW_MAXIMIZED : 0);
 		this.window = window;
 		infof("Creating window with size %sx%s", settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)), settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)));
-		sdlWindow = SDL_CreateWindow(
-			title.toStringz,
-			settings.window.x.get(SDL_WINDOWPOS_UNDEFINED),
-			settings.window.y.get(SDL_WINDOWPOS_UNDEFINED),
-			settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)),
-			settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)),
-			windowFlags | (settings.window.mode == WindowMode.maximized ? SDL_WINDOW_MAXIMIZED : 0)
-		);
+
+		SDL_PropertiesID props = SDL_CreateProperties();
+		SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, title.toStringz);
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, settings.window.x.get(SDL_WINDOWPOS_UNDEFINED));
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, settings.window.y.get(SDL_WINDOWPOS_UNDEFINED));
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, settings.window.width.get(window.baseWidth * max(1, settings.uiZoom, settings.zoom)));
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, settings.window.height.get(window.baseHeight * max(1, settings.uiZoom, settings.zoom)));
+		// For window flags you should use separate window creation properties,
+		// but for easier migration from SDL2 you can use the following:
+		SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, windowFlags);
+		sdlWindow = SDL_CreateWindowWithProperties(props);
+		SDL_DestroyProperties(props);
+
 		final switch (settings.window.mode) {
 			case WindowMode.windowed:
 				break;
 			case WindowMode.maximized:
 				break;
 			case WindowMode.fullscreen:
-				SDL_SetWindowFullscreen(sdlWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
+				SDL_SetWindowFullscreenMode(sdlWindow, null);
 				break;
 			case WindowMode.fullscreenExclusive:
-				SDL_SetWindowFullscreen(sdlWindow, SDL_WINDOW_FULLSCREEN);
+				assert(0, "Unsupported");
+				//SDL_SetWindowFullscreen(sdlWindow, SDL_WINDOW_FULLSCREEN);
 				break;
 		}
 		enforceSDL(sdlWindow !is null, "Error creating SDL window");
-		const rendererFlags = SDL_RENDERER_ACCELERATED;
-		renderer = SDL_CreateRenderer(
-			sdlWindow, -1, rendererFlags
-		);
+		const rendererFlags = 0;
+		renderer = SDL_CreateRenderer(sdlWindow, null);
 		enforceSDL(renderer !is null, "Error creating SDL renderer");
 		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-		SDL_RendererInfo renderInfo;
-		SDL_GetRendererInfo(renderer, &renderInfo);
-		infof("SDL renderer initialized (%s)", renderInfo.name.fromStringz);
+		//SDL_RendererInfo renderInfo;
+		//SDL_GetRendererInfo(renderer, &renderInfo);
+		infof("SDL renderer initialized (%s)", SDL_GetRendererName(renderer).fromStringz);
 
-		ImGui_ImplSDL2_InitForSDLRenderer(sdlWindow, renderer);
-		ImGui_ImplSDLRenderer_Init(renderer);
+		ImGui_ImplSDL3_InitForSDLRenderer(sdlWindow, renderer);
+		ImGui_ImplSDLRenderer3_Init(renderer);
 	}
 	WindowState getWindowState() const @safe {
 		return settings.window;
 	}
 	void deinitialize() @trusted {
 		// destroy ImGui
-		ImGui_ImplSDLRenderer_Shutdown();
-		ImGui_ImplSDL2_Shutdown();
+		ImGui_ImplSDLRenderer3_Shutdown();
+		ImGui_ImplSDL3_Shutdown();
 		// Close and destroy the window
 		if (sdlWindow !is null) {
 			SDL_DestroyWindow(sdlWindow);
@@ -102,13 +99,13 @@ class SDL2Video : VideoBackend {
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
 		// ImGui
-		ImGui_ImplSDL2_NewFrame();
-		ImGui_ImplSDLRenderer_NewFrame();
+		ImGui_ImplSDL3_NewFrame();
+		ImGui_ImplSDLRenderer3_NewFrame();
 		ImGui.NewFrame();
 	}
 	void finishFrame() @trusted {
 		ImGui.Render();
-		ImGui_ImplSDLRenderer_RenderDrawData(ImGui.GetDrawData());
+		ImGui_ImplSDLRenderer3_RenderDrawData(ImGui.GetDrawData(), renderer);
 
 		SDL_RenderPresent(renderer);
 	}
@@ -119,9 +116,9 @@ class SDL2Video : VideoBackend {
 		drawTexture = SDL_CreateTexture(renderer, fmt, SDL_TEXTUREACCESS_STREAMING, width, height);
 		enforceSDL(drawTexture !is null, "Error creating SDL texture");
 	}
-	private uint getFormat(PixelFormat format) @safe {
+	private SDL_PixelFormat getFormat(PixelFormat format) @safe {
 		final switch (format) {
-			case PixelFormat.rgb555: return SDL_PIXELFORMAT_RGB555; break;
+			case PixelFormat.rgb555: return SDL_PIXELFORMAT_XRGB1555; break;
 			case PixelFormat.argb8888: return SDL_PIXELFORMAT_ARGB8888; break;
 			case PixelFormat.bgra8888: return SDL_PIXELFORMAT_BGRA8888; break;
 			case PixelFormat.rgba8888: return SDL_PIXELFORMAT_RGBA8888; break;
@@ -155,8 +152,8 @@ class SDL2Video : VideoBackend {
 		ubyte* drawBuffer;
 		int pitch;
 		enforceSDL(SDL_LockTexture(texture, null, cast(void**)&drawBuffer, &pitch) == 0, "Failed to lock surface");
-		int height;
-		SDL_QueryTexture(texture, null, null, null, &height);
+		const props = SDL_GetTextureProperties(texture);
+		const height = SDL_GetNumberProperty(props, SDL_PROP_TEXTURE_HEIGHT_NUMBER, 0);
 		assert(buffer.length <= pitch * height, format!"Expected at least %s bytes in texture, got %s"(buffer.length, pitch * height));
 		drawBuffer[0 .. buffer.length] = buffer;
 		SDL_UnlockTexture(texture);
@@ -167,37 +164,48 @@ class SDL2Video : VideoBackend {
 		}
 	}
 	void waitNextFrame() @trusted {
-		int drawTime = SDL_GetTicks() - lastTime;
+		ulong drawTime = SDL_GetTicks() - lastTime;
 		if (drawTime < 16) {
-			SDL_Delay(16 - drawTime);
+			SDL_Delay(cast(int)(16 - drawTime));
 		}
 	}
 	void handleUIEvent(SDL_Event* event) {
-		if (event.type == SDL_WINDOWEVENT) {
-			switch (event.window.event) {
-				case SDL_WINDOWEVENT_MOVED:
-					settings.window.x = event.window.data1;
-					settings.window.y = event.window.data2;
-					break;
-				case SDL_WINDOWEVENT_MAXIMIZED:
-					settings.window.mode = WindowMode.maximized;
-					break;
-				case SDL_WINDOWEVENT_RESTORED:
-				case SDL_WINDOWEVENT_MINIMIZED:
-					settings.window.mode = WindowMode.windowed;
-					break;
-				case SDL_WINDOWEVENT_RESIZED:
-				case SDL_WINDOWEVENT_SIZE_CHANGED:
-					settings.window.width = event.window.data1;
-					settings.window.height = event.window.data2;
-					break;
-				default: break;
-			}
+		switch (event.type) {
+			case SDL_EVENT_WINDOW_MOVED:
+				settings.window.x = event.window.data1;
+				settings.window.y = event.window.data2;
+				break;
+			case SDL_EVENT_WINDOW_MAXIMIZED:
+				settings.window.mode = WindowMode.maximized;
+				break;
+			case SDL_EVENT_WINDOW_RESTORED:
+			case SDL_EVENT_WINDOW_MINIMIZED:
+				settings.window.mode = WindowMode.windowed;
+				break;
+			case SDL_EVENT_WINDOW_RESIZED:
+			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED :
+				settings.window.width = event.window.data1;
+				settings.window.height = event.window.data2;
+				break;
+			case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+				int currentWidth, currentHeight;
+				const displayScale = SDL_GetWindowDisplayScale(sdlWindow);
+				//SDL_SetWindowSize(sdlWindow, cast(int)(width * displayScale), cast(int)(height * displayScale));
+				enforceSDL(SDL_GetWindowSizeInPixels(sdlWindow, &currentWidth, &currentHeight), "SDL_GetWindowSizeInPixels");
+				infof("Resolution: %sx%s (%s)", currentWidth, currentHeight, displayScale);
+				auto io = &ImGui.GetIO();
+				io.DisplaySize = ImVec2(cast(float)currentWidth, cast(float)currentHeight);
+				io.DisplayFramebufferScale = ImVec2(displayScale, displayScale);
+				io.FontGlobalScale = displayScale;
+
+				ImGui_ImplSDLRenderer3_DestroyDeviceObjects();
+				ImGui_ImplSDLRenderer3_CreateDeviceObjects();
+				break;
+			default: break;
 		}
-		ImGui_ImplSDL2_ProcessEvent(event);
+		ImGui_ImplSDL3_ProcessEvent(event);
 	}
 	void setTitle(scope const char[] title) @trusted {
 		SDL_SetWindowTitle(sdlWindow, title.toStringz);
 	}
-}
 }

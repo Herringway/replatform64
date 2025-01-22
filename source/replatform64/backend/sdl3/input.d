@@ -1,7 +1,7 @@
-module replatform64.backend.sdl2.input;
+module replatform64.backend.sdl3.input;
 
 import replatform64.backend.common;
-import replatform64.backend.sdl2.common;
+import replatform64.backend.sdl3.common;
 import replatform64.ui;
 import replatform64.util;
 
@@ -11,20 +11,19 @@ import std.file;
 import std.logger;
 import std.string;
 
-static if (SDL_MAJOR_VERSION == 2) {
-class SDL2Input : InputBackend {
+class SDL3Input : InputBackend {
 	private InputState state;
 	private InputSettings settings;
 	void initialize(InputSettings settings) @trusted {
-		enforceSDL(SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) == 0, "Couldn't initialise controller SDL subsystem");
+		enforceSDL(SDL_InitSubSystem(SDL_INIT_GAMEPAD), "Couldn't initialise gamepad SDL subsystem");
 		if ("gamecontrollerdb.txt".exists) {
-			if (SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt") < 0) {
+			if (SDL_AddGamepadMappingsFromFile("gamecontrollerdb.txt") < 0) {
 				SDLError("Error loading game controller database");
 			} else {
 				info("Successfully loaded game controller database");
 			}
 		}
-		SDL_GameControllerEventState(SDL_ENABLE);
+		SDL_SetGamepadEventsEnabled(true);
 		info("SDL game controller subsystem initialized");
 		this.settings = settings;
 	}
@@ -33,31 +32,31 @@ class SDL2Input : InputBackend {
 	}
 	bool processEvent(ref SDL_Event event) {
 		switch (event.type) {
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
+			case SDL_EVENT_KEY_DOWN:
+			case SDL_EVENT_KEY_UP:
 				if (imguiAteKeyboard()) {
 					break;
 				}
-				if (auto button = sdlKeyToKeyboardKey(event.key.keysym.scancode) in settings.keyboardMapping) {
-					handleButton(state, *button, event.type == SDL_KEYDOWN, 1);
+				if (auto button = sdlKeyToKeyboardKey(event.key.scancode) in settings.keyboardMapping) {
+					handleButton(state, *button, event.type == SDL_EVENT_KEY_DOWN, 1);
 				}
 				break;
-			case SDL_CONTROLLERAXISMOTION:
-				if (auto axis = sdlAxisToGamePadAxis(cast(SDL_GameControllerAxis)event.caxis.axis) in settings.gamepadAxisMapping) {
-					handleAxis(state, *axis, event.caxis.value, SDL_GameControllerGetPlayerIndex(SDL_GameControllerFromInstanceID(event.caxis.which)));
+			case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+				if (auto axis = sdlAxisToGamePadAxis(cast(SDL_GamepadAxis)event.gaxis.axis) in settings.gamepadAxisMapping) {
+					handleAxis(state, *axis, event.gaxis.value, SDL_GetGamepadPlayerIndex(SDL_GetGamepadFromID(event.gaxis.which)));
 				}
 				break;
-			case SDL_CONTROLLERBUTTONUP:
-			case SDL_CONTROLLERBUTTONDOWN:
-				if (auto button = sdlButtonToGamePadButton(cast(SDL_GameControllerButton)event.cbutton.button) in settings.gamepadMapping) {
-					handleButton(state, *button, event.type == SDL_CONTROLLERBUTTONDOWN, SDL_GameControllerGetPlayerIndex(SDL_GameControllerFromInstanceID(event.cbutton.which)));
+			case SDL_EVENT_GAMEPAD_BUTTON_UP:
+			case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+				if (auto button = sdlButtonToGamePadButton(cast(SDL_GamepadButton)event.gbutton.button) in settings.gamepadMapping) {
+					handleButton(state, *button, event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN, SDL_GetGamepadPlayerIndex(SDL_GetGamepadFromID(event.gbutton.which)));
 				}
 				break;
-			case SDL_CONTROLLERDEVICEADDED:
+			case SDL_EVENT_GAMEPAD_ADDED:
 				connectGamepad(event.cdevice.which);
 				break;
 
-			case SDL_CONTROLLERDEVICEREMOVED:
+			case SDL_EVENT_GAMEPAD_REMOVED:
 				disconnectGamepad(event.cdevice.which);
 				break;
 			default: break;
@@ -66,10 +65,10 @@ class SDL2Input : InputBackend {
 	}
 }
 private void connectGamepad(int id) {
-	if (SDL_IsGameController(id)) {
-		if (auto controller = SDL_GameControllerOpen(id)) {
-			SDL_GameControllerSetPlayerIndex(controller, 1);
-			const(char)* name = SDL_GameControllerNameForIndex(id);
+	if (SDL_IsGamepad(id)) {
+		if (auto controller = SDL_OpenGamepad(id)) {
+			enforceSDL(SDL_SetGamepadPlayerIndex(controller, 1), "SDL_SetGamepadPlayerIndex");
+			const(char)* name = SDL_GetGamepadNameForID(id);
 			infof("Initialized controller: %s", name.fromStringz);
 		} else {
 			SDLError("Error opening controller: %s");
@@ -77,9 +76,9 @@ private void connectGamepad(int id) {
 	}
 }
 private void disconnectGamepad(int id) {
-	if (auto controller = SDL_GameControllerFromInstanceID(id)) {
-		infof("Controller disconnected: %s", SDL_GameControllerName(controller).fromStringz);
-		SDL_GameControllerClose(controller);
+	if (auto controller = SDL_GetGamepadFromID(id)) {
+		infof("Controller disconnected: %s", SDL_GetGamepadName(controller).fromStringz);
+		SDL_CloseGamepad(controller);
 	}
 }
 void applyButtonMask(ref InputState input, ushort val, bool pressed, uint playerID) @safe pure {
@@ -138,34 +137,34 @@ void handleAxis(ref InputState input, AxisMapping axis, short value, uint player
 			break;
 	}
 }
-GamePadAxis sdlAxisToGamePadAxis(SDL_GameControllerAxis axis) {
+GamePadAxis sdlAxisToGamePadAxis(SDL_GamepadAxis axis) {
 	switch (axis) {
-		case SDL_CONTROLLER_AXIS_LEFTX: return GamePadAxis.leftX;
-		case SDL_CONTROLLER_AXIS_LEFTY: return GamePadAxis.leftY;
-		case SDL_CONTROLLER_AXIS_RIGHTX: return GamePadAxis.rightX;
-		case SDL_CONTROLLER_AXIS_RIGHTY: return GamePadAxis.rightY;
-		case SDL_CONTROLLER_AXIS_TRIGGERLEFT: return GamePadAxis.triggerLeft;
-		case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: return GamePadAxis.triggerRight;
+		case SDL_GAMEPAD_AXIS_LEFTX: return GamePadAxis.leftX;
+		case SDL_GAMEPAD_AXIS_LEFTY: return GamePadAxis.leftY;
+		case SDL_GAMEPAD_AXIS_RIGHTX: return GamePadAxis.rightX;
+		case SDL_GAMEPAD_AXIS_RIGHTY: return GamePadAxis.rightY;
+		case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return GamePadAxis.triggerLeft;
+		case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return GamePadAxis.triggerRight;
 		default: return GamePadAxis.invalid;
 	}
 }
-GamePadButton sdlButtonToGamePadButton(SDL_GameControllerButton button) {
+GamePadButton sdlButtonToGamePadButton(SDL_GamepadButton button) {
 	switch (button) {
-		case SDL_CONTROLLER_BUTTON_A: return GamePadButton.a;
-		case SDL_CONTROLLER_BUTTON_B: return GamePadButton.b;
-		case SDL_CONTROLLER_BUTTON_X: return GamePadButton.x;
-		case SDL_CONTROLLER_BUTTON_Y: return GamePadButton.y;
-		case SDL_CONTROLLER_BUTTON_BACK: return GamePadButton.back;
-		case SDL_CONTROLLER_BUTTON_GUIDE: return GamePadButton.guide;
-		case SDL_CONTROLLER_BUTTON_START: return GamePadButton.start;
-		case SDL_CONTROLLER_BUTTON_LEFTSTICK: return GamePadButton.leftStick;
-		case SDL_CONTROLLER_BUTTON_RIGHTSTICK: return GamePadButton.rightStick;
-		case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: return GamePadButton.leftShoulder;
-		case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return GamePadButton.rightShoulder;
-		case SDL_CONTROLLER_BUTTON_DPAD_UP: return GamePadButton.dpadUp;
-		case SDL_CONTROLLER_BUTTON_DPAD_DOWN: return GamePadButton.dpadDown;
-		case SDL_CONTROLLER_BUTTON_DPAD_LEFT: return GamePadButton.dpadLeft;
-		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return GamePadButton.dpadRight;
+		case SDL_GAMEPAD_BUTTON_SOUTH: return GamePadButton.a;
+		case SDL_GAMEPAD_BUTTON_EAST: return GamePadButton.b;
+		case SDL_GAMEPAD_BUTTON_WEST: return GamePadButton.x;
+		case SDL_GAMEPAD_BUTTON_NORTH: return GamePadButton.y;
+		case SDL_GAMEPAD_BUTTON_BACK: return GamePadButton.back;
+		case SDL_GAMEPAD_BUTTON_GUIDE: return GamePadButton.guide;
+		case SDL_GAMEPAD_BUTTON_START: return GamePadButton.start;
+		case SDL_GAMEPAD_BUTTON_LEFT_STICK: return GamePadButton.leftStick;
+		case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return GamePadButton.rightStick;
+		case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return GamePadButton.leftShoulder;
+		case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return GamePadButton.rightShoulder;
+		case SDL_GAMEPAD_BUTTON_DPAD_UP: return GamePadButton.dpadUp;
+		case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return GamePadButton.dpadDown;
+		case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return GamePadButton.dpadLeft;
+		case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return GamePadButton.dpadRight;
 		default: return GamePadButton.invalid;
 	}
 }
@@ -385,16 +384,11 @@ KeyboardKey sdlKeyToKeyboardKey(SDL_Scancode scancode) {
 		case SDL_SCANCODE_RALT: return KeyboardKey.rAlt;
 		case SDL_SCANCODE_RGUI: return KeyboardKey.rGUI;
 		case SDL_SCANCODE_MODE: return KeyboardKey.mode;
-		case SDL_SCANCODE_AUDIONEXT: return KeyboardKey.audioNext;
-		case SDL_SCANCODE_AUDIOPREV: return KeyboardKey.audioPrev;
-		case SDL_SCANCODE_AUDIOSTOP: return KeyboardKey.audioStop;
-		case SDL_SCANCODE_AUDIOPLAY: return KeyboardKey.audioPlay;
-		case SDL_SCANCODE_AUDIOMUTE: return KeyboardKey.audioMute;
-		case SDL_SCANCODE_MEDIASELECT: return KeyboardKey.mediaSelect;
-		case SDL_SCANCODE_WWW: return KeyboardKey.www;
-		case SDL_SCANCODE_MAIL: return KeyboardKey.mail;
-		case SDL_SCANCODE_CALCULATOR: return KeyboardKey.calculator;
-		case SDL_SCANCODE_COMPUTER: return KeyboardKey.computer;
+		case SDL_SCANCODE_MEDIA_NEXT_TRACK: return KeyboardKey.audioNext;
+		case SDL_SCANCODE_MEDIA_PREVIOUS_TRACK: return KeyboardKey.audioPrev;
+		case SDL_SCANCODE_MEDIA_STOP: return KeyboardKey.audioStop;
+		case SDL_SCANCODE_MEDIA_PLAY: return KeyboardKey.audioPlay;
+		case SDL_SCANCODE_MEDIA_SELECT: return KeyboardKey.mediaSelect;
 		case SDL_SCANCODE_AC_SEARCH: return KeyboardKey.acSearch;
 		case SDL_SCANCODE_AC_HOME: return KeyboardKey.acHome;
 		case SDL_SCANCODE_AC_BACK: return KeyboardKey.acBack;
@@ -402,17 +396,8 @@ KeyboardKey sdlKeyToKeyboardKey(SDL_Scancode scancode) {
 		case SDL_SCANCODE_AC_STOP: return KeyboardKey.acStop;
 		case SDL_SCANCODE_AC_REFRESH: return KeyboardKey.acRefresh;
 		case SDL_SCANCODE_AC_BOOKMARKS: return KeyboardKey.acBookmarks;
-		case SDL_SCANCODE_BRIGHTNESSDOWN: return KeyboardKey.brightnessDown;
-		case SDL_SCANCODE_BRIGHTNESSUP: return KeyboardKey.brightnessUp;
-		case SDL_SCANCODE_DISPLAYSWITCH: return KeyboardKey.displaySwitch;
-		case SDL_SCANCODE_KBDILLUMTOGGLE: return KeyboardKey.kbdIllumToggle;
-		case SDL_SCANCODE_KBDILLUMDOWN: return KeyboardKey.kbdIllumDown;
-		case SDL_SCANCODE_KBDILLUMUP: return KeyboardKey.kbdIllumUp;
-		case SDL_SCANCODE_EJECT: return KeyboardKey.eject;
+		case SDL_SCANCODE_MEDIA_EJECT: return KeyboardKey.eject;
 		case SDL_SCANCODE_SLEEP: return KeyboardKey.sleep;
-		case SDL_SCANCODE_APP1: return KeyboardKey.app1;
-		case SDL_SCANCODE_APP2: return KeyboardKey.app2;
 		default: return KeyboardKey.invalid;
 	}
-}
 }

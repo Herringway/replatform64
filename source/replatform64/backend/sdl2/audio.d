@@ -18,7 +18,7 @@ version(Windows) {
 } else version (Posix) {
 	enum libName = "libSDL2_mixer.so";
 }
-
+static if (SDL_MAJOR_VERSION == 2):
 class SDL2Audio : AudioBackend {
 	private uint sampleRate;
 	private uint channels;
@@ -81,7 +81,6 @@ class SDL2AudioMixer : AudioBackend {
 		}
 	}
 }
-
 private __gshared AudioCallback callback;
 
 private extern(C) void callbackWrapper(void* extra, ubyte* buf, int length) nothrow {

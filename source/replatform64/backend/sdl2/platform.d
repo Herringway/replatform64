@@ -16,6 +16,7 @@ version(Windows) {
 	enum libName = "libSDL2.so";
 }
 
+static if (SDL_MAJOR_VERSION == 2) {
 class SDL2Platform : PlatformBackend {
 	override void initialize() @trusted {
 		enforceSDLLoaded!("SDL", SDL_GetVersion, libName)(loadSDL());
@@ -40,5 +41,18 @@ class SDL2Platform : PlatformBackend {
 			}
 		}
 		return false;
+	}
+}
+} else {
+	class SDL2Platform : PlatformBackend {
+		override void initialize() @trusted {
+			assert(0);
+		}
+		override void deinitialize() @trusted {
+			assert(0);
+		}
+		override bool processEvents() @trusted {
+			assert(0);
+		}
 	}
 }

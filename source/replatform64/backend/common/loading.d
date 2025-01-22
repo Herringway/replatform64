@@ -3,13 +3,17 @@ module replatform64.backend.common.loading;
 import replatform64.backend.common.interfaces;
 import replatform64.backend.nullbackend;
 import replatform64.backend.sdl2;
+import replatform64.backend.sdl3;
 
 PlatformBackend loadBackend(Backend backend, BackendSettings settings) @safe {
 	PlatformBackend result;
 	final switch (backend) {
 		case Backend.sdl2:
-		case Backend.autoSelect:
 			result = new SDL2Platform;
+			break;
+		case Backend.sdl3:
+		case Backend.autoSelect:
+			result = new SDL3Platform;
 			break;
 		case Backend.none:
 			result = new NullPlatform;
@@ -25,5 +29,6 @@ PlatformBackend loadBackend(Backend backend, BackendSettings settings) @safe {
 enum Backend {
 	autoSelect,
 	sdl2,
+	sdl3,
 	none,
 }
