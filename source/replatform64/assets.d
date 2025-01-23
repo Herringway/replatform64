@@ -27,6 +27,7 @@ enum DataType {
 	raw,
 	structured,
 	bpp2Intertwined,
+	bpp2Linear,
 	bpp4Intertwined,
 }
 
@@ -66,6 +67,7 @@ string defaultExtension(DataType type) {
 	final switch(type) {
 		case DataType.raw: return "bin";
 		case DataType.structured: return "yaml";
+		case DataType.bpp2Linear: return "png";
 		case DataType.bpp2Intertwined: return "png";
 		case DataType.bpp4Intertwined: return "png";
 	}
@@ -372,6 +374,8 @@ const(ubyte)[] loadROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
 		case DataType.raw:
 		case DataType.structured: // array of characters, array of bytes. same thing
 			return data;
+		case DataType.bpp2Linear:
+			return readTilesFromImage!Linear2BPP(data);
 		case DataType.bpp2Intertwined:
 			return readTilesFromImage!Intertwined2BPP(data);
 		case DataType.bpp4Intertwined:
@@ -382,6 +386,8 @@ const(ubyte)[] saveROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
 	final switch (asset.type) {
 		case DataType.raw:
 			return data;
+		case DataType.bpp2Linear:
+			return saveTilesToImage(cast(const(Linear2BPP)[])data);
 		case DataType.bpp2Intertwined:
 			return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
 		case DataType.bpp4Intertwined:
