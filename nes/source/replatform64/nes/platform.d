@@ -66,6 +66,8 @@ struct NES {
 	void function() interruptHandlerVBlank;
 	string title;
 	bool interruptsEnabled;
+	enum width = Renderer.width;
+	enum height = Renderer.height;
 
 	private Settings settings;
 	private APU apu;
