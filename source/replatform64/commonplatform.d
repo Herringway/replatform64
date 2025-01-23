@@ -351,6 +351,14 @@ struct PlatformCommon {
 			}
 		}
 	}
+	private void loadAsset(alias Symbol)(const(ubyte)[] data, string label) {
+		tracef("Loading %s", label);
+		static if (Symbol.metadata.type == DataType.structured) {
+			Symbol.data = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(label);
+		} else {
+			Symbol.data = cast(Symbol.ReadableElementType!())data;
+		}
+	}
 	void loadAssets(Modules...)(LoadFunction func) {
 		import std.algorithm.sorting : sort;
 		import std.path : buildPath;
@@ -369,12 +377,7 @@ struct PlatformCommon {
 						arrayAssets[asset.name] = data;
 						Symbol.data = [];
 					} else {
-						tracef("Loading %s", asset.name);
-						static if (Symbol.metadata.type == DataType.structured) {
-							Symbol.data = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(asset.name);
-						} else {
-							Symbol.data = cast(Symbol.ReadableElementType!())data;
-						}
+						loadAsset!Symbol(data, asset.name);
 					}
 				}
 			}
@@ -386,12 +389,7 @@ struct PlatformCommon {
 			static foreach (Symbol; SymbolData!Modules) {
 				static if (Symbol.metadata.array) {
 					if (file.matches(Symbol.metadata)) {
-						tracef("Loading %s", file);
-						static if (Symbol.metadata.type == DataType.structured) {
-							Symbol.data ~= (cast(const(char)[])arrayAssets[file]).fromString!(typeof(Symbol.data), YAML)(file);
-						} else {
-							Symbol.data ~= cast(Symbol.ReadableElementType!())arrayAssets[file];
-						}
+						loadAsset!Symbol(arrayAssets[file], file);
 					}
 				}
 			}
@@ -402,11 +400,7 @@ struct PlatformCommon {
 				const path = buildPath("data", assetPath(Symbol.metadata, 0));
 				if (path.exists) {
 					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
-					static if (Symbol.metadata.type == DataType.structured) {
-						Symbol.data = (cast(const(char)[])fileData).fromString!(typeof(Symbol.data), YAML);
-					} else {
-						Symbol.data ~= cast(Symbol.ReadableElementType!())fileData;
-					}
+					loadAsset!Symbol(fileData, assetPath(Symbol.metadata, 0));
 				}
 			}
 		}
