@@ -623,7 +623,7 @@ struct PPU {
 unittest {
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;
-	import std.file : exists, read, readText;
+	import std.file : exists, mkdirRecurse, read, readText;
 	import std.format : format;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
@@ -749,7 +749,8 @@ unittest {
 	static void runTest(string name) {
 		const frame = renderMesen2State(name~".mss");
 		if (const result = comparePNG(frame, "testdata/nes", name~".png")) {
-			dumpPNG(frame, name~".png");
+			mkdirRecurse("failed");
+			dumpPNG(frame, "failed/"~name~".png");
 			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
 		}
 	}
