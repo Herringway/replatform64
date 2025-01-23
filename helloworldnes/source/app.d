@@ -27,13 +27,13 @@ ubyte[4][8] palettes = [
 OAMEntry[64] oam = OAMEntry.offscreen;
 
 void main(string[] args) {
+	nes.entryPoint = &start;
+	nes.interruptHandlerVBlank = &vblank;
+	nes.title = "Hello World (NES)";
+	nes.gameID = "helloworld";
 	if (nes.parseArgs(args)) {
 		return;
 	}
-	nes.entryPoint = &start;
-	nes.interruptHandlerVBlank = &vblank;
-	nes.title = "Hello World";
-	nes.gameID = "helloworld";
 	auto settings = nes.loadSettings!GameSettings();
 	nes.initialize();
 	nes.handleAssets!(mixin(__MODULE__))();

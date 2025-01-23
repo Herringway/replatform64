@@ -10,14 +10,14 @@ GameBoySimple gb;
 OAMEntry[5] oam;
 
 void main(string[] args) {
+	gb.entryPoint = &start;
+	gb.interruptHandlerVBlank = &vblank;
+	gb.title = "Hello World (GB)";
+	gb.sourceFile = "helloworld.gb";
+	gb.gameID = "helloworld";
 	if (gb.parseArgs(args)) {
 		return;
 	}
-	gb.entryPoint = &start;
-	gb.interruptHandlerVBlank = &vblank;
-	gb.title = "Hello World";
-	gb.sourceFile = "helloworld.gb";
-	gb.gameID = "helloworld";
 	auto settings = gb.loadSettings!GameSettings();
 	gb.initialize();
 	gb.handleAssets!(mixin(__MODULE__))();

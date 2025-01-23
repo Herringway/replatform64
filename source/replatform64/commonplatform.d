@@ -587,7 +587,7 @@ mixin template PlatformCommonForwarders() {
 			result.options ~= gameOptions.options;
 		}
 		if (result.helpWanted) {
-			defaultGetoptPrinter("", result.options);
+			defaultGetoptPrinter(title, result.options);
 		}
 		return result.helpWanted;
 	}

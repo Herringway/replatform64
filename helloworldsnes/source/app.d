@@ -35,13 +35,13 @@ RGB555[16][16] palettes = [
 OAMEntry[128] oam = OAMEntry.offscreen; // all unused sprites should render offscreen
 
 void main(string[] args) {
+	snes.entryPoint = &start;
+	snes.interruptHandlerVBlank = &vblank;
+	snes.title = "Hello World (SNES)";
+	snes.gameID = "helloworld";
 	if (snes.parseArgs(args)) {
 		return;
 	}
-	snes.entryPoint = &start;
-	snes.interruptHandlerVBlank = &vblank;
-	snes.title = "Hello World";
-	snes.gameID = "helloworld";
 	auto settings = snes.loadSettings!GameSettings();
 	snes.initialize();
 	snes.handleAssets!(mixin(__MODULE__))();
