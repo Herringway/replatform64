@@ -309,24 +309,6 @@ struct PPU {
 		}
 	}
 	void debugUI(const UIState state, VideoBackend video) {
-		static void registerBit(string label, ref ubyte register, ubyte offset) {
-			bool boolean = !!(register & (1 << offset));
-			if (ImGui.Checkbox(label, &boolean)) {
-				register = cast(ubyte)((register & ~(1 << offset)) | (boolean << offset));
-			}
-		}
-		static void registerBitSel(size_t bits = 1, size_t opts = 1 << bits)(string label, ref ubyte register, ubyte offset, string[opts] labels) {
-			const mask = (((1 << bits) - 1) << offset);
-			size_t idx = (register & mask) >> offset;
-			if (ImGui.BeginCombo(label, labels[idx])) {
-				foreach (i, itemLabel; labels) {
-					if (ImGui.Selectable(itemLabel, i == idx)) {
-						register = cast(ubyte)((register & ~mask) | (i << offset));
-					}
-				}
-				ImGui.EndCombo();
-			}
-		}
 		static void inputPaletteRegister(string label, ref ubyte palette) {
 			if (ImGui.TreeNode(label)) {
 				foreach (i; 0 .. 4) {
