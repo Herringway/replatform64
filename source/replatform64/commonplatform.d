@@ -353,7 +353,7 @@ struct PlatformCommon {
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
 		import std.algorithm.sorting : sort;
-		//import std.path : buildPath;
+		import std.path : buildPath;
 		PlanetArchive archive;
 		if (assetsExist) {
 			archive = assets;
@@ -392,6 +392,20 @@ struct PlatformCommon {
 						} else {
 							Symbol.data ~= cast(Symbol.ReadableElementType!())arrayAssets[file];
 						}
+					}
+				}
+			}
+		}
+		// fallback to filesystem
+		static foreach (Symbol; SymbolData!Modules) {
+			if (assetPath(Symbol.metadata, 0) !in arrayAssets) {
+				const path = buildPath("data", assetPath(Symbol.metadata, 0));
+				if (path.exists) {
+					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
+					static if (Symbol.metadata.type == DataType.structured) {
+						Symbol.data = (cast(const(char)[])fileData).fromString!(typeof(Symbol.data), YAML);
+					} else {
+						Symbol.data ~= cast(Symbol.ReadableElementType!())fileData;
 					}
 				}
 			}
