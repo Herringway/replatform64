@@ -83,6 +83,9 @@ struct NES {
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(); }, backendType);
 		renderer.initialize(title, platform.backend.video);
 		platform.installAudioCallback(&apu, &audioCallback);
+		platform.registerMemoryRange("CHR", renderer.ppu.chr[]);
+		platform.registerMemoryRange("Nametable", renderer.ppu.nametable[]);
+		platform.registerMemoryRange("Palette", renderer.ppu.palette[]);
 	}
 	private void copyInputState(InputState state) @safe pure {
 		pads = 0;
