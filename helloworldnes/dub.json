@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"Herringway"
+	],
+	"description": "Hello world (nes)",
+	"license": "BSL-1.0",
+	"dependencies": {
+		"replatform64:nes": "*"
+	},
+	"workingDirectory": ".",
+	"name": "helloworldnes"
+}
