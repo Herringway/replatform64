@@ -79,9 +79,14 @@ struct PlatformCommon {
 	}
 	auto parseArgs(string[] args) {
 		bool verbose;
+		string logFile;
 		auto result = getopt(args, config.passThrough,
-			"v|verbose", "Verbose logging", &verbose
+			"l|logfile", "Log to file", &logFile,
+			"v|verbose", "Verbose logging", &verbose,
 		);
+		if (logFile != "") {
+			sharedLog = cast(shared)new FileLogger(logFile, LogLevel.info);
+		}
 		if (verbose) {
 			(cast(Logger)sharedLog).logLevel = LogLevel.trace;
 		}
