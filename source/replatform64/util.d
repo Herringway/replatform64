@@ -163,10 +163,18 @@ struct Array2D(E) {
 		void opIndexAssign(E[] elem) {
 			impl[] = elem;
 		}
-		void opIndexAssign(E elem, size_t i, size_t j) {
+		void opIndexAssign(E elem, size_t i, size_t j)
+			in (i <= width, format!"index [%s,%s] is out of bounds for array of dimensions [%s, %s]"(i, j, width, height))
+			in (j <= height, format!"index [%s,%s] is out of bounds for array of dimensions [%s, %s]"(i, j, width, height))
+		{
 			impl[i + stride * j] = elem;
 		}
-		void opIndexAssign(E elem, size_t[2] i, size_t[2] j) {
+		void opIndexAssign(E elem, size_t[2] i, size_t[2] j)
+			in (i[0] <= width, format!"index [%s..%s,%s..%s] is out of bounds for array of dimensions [%s, %s]"(i[0], i[1], j[0], j[1], width, height))
+			in (j[0] <= height, format!"index [%s..%s,%s..%s] is out of bounds for array of dimensions [%s, %s]"(i[0], i[1], j[0], j[1], width, height))
+			in (i[1] <= width, format!"index [%s..%s,%s..%s] is out of bounds for array of dimensions [%s, %s]"(i[0], i[1], j[0], j[1], width, height))
+			in (j[1] <= height, format!"index [%s..%s,%s..%s] is out of bounds for array of dimensions [%s, %s]"(i[0], i[1], j[0], j[1], width, height))
+		{
 			foreach (row; j[0] .. j[1]) {
 				impl[row * stride + i[0] .. row * stride + i[1]] = elem;
 			}
