@@ -1,6 +1,7 @@
 module replatform64.nes.platform;
 
 import replatform64.nes.apu;
+import replatform64.nes.hardware;
 import replatform64.nes.ppu;
 import replatform64.nes.renderer;
 
@@ -71,6 +72,7 @@ struct NES {
 	private APU apu;
 	private Renderer renderer;
 	private immutable(ubyte)[] romData;
+	private ubyte[2] pads;
 
 	private PlatformCommon platform;
 
@@ -81,7 +83,22 @@ struct NES {
 		renderer.initialize(title, platform.backend.video);
 		platform.installAudioCallback(&apu, &audioCallback);
 	}
-	private void copyInputState(InputState state) @safe pure {}
+	private void copyInputState(InputState state) @safe pure {
+		pads = 0;
+		foreach (idx, ref pad; pads) {
+			if (platform.inputState.controllers[idx] & ControllerMask.b) { pad |= Pad.b; }
+			if (platform.inputState.controllers[idx] & ControllerMask.a) { pad |= Pad.a; }
+			if (platform.inputState.controllers[idx] & ControllerMask.start) { pad |= Pad.start; }
+			if (platform.inputState.controllers[idx] & ControllerMask.select) { pad |= Pad.select; }
+			if (platform.inputState.controllers[idx] & ControllerMask.up) { pad |= Pad.up; }
+			if (platform.inputState.controllers[idx] & ControllerMask.down) { pad |= Pad.down; }
+			if (platform.inputState.controllers[idx] & ControllerMask.left) { pad |= Pad.left; }
+			if (platform.inputState.controllers[idx] & ControllerMask.right) { pad |= Pad.right; }
+		}
+	}
+	ubyte getControllerState(ubyte playerID) const @safe pure {
+		return pads[playerID];
+	}
 	private void commonDebugMenu(const UIState state) {}
 	private void commonDebugState(const UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
