@@ -15,7 +15,8 @@ struct Renderer {
 		backend = newBackend;
 		backend.createWindow(title, window);
 		backend.createTexture(width, height, PixelFormat.argb8888);
-		ppu.nesCPUVRAM = new ubyte[](0x4000);
+		ppu.chr = new ubyte[](0x2000);
+		ppu.nametable = new ubyte[](0x1000);
 	}
 	void draw() {
 		Texture texture;

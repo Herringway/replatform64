@@ -135,7 +135,9 @@ struct PPU {
 	enum height = 240;
 	/// RGB representation of the NES palette.
 	const(ARGB8888)[] paletteRGB = defaultPaletteRGB;
-	ubyte[] nesCPUVRAM;
+	ubyte[] chr;
+	ubyte[] nametable;
+	ubyte[32] palette;
 	private int registerCycle = 0;
 	MirrorType mirrorMode;
 	ubyte readRegister(ushort address) @safe pure {
@@ -315,15 +317,6 @@ struct PPU {
 	private ubyte ppuScrollX; /**< $2005 */
 	private ubyte ppuScrollY; /**< $2005 */
 
-	inout(ubyte)[] palette() inout @safe pure {
-		return nesCPUVRAM[0x3F00 .. 0x3F20];
-	}
-	inout(ubyte)[] chr() inout @safe pure {
-		return nesCPUVRAM[0x0000 .. 0x2000];
-	}
-	inout(ubyte)[] nametable() inout @safe pure {
-		return nesCPUVRAM[0x2000 .. 0x3000];
-	}
 	OAMEntry[64] oam; // Sprite memory
 
 	// PPU Address control
@@ -360,7 +353,7 @@ struct PPU {
 
 		if (address < 0x2000) {
 			// CHR
-			return nesCPUVRAM[address];
+			return chr[address];
 		}
 		else if (address < 0x3f00) {
 			// Nametable
@@ -371,7 +364,7 @@ struct PPU {
 	}
 	private ubyte readCHR(int index) @safe pure {
 		if (index < 0x2000) {
-			return nesCPUVRAM[index];
+			return chr[index];
 		} else {
 			return 0;
 		}
@@ -433,7 +426,7 @@ struct PPU {
 		address &= 0x3fff;
 
 		if (address < 0x2000) {
-			// CHR (no-op)
+			chr[address] = value;
 		} else if (address < 0x3f00) {
 			nametable[getNametableIndex(address)] = value;
 		} else if (address < 0x3f20) {
@@ -474,7 +467,8 @@ unittest {
 	static Array2D!ARGB8888 renderMesen2State(string filename) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
-		ppu.nesCPUVRAM = new ubyte[](0x4000);
+		ppu.chr = new ubyte[](0x2000);
+		ppu.nametable = new ubyte[](0x1000);
 		ubyte PPUCTRL;
 		ubyte PPUMASK;
 		ubyte PPUSCROLL;
