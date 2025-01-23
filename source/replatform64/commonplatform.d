@@ -367,6 +367,7 @@ struct PlatformCommon {
 			archive = assets;
 		}
 		const(ubyte)[][string] arrayAssets;
+		bool[string] nonArrayAlreadyLoaded;
 		foreach (asset; archive.entries) {
 			bool matched;
 			static foreach (Symbol; SymbolData!Modules) {
@@ -377,6 +378,7 @@ struct PlatformCommon {
 						arrayAssets[asset.name] = data;
 						Symbol.data = [];
 					} else {
+						nonArrayAlreadyLoaded[asset.name] = true;
 						loadAsset!Symbol(data, asset.name, "planet");
 					}
 				}
@@ -396,7 +398,7 @@ struct PlatformCommon {
 		}
 		// fallback to filesystem
 		static foreach (Symbol; SymbolData!Modules) {
-			if (assetPath(Symbol.metadata, 0) !in arrayAssets) {
+			if ((assetPath(Symbol.metadata, 0) !in arrayAssets) && (assetPath(Symbol.metadata, 0) !in nonArrayAlreadyLoaded)) {
 				const path = buildPath("data", assetPath(Symbol.metadata, 0));
 				if (path.exists) {
 					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
