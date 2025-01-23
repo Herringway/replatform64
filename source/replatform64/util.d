@@ -128,7 +128,10 @@ struct Array2D(E) {
 	}
 
 	// Index a single element, e.g., arr[0, 1]
-	ref inout(E) opIndex(size_t i, size_t j) inout {
+	ref inout(E) opIndex(size_t i, size_t j) inout
+		in (i <= width, format!"index [%s,%s] is out of bounds for array of dimensions [%s, %s]"(i, j, width, height))
+		in (j <= height, format!"index [%s,%s] is out of bounds for array of dimensions [%s, %s]"(i, j, width, height))
+	{
 		return impl[i + stride * j];
 	}
 

@@ -5,9 +5,25 @@ import replatform64.util;
 
 package:
 
+Array2D!ABGR8888 convert(const Array2D!ARGB8888 frame) {
+	auto result = Array2D!ABGR8888(frame.dimensions[0], frame.dimensions[1]);
+	foreach (x; 0 .. frame.dimensions[0]) {
+		foreach (y; 0 .. frame.dimensions[1]) {
+			result[x, y] = ABGR8888(frame[x, y].red, frame[x, y].green, frame[x, y].blue);
+		}
+	}
+	return result;
+}
+
+static void dumpPNG(T)(const Array2D!T frame, string file) {
+	dumpPNG(convert(frame), file);
+}
 static void dumpPNG(const Array2D!ABGR8888 frame, string file) {
 	import arsd.png : PngType, writePng;
 	writePng(file, cast(ubyte[])frame[], cast(int)frame.dimensions[0], cast(int)frame.dimensions[1], PngType.truecolor_with_alpha);
+}
+auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath) {
+	return comparePNG(convert(frame), baseDir, comparePath);
 }
 auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath) {
 	import std.format : format;
