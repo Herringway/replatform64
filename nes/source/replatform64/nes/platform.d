@@ -64,7 +64,6 @@ enum Register {
 struct NES {
 	void function() entryPoint;
 	void function() interruptHandlerVBlank;
-	deprecated("Use interruptHandlerVBlank instead") alias interruptHandler = interruptHandlerVBlank;
 	string title;
 	bool interruptsEnabled;
 
