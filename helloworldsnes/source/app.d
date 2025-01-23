@@ -39,7 +39,7 @@ void main(string[] args) {
 		return;
 	}
 	snes.entryPoint = &start;
-	snes.interruptHandler = &vblank;
+	snes.interruptHandlerVBlank = &vblank;
 	snes.title = "Hello World";
 	snes.gameID = "helloworld";
 	auto settings = snes.loadSettings!GameSettings();
