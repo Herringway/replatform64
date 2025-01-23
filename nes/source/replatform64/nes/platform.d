@@ -156,4 +156,11 @@ struct NES {
 	void setNametableMirroring(MirrorType type) {
 		renderer.ppu.mirrorMode = type;
 	}
+	void handleOAMDMA(const(ubyte)[] src, ushort dest) {
+		const data = cast(OAMEntry[])src;
+		handleOAMDMA(data, dest);
+	}
+	void handleOAMDMA(const(OAMEntry)[] src, ushort dest) {
+		renderer.ppu.oam[0 .. src.length] = src;
+	}
 }
