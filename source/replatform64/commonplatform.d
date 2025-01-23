@@ -351,8 +351,8 @@ struct PlatformCommon {
 			}
 		}
 	}
-	private void loadAsset(alias Symbol)(const(ubyte)[] data, string label) {
-		tracef("Loading %s", label);
+	private void loadAsset(alias Symbol)(const(ubyte)[] data, string label, string source) {
+		tracef("Loading %s from %s", label, source);
 		static if (Symbol.metadata.type == DataType.structured) {
 			Symbol.data = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(label);
 		} else {
@@ -377,7 +377,7 @@ struct PlatformCommon {
 						arrayAssets[asset.name] = data;
 						Symbol.data = [];
 					} else {
-						loadAsset!Symbol(data, asset.name);
+						loadAsset!Symbol(data, asset.name, "planet");
 					}
 				}
 			}
@@ -389,7 +389,7 @@ struct PlatformCommon {
 			static foreach (Symbol; SymbolData!Modules) {
 				static if (Symbol.metadata.array) {
 					if (file.matches(Symbol.metadata)) {
-						loadAsset!Symbol(arrayAssets[file], file);
+						loadAsset!Symbol(arrayAssets[file], file, "planet");
 					}
 				}
 			}
@@ -400,7 +400,7 @@ struct PlatformCommon {
 				const path = buildPath("data", assetPath(Symbol.metadata, 0));
 				if (path.exists) {
 					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
-					loadAsset!Symbol(fileData, assetPath(Symbol.metadata, 0));
+					loadAsset!Symbol(fileData, assetPath(Symbol.metadata, 0), "filesystem");
 				}
 			}
 		}
