@@ -186,6 +186,32 @@ struct ABGR8888 {
 	}
 }
 
+struct ARGB8888 {
+	align(1):
+	union {
+		uint value;
+		struct {
+			ubyte blue;
+			ubyte green;
+			ubyte red;
+			ubyte alpha;
+		}
+	}
+	this(ubyte blue, ubyte green, ubyte red) @safe pure {
+		this.red = red;
+		this.green = green;
+		this.blue = blue;
+		this.alpha = 0xFF;
+	}
+	this(uint value) @safe pure {
+		this.value = value;
+	}
+	void toString(S)(S sink) const {
+		import std.format : formattedWrite;
+		sink.formattedWrite("ARGB8888(%s, %s, %s, %s)", red, green, blue, alpha);
+	}
+}
+
 struct RGB555 {
 	align(1):
 	union {
