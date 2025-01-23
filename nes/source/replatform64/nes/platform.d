@@ -83,7 +83,19 @@ struct NES {
 	}
 	private void copyInputState(InputState state) @safe pure {}
 	private void commonDebugMenu(const UIState state) {}
-	private void commonDebugState(const UIState state) {}
+	private void commonDebugState(const UIState state) {
+		if (ImGui.BeginTabBar("platformdebug")) {
+			if (ImGui.BeginTabItem("PPU")) {
+				renderer.ppu.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("APU")) {
+				apu.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
+			ImGui.EndTabBar();
+		}
+	}
 	mixin RegisterRedirect!("PPUCTRL", "renderer", Register.PPUCTRL);
 	mixin RegisterRedirect!("PPUMASK", "renderer", Register.PPUMASK);
 	mixin RegisterRedirect!("PPUSTATUS", "renderer", Register.PPUSTATUS);

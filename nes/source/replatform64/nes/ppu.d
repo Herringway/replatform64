@@ -2,9 +2,14 @@ module replatform64.nes.ppu;
 
 import replatform64.backend.common.interfaces;
 import replatform64.testhelpers;
+import replatform64.ui;
 import replatform64.util;
 
 import core.stdc.stdint;
+import std.algorithm.comparison;
+import std.bitmanip;
+import std.format;
+import std.range;
 
 immutable ubyte[4][2] nametableMirrorLookup = [
 	[0, 0, 1, 1], // Vertical
@@ -88,8 +93,37 @@ struct OAMEntry {
 	align(1):
 	ubyte y;
 	ubyte index;
-	ubyte attributes;
+	union {
+		ubyte attributes;
+		struct {
+			mixin(bitfields!(
+				ubyte, "palette", 2,
+				ubyte, "", 3,
+				ubyte, "priority", 1,
+				bool, "flipHorizontal", 1,
+				bool, "flipVertical", 1,
+			));
+		}
+	}
 	ubyte x;
+	static OAMEntry offscreen() {
+		return OAMEntry(ubyte(0), ubyte(255), ubyte(0), ubyte(0));
+	}
+	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) {
+		this.x = x;
+		this.y = y;
+		this.index = tileLower;
+		this.attributes = flags;
+	}
+	this(ubyte x, ubyte y, ubyte tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) {
+		this.x = x;
+		this.y = y;
+		this.index = tile;
+		this.palette = palette;
+		this.priority = priority;
+		this.flipHorizontal = hFlip;
+		this.flipVertical = vFlip;
+	}
 }
 
 enum MirrorType {
@@ -163,12 +197,30 @@ struct PPU {
 			return index + (ppuCtrl & (1 << 3) ? 256 : 0);
 		}
 	}
-	void drawSprite(scope Array2D!ARGB8888 buffer, uint i, bool background) @safe pure {
+	void drawFullTileData(Array2D!ARGB8888 buffer, size_t paletteIndex) @safe pure
+		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
+		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
+		in (buffer.dimensions[0] * buffer.dimensions[1] <= 512 * 8 * 8, "Buffer too small")
+	{
+		foreach (tileID; 0 .. 512) {
+			const tileX = (tileID % (buffer.dimensions[0] / 8));
+			const tileY = (tileID / (buffer.dimensions[0] / 8));
+			foreach (subPixelY; 0 .. 8) {
+				const plane1 = readCHR(tileID * 16 + subPixelY);
+				const plane2 = readCHR(tileID * 16 + subPixelY + 8);
+				foreach (subPixelX; 0 .. 8) {
+					const colourIndex = (((plane1 & (1 << (7 - subPixelX))) ? 1 : 0) + ((plane2 & (1 << (7 - subPixelX))) ? 2 : 0));
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRGB[palette[paletteIndex * 4 + colourIndex]];
+				}
+			}
+		}
+	}
+	void drawSprite(scope Array2D!ARGB8888 buffer, uint i, bool background, bool ignoreOAMCoords = false) @safe pure {
 		// Read OAM for the sprite
-		ubyte y = oam[i].y;
+		ubyte y = ignoreOAMCoords ? 0xFF : oam[i].y;
 		ubyte index = oam[i].index;
 		ubyte attributes = oam[i].attributes;
-		ubyte x = oam[i].x;
+		ubyte x = ignoreOAMCoords ? 0 : oam[i].x;
 
 		// Check if the sprite has the correct priority
 		//
@@ -445,6 +497,125 @@ struct PPU {
 			currentAddress++;
 		} else {
 			currentAddress += 32;
+		}
+	}
+	void debugUI(const UIState state, VideoBackend video) {
+		static ARGB8888[width * height] buffer;
+		if (ImGui.BeginTabBar("renderer")) {
+			if (ImGui.BeginTabItem("Registers")) {
+				if (ImGui.TreeNode("PPUCTRL", "PPUCTRL: %02X", ppuCtrl)) {
+					registerBitSel!2("Base nametable address", ppuCtrl, 0, ["$2000", "$2400", "$2800", "$2C00"]);
+					ImGui.SetItemTooltip("Base address of the nametable currently rendered");
+					registerBitSel!1("PPUDATA auto-increment", ppuCtrl, 2, ["1", "32"]);
+					ImGui.SetItemTooltip("Add 32 to the address with every PPUDATA read/write. 1 otherwise.");
+					registerBitSel!1("Sprite pattern table", ppuCtrl, 3, ["$0000", "$1000"]);
+					ImGui.SetItemTooltip("Which bank of tile data to use for sprites");
+					registerBitSel!1("BG pattern table", ppuCtrl, 4, ["$0000", "$1000"]);
+					ImGui.SetItemTooltip("Which bank of tile data to use for the background");
+					registerBit("Tall sprites", ppuCtrl, 5);
+					ImGui.SetItemTooltip("If enabled, uses 8x16 sprites instead of 8x8.");
+					registerBitSel!1("Primary/Secondary select", ppuCtrl, 6, ["Primary", "Secondary"]);
+					ImGui.SetItemTooltip("Selects whether the NES's internal PPU renders the backdrop.");
+					registerBit("VBlank enabled", ppuCtrl, 7);
+					ImGui.SetItemTooltip("Controls whether or not VBlank interrupts are generated.");
+					ImGui.TreePop();
+				}
+				if (ImGui.TreeNode("PPUMASK", "PPUMASK: %02X", ppuMask)) {
+					registerBit("Grayscale", ppuMask, 0);
+					ImGui.SetItemTooltip("Render in grayscale instead of colour.");
+					registerBit("Render leftmost BG", ppuMask, 1);
+					ImGui.SetItemTooltip("Whether or not to render the leftmost 8 pixels of the BG layer.");
+					registerBit("Render leftmost sprites", ppuMask, 2);
+					ImGui.SetItemTooltip("Whether or not to render the leftmost 8 pixels of the sprite layer.");
+					registerBit("Show BG", ppuMask, 3);
+					ImGui.SetItemTooltip("Whether or not to render the BG layer.");
+					registerBit("Show sprites", ppuMask, 4);
+					ImGui.SetItemTooltip("Whether or not to render the sprite layer.");
+					registerBit("Emphasize red", ppuMask, 5);
+					ImGui.SetItemTooltip("Darkens green and blue colour channels.");
+					registerBit("Emphasize green", ppuMask, 6);
+					ImGui.SetItemTooltip("Darkens red and blue colour channels.");
+					registerBit("Emphasize blue", ppuMask, 7);
+					ImGui.SetItemTooltip("Darkens red and green colour channels.");
+					ImGui.TreePop();
+				}
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Palettes")) {
+				foreach (idx, ref palette; this.palette[].chunks(4).enumerate) {
+					ImGui.SeparatorText(format!"Palette %d"(idx));
+					foreach (i, ref colour; palette) {
+						ImGui.PushID(cast(int)i);
+						const c = ImVec4(defaultPaletteRGB[colour].blue / 255.0, defaultPaletteRGB[colour].green / 255.0, defaultPaletteRGB[colour].red / 255.0, 1.0);
+						ImGui.Text("$%02X", colour);
+						ImGui.SameLine();
+						if (ImGui.ColorButton("##colour", c, ImGuiColorEditFlags.None, ImVec2(40, 40))) {
+							// TODO: colour picker
+						}
+						if (i + 1 < palette.length) {
+							ImGui.SameLine();
+						}
+						ImGui.PopID();
+					}
+				}
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Tiles")) {
+				static size_t zoom = 1;
+				if (ImGui.BeginCombo("Zoom", "1x")) {
+					foreach (i, label; ["1x", "2x", "3x", "4x"]) {
+						if (ImGui.Selectable(label, (i + 1) == zoom)) {
+							zoom = i + 1;
+						}
+					}
+					ImGui.EndCombo();
+				}
+				static int paletteID = 0;
+				if (ImGui.InputInt("Palette", &paletteID)) {
+					paletteID = clamp(paletteID, 0, 7);
+				}
+				static void* windowSurface;
+				static allTilesBuffer = Array2D!ARGB8888(16 * 8, 32 * 8);
+				if (windowSurface is null) {
+					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.abgr8888);
+				}
+				drawFullTileData(allTilesBuffer, paletteID);
+				video.setSurfacePixels(windowSurface, cast(ubyte[])allTilesBuffer[]);
+				ImGui.Image(windowSurface, ImVec2(allTilesBuffer.dimensions[0] * zoom, allTilesBuffer.dimensions[1] * zoom));
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("OAM")) {
+				static void*[64] spriteSurfaces;
+				const sprHeight = 8 * (1 + !!(ppuCtrl & (1 << 5)));
+				enum sprWidth = 8;
+				if (ImGui.BeginTable("oamTable", 8)) {
+					foreach (idx, sprite; cast(OAMEntry[])oam) {
+						ImGui.TableNextColumn();
+						if (spriteSurfaces[idx] is null) {
+							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormat.abgr8888);
+						}
+						auto sprBuffer = Array2D!ARGB8888(sprWidth, sprHeight, buffer[0 .. sprWidth * sprHeight]);
+						drawSprite(sprBuffer, cast(uint)idx, false, true);
+						video.setSurfacePixels(spriteSurfaces[idx], cast(ubyte[])sprBuffer[]);
+						ImGui.Image(spriteSurfaces[idx], ImVec2(sprWidth * 4.0, sprHeight * 4.0));
+						if (ImGui.BeginItemTooltip()) {
+							ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
+							ImGui.Text("Tile: %d", sprite.index);
+							ImGui.Text("Orientation: ");
+							ImGui.SameLine();
+							ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flipVertical << 1) + sprite.flipHorizontal]);
+							ImGui.Text("Priority: ");
+							ImGui.SameLine();
+							ImGui.Text(["Normal", "High"][sprite.priority]);
+							ImGui.Text("Palette: %d", sprite.palette);
+							ImGui.EndTooltip();
+						}
+					}
+					ImGui.EndTable();
+				}
+				ImGui.EndTabItem();
+			}
+			ImGui.EndTabBar();
 		}
 	}
 }
