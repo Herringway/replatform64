@@ -62,6 +62,8 @@ struct GameBoySimple {
 	private ubyte pad;
 	private bool dpad;
 	private bool noneSelected;
+	private bool pretendDoubleSpeed;
+	private bool preparingDoubleSpeed;
 
 	private PlatformCommon platform;
 
@@ -70,7 +72,10 @@ struct GameBoySimple {
 	void initialize(Backend backendType = Backend.autoSelect) {
 		crashHandler = &dumpGBDebugData;
 		rng = Random(seed);
-		renderer.ppu.vram = new ubyte[](0x2000);
+		if (model >= GameBoyModel.cgb) {
+			renderer.ppu.cgbMode = true;
+		}
+		renderer.ppu.vram = new ubyte[](renderer.ppu.cgbMode ? 0x4000 : 0x2000);
 
 		apu.initialize(platform.settings.audio.sampleRate);
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(model); }, backendType);
@@ -78,6 +83,7 @@ struct GameBoySimple {
 		renderer.initialize(title, platform.backend.video);
 		platform.registerMemoryRange("VRAM", renderer.ppu.vram);
 		platform.registerMemoryRange("OAM", renderer.ppu.oam);
+		platform.registerMemoryRange("Palette RAM", cast(ubyte[])renderer.ppu.paletteRAM);
 	}
 	immutable(ubyte)[] romData() {
 		if (!originalData && sourceFile.exists) {
@@ -118,7 +124,8 @@ struct GameBoySimple {
 		// do nothing, we don't enforce the read/writeability of the different PPU modes
 	}
 	ubyte[] vram() {
-		return renderer.ppu.vram;
+		const offset = renderer.ppu.cgbMode * renderer.ppu.registers.vbk;
+		return renderer.ppu.vram[0x2000 * offset .. 0x2000 * (offset + 1)];
 	}
 
 	void writeJoy(ubyte v) {
@@ -196,6 +203,10 @@ struct GameBoySimple {
 	mixin RegisterRedirect!("BGP", "renderer", GameBoyRegister.BGP);
 	mixin RegisterRedirect!("OBP0", "renderer", GameBoyRegister.OBP0);
 	mixin RegisterRedirect!("OBP1", "renderer", GameBoyRegister.OBP1);
+	mixin RegisterRedirect!("BCPS", "renderer", GameBoyRegister.BCPS);
+	mixin RegisterRedirect!("BCPD", "renderer", GameBoyRegister.BCPD);
+	mixin RegisterRedirect!("OCPS", "renderer", GameBoyRegister.OCPS);
+	mixin RegisterRedirect!("OCPD", "renderer", GameBoyRegister.OCPD);
 	mixin RegisterRedirect!("NR10", "apu", GameBoyRegister.NR10);
 	mixin RegisterRedirect!("NR11", "apu", GameBoyRegister.NR11);
 	mixin RegisterRedirect!("NR12", "apu", GameBoyRegister.NR12);
@@ -217,6 +228,7 @@ struct GameBoySimple {
 	mixin RegisterRedirect!("NR50", "apu", GameBoyRegister.NR50);
 	mixin RegisterRedirect!("NR51", "apu", GameBoyRegister.NR51);
 	mixin RegisterRedirect!("NR52", "apu", GameBoyRegister.NR52);
+	alias P1 = JOYP;
 	alias AUD1SWEEP = NR10;
 	alias AUD1LEN = NR11;
 	alias AUD1ENV = NR12;
@@ -246,6 +258,26 @@ struct GameBoySimple {
 	ubyte TMA; /// NYI
 	ubyte TAC; /// NYI
 	ubyte DIV; /// NYI
+	ubyte RP; /// NYI
+	ubyte VBK; /// NYI
+	alias JOYP = readJoy;
+	alias JOYP = writeJoy;
+	ubyte SVBK; /// NYI
+	ubyte KEY1() const @safe pure {
+		return pretendDoubleSpeed << 7;
+	}
+	void KEY1(ubyte value) @safe pure {
+		debug tracef("Preparing to switch to %s mode", ["single-speed", "double-speed"][!!(value & 1)]);
+		preparingDoubleSpeed = !!(value & 1);
+	}
+	void stop() {
+		if (preparingDoubleSpeed) {
+			debug tracef("Switched to double speed mode");
+			pretendDoubleSpeed = true;
+		} else {
+			assert(0, "STOP should not be used except to switch speeds!");
+		}
+	}
 	void writeRegister(ushort addr, ubyte value) {
 		if ((addr >= GameBoyRegister.NR10) && (addr <= GameBoyRegister.NR52)) {
 			apu.writeRegister(addr, value);

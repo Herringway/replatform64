@@ -10,6 +10,7 @@ import replatform64.util;
 
 import std.algorithm.iteration;
 import std.bitmanip : bitfields;
+import std.format;
 import std.range;
 
 import tilemagic.tiles.bpp2;
@@ -26,7 +27,16 @@ enum LCDCFlags {
 }
 
 enum OAMFlags {
-	palette = 1 << 4,
+	cgbPalette = 7 << 0,
+	dmgPalette = 1 << 4,
+	xFlip = 1 << 5,
+	yFlip = 1 << 6,
+	priority = 1 << 7,
+}
+
+enum CGBBGAttributes {
+	palette = 7 << 0,
+	bank = 1 << 3,
 	xFlip = 1 << 5,
 	yFlip = 1 << 6,
 	priority = 1 << 7,
@@ -45,14 +55,19 @@ struct PPU {
 		ubyte obp1;
 		ubyte wy;
 		ubyte wx;
+		ubyte bcps;
+		ubyte ocps;
+		ubyte vbk;
 	}
 	enum fullTileWidth = 32;
 	enum fullTileHeight = 32;
 	enum width = 160;
 	enum height = 144;
+	bool cgbMode;
 	Registers registers;
 	ubyte[] vram;
 	OAMEntry[40] _oam;
+	RGB555[64] paletteRAM;
 	immutable(RGB555)[] gbPalette = pocketPalette;
 
 	private Array2D!RGB555 pixels;
@@ -63,6 +78,7 @@ struct PPU {
 		auto pixelRow = pixels[0 .. $, registers.ly];
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
+		const tilemapRowAttributes = bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth];
 		lineLoop: foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
@@ -78,7 +94,7 @@ struct PPU {
 						ypos = 7 - ypos;
 					}
 					// ignore transparent pixels
-					if (getTile(cast(short)(sprite.tile + ypos / 8), false)[xpos, ypos % 8] == 0) {
+					if (getTile(cast(short)(sprite.tile + ypos / 8), false, 0)[xpos, ypos % 8] == 0) {
 						continue;
 					}
 					if (sprite.x - 8 < highestX) {
@@ -92,16 +108,40 @@ struct PPU {
 				}
 			}
 			ushort prospectivePixel;
+			ubyte prospectivePalette;
+			bool prospectivePriority;
 			// grab pixel from background or window
 			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (registers.ly >= registers.wy)) {
-				const finalX = x - (registers.wx - 7);
-				const finalY = registers.ly - registers.wy;
+				auto finalX = x - (registers.wx - 7);
+				auto finalY = registers.ly - registers.wy;
 				const windowTilemapBase = (finalY / 8) * 32;
 				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-				prospectivePixel = getTile(windowTilemapRow[finalX / 8], true)[finalX % 8, finalY % 8];
+				const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+				const tile = windowTilemapRow[finalX / 8];
+				const attributes = windowTilemapRowAttributes[finalX / 8];
+				if (attributes & CGBBGAttributes.xFlip) {
+					finalX = 7 - finalX;
+				}
+				if (attributes & CGBBGAttributes.yFlip) {
+					finalY = 7 - finalY;
+				}
+				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[finalX % 8, finalY % 8];
+				prospectivePalette = attributes & CGBBGAttributes.palette;
+				prospectivePriority = !!(attributes & CGBBGAttributes.priority);
 			} else {
-				const finalX = baseX + x;
-				prospectivePixel = getTile(tilemapRow[(finalX / 8) % 32], true)[finalX % 8, baseY % 8];
+				uint finalX = baseX + x;
+				uint finalY = baseY;
+				const tile = tilemapRow[(finalX / 8) % 32];
+				const attributes = tilemapRowAttributes[(finalX / 8) % 32];
+				if (attributes & CGBBGAttributes.xFlip) {
+					finalX = 7 - (finalX % 8);
+				}
+				if (attributes & CGBBGAttributes.yFlip) {
+					finalY = 7 - (finalY % 8);
+				}
+				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[finalX % 8, finalY % 8];
+				prospectivePalette = attributes & CGBBGAttributes.palette;
+				prospectivePriority = !!(attributes & CGBBGAttributes.priority);
 			}
 			// decide between sprite pixel and background pixel using priority settings
 			if (highestMatchingSprite != size_t.max) {
@@ -114,19 +154,37 @@ struct PPU {
 				if (sprite.flags & OAMFlags.yFlip) {
 					ypos = 7 - ypos;
 				}
-				if (!(sprite.flags & OAMFlags.priority) || (prospectivePixel == 0)) {
-					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false)[xpos, ypos % 8];
+				static immutable bool[8] objPriority = [
+					0b000: true,
+					0b001: true,
+					0b010: true,
+					0b011: true,
+					0b100: true,
+					0b101: false,
+					0b110: false,
+					0b111: false,
+				];
+				const combinedPriority = ((!cgbMode || LCDCValue(registers.lcdc).bgEnabled) << 2) + (!!(sprite.flags & OAMFlags.priority) << 1) + prospectivePriority;
+				if (objPriority[combinedPriority] || (prospectivePixel == 0)) {
+					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, 0)[xpos, ypos % 8];
 					if (pixel != 0) {
 						prospectivePixel = pixel;
+						prospectivePalette = 8;
 					}
 				}
 			}
-			pixelRow[x] = getColour(prospectivePixel);
+			pixelRow[x] = getColour(prospectivePixel, prospectivePalette);
 		}
 		registers.ly++;
 	}
+	inout(ubyte)[] bank() inout @safe pure {
+		return (cgbMode && registers.vbk) ? vram[0x2000 .. 0x4000] : vram[0x0000 .. 0x2000];
+	}
 	inout(ubyte)[] bgScreen() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
+	}
+	inout(ubyte)[] bgScreenCGB() inout @safe pure {
+		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenBCGB : screenACGB;
 	}
 	inout(ubyte)[] tileBlockA() inout @safe pure {
 		return vram[0x0000 .. 0x0800];
@@ -137,11 +195,26 @@ struct PPU {
 	inout(ubyte)[] tileBlockC() inout @safe pure {
 		return vram[0x1000 .. 0x1800];
 	}
+	inout(ubyte)[] tileBlockACGB() inout @safe pure {
+		return vram[0x2000 .. 0x2800];
+	}
+	inout(ubyte)[] tileBlockBCGB() inout @safe pure {
+		return vram[0x2800 .. 0x3000];
+	}
+	inout(ubyte)[] tileBlockCCGB() inout @safe pure {
+		return vram[0x3000 .. 0x3800];
+	}
 	inout(ubyte)[] screenA() inout @safe pure {
 		return vram[0x1800 .. 0x1C00];
 	}
 	inout(ubyte)[] screenB() inout @safe pure {
 		return vram[0x1C00 .. 0x2000];
+	}
+	inout(ubyte)[] screenACGB() inout @safe pure {
+		return vram[0x3800 .. 0x3C00];
+	}
+	inout(ubyte)[] screenBCGB() inout @safe pure {
+		return vram[0x3C00 .. 0x4000];
 	}
 	inout(ubyte)[] oam() return inout @safe pure {
 		return cast(inout(ubyte)[])_oam[];
@@ -149,16 +222,26 @@ struct PPU {
 	inout(ubyte)[] windowScreen() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenB : screenA;
 	}
-	RGB555 getColour(int b) const @safe pure {
-		const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
-		return gbPalette[paletteMap];
+	inout(ubyte)[] windowScreenCGB() inout @safe pure {
+		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenBCGB : screenACGB;
 	}
-	Intertwined2BPP getTile(short id, bool useLCDC) const @safe pure {
-		const tileBlock = (id > 127) ? tileBlockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? tileBlockC : tileBlockA));
+	RGB555 getColour(int b, int palette) const @safe pure {
+		if (cgbMode) {
+			return paletteRAM[palette * 4 + b];
+		} else {
+			const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
+			return gbPalette[paletteMap];
+		}
+	}
+	Intertwined2BPP getTile(short id, bool useLCDC, ubyte bank) const @safe pure {
+		auto blockA = (cgbMode && bank) ? tileBlockACGB : tileBlockA;
+		auto blockB = (cgbMode && bank) ? tileBlockBCGB : tileBlockB;
+		auto blockC = (cgbMode && bank) ? tileBlockCCGB : tileBlockC;
+		const tileBlock = (id > 127) ? blockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? blockC : blockA));
 		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
-	Intertwined2BPP getTileUnmapped(short id) const @safe pure {
-		return (cast(const(Intertwined2BPP)[])(vram[0x0000 .. 0x1800]))[id];
+	Intertwined2BPP getTileUnmapped(short id, ubyte bank) const @safe pure {
+		return (cast(const(Intertwined2BPP)[])(vram[0x0000 + bank * 0x2000 .. 0x1800 + bank * 0x2000]))[id];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
@@ -180,10 +263,10 @@ struct PPU {
 	void drawFullBackground(ubyte[] pixels, size_t stride) const @safe pure {
 		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, bgScreen)) {
-			const tile = getTile(tileID, true);
+			const tile = getTile(tileID, true, 0);
 			foreach (subPixelX; 0 .. 8) {
 				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
 				}
 			}
 		}
@@ -191,10 +274,10 @@ struct PPU {
 	void drawFullWindow(ubyte[] pixels, size_t stride) @safe pure {
 		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, windowScreen)) {
-			const tile = getTile(tileID, true);
+			const tile = getTile(tileID, true, 0);
 			foreach (subPixelX; 0 .. 8) {
 				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
 				}
 			}
 		}
@@ -207,27 +290,37 @@ struct PPU {
 		foreach (tileID; 0 .. 384) {
 			const tileX = (tileID % (buffer.dimensions[0] / 8));
 			const tileY = (tileID / (buffer.dimensions[0] / 8));
-			const tile = getTileUnmapped(cast(short)tileID);
+			const tile = getTileUnmapped(cast(short)tileID, 0);
 			foreach (subPixelX; 0 .. 8) {
 				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY]);
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
 				}
 			}
 		}
 	}
 	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
-		auto buffer = Array2D!RGB555(8, 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites)), cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
+		const tiles = 1 + !!(registers.lcdc & LCDCFlags.tallSprites);
+		auto buffer = Array2D!RGB555(8, 8 * tiles, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
-		const tile = getTile(oamEntry.tile, false);
-		foreach (x; 0 .. 8) {
-			foreach (y; 0 .. 8) {
-				const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
-				const tileY = oamEntry.flags & OAMFlags.yFlip ? 7 - y : y;
-				buffer[x, y] = getColour(tile[tileX, tileY]);
+		foreach (tileID; 0 .. tiles) {
+			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, 0);
+			foreach (x; 0 .. 8) {
+				foreach (y; 0 .. 8) {
+					const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
+					const tileY = oamEntry.flags & OAMFlags.yFlip ? height - 1 - y : y;
+					const palette = 8 + (cgbMode ? (oamEntry.flags & OAMFlags.cgbPalette) : !!(oamEntry.flags & OAMFlags.dmgPalette));
+					buffer[x, y + 8 * tileID] = getColour(tile[tileX, tileY], palette);
+				}
 			}
 		}
 	}
 	void writeRegister(ushort addr, ubyte val) @safe pure {
+		static void autoIncrementCPD(ref ubyte value) {
+			if (value & 0x80) {
+				value++;
+				value &= 0b10111111;
+			}
+		}
 		switch (addr) {
 			case GameBoyRegister.SCX:
 				registers.scx = val;
@@ -261,6 +354,23 @@ struct PPU {
 				break;
 			case GameBoyRegister.OBP1:
 				registers.obp1 = val;
+				break;
+			case GameBoyRegister.BCPS:
+				registers.bcps = val & 0b10111111;
+				break;
+			case GameBoyRegister.BCPD:
+				(cast(ubyte[])paletteRAM)[registers.bcps & 0b00111111] = val;
+				autoIncrementCPD(registers.bcps);
+				break;
+			case GameBoyRegister.OCPS:
+				registers.ocps = val;
+				break;
+			case GameBoyRegister.OCPD:
+				(cast(ubyte[])paletteRAM)[64 + (registers.ocps & 0b00111111)] = val;
+				autoIncrementCPD(registers.ocps);
+				break;
+			case GameBoyRegister.VBK:
+				registers.vbk = val & 1;
 				break;
 			default:
 				break;
@@ -361,6 +471,10 @@ struct PPU {
 				ImGui.InputScalar("WY", ImGuiDataType.U8, &registers.wy, null, null, "%02X");
 				ImGui.EndTabItem();
 			}
+			if (cgbMode && ImGui.BeginTabItem("Palettes")) {
+				showPalette(paletteRAM[], 4);
+				ImGui.EndTabItem();
+			}
 			if (ImGui.BeginTabItem("Background")) {
 				static void* backgroundSurface;
 				if (backgroundSurface is null) {
@@ -438,11 +552,27 @@ struct PPU {
 }
 
 unittest {
+	enum testData = [0x01, 0x23, 0x45, 0x67, 0x89];
+	PPU ppu;
+	ppu.writeRegister(0xFF68, 0x80);
+	foreach (ubyte value; testData) {
+		ppu.writeRegister(0xFF69, value);
+	}
+	assert((cast(ubyte[])ppu.paletteRAM)[0 .. 5] == testData);
+	ppu.writeRegister(0xFF6A, 0x80);
+	foreach (ubyte value; testData) {
+		ppu.writeRegister(0xFF6B, value);
+	}
+	assert((cast(ubyte[])ppu.paletteRAM)[64 .. 69] == testData);
+}
+
+unittest {
 	import std.algorithm.iteration : splitter;
 	import std.array : split;
 	import std.conv : to;
 	import std.file : exists, read, readText;
 	import std.format : format;
+	import std.math : round;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	import std.stdio : File;
@@ -466,17 +596,12 @@ unittest {
 			ppu.runLine();
 		}
 		auto result = new uint[](width * height);
-		immutable colourMap = [
-			0x0000: 0xFF000000,
-			0x35AD: 0xFF6B6B6B,
-			0x5AD6: 0xFFB5B5B5,
-			0x7FFF: 0xFFFFFFFF,
-		];
 		foreach (i, ref pixel; result) { //RGB555 -> ABGR8888
-			if (buffer[i] !in colourMap) {
-				import std.logger; infof("%04X", buffer[i]);
-			}
-			pixel = colourMap[buffer[i]];
+			const realpixel = (cast(RGB555[])buffer)[i];
+			pixel = 0xFF000000;
+			pixel |= cast(ubyte)round((realpixel.red / 31.0) * 255.0) << 16;
+			pixel |= cast(ubyte)round((realpixel.green / 31.0) * 255.0) << 8;
+			pixel |= cast(ubyte)round((realpixel.blue / 31.0) * 255.0) << 0;
 		}
 		return Array2D!ABGR8888(width, height, cast(ABGR8888[])result);
 	}
@@ -553,6 +678,9 @@ unittest {
 				case "ppu.lyCoincidenceFlag":
 					stat.coincidence = byteData & 1;
 					break;
+				case "ppu.cgbEnabled":
+					ppu.cgbMode = byteData & 1;
+					break;
 				case "ppu.status":
 					stat.mode0HBlankIRQ = !!(byteData & 0b00001000);
 					stat.mode1VBlankIRQ = !!(byteData & 0b00010000);
@@ -564,6 +692,12 @@ unittest {
 					break;
 				case "spriteRam":
 					ppu.oam[] = data;
+					break;
+				case "ppu.cgbBgPalettes":
+					ppu.paletteRAM[0 .. 32] = cast(const(RGB555)[])data;
+					break;
+				case "ppu.cgbObjPalettes":
+					ppu.paletteRAM[32 .. 64] = cast(const(RGB555)[])data;
 					break;
 				default:
 					break;
@@ -583,8 +717,8 @@ unittest {
 			}
 		}
 		const frame = renderMesen2State(cast(ubyte[])read(buildPath("testdata/gameboy", name~".mss")), dma);
-		if (const result = comparePNG(frame, "testdata/gameboy", name~".png")) {
-			dumpPNG(frame, name~".png");
+		if (const result = comparePNG(frame, "testdata/gameboy", name~".png", 3)) {
+			dumpPNG(frame, "failed/"~name~".png");
 			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
 		}
 	}
@@ -593,6 +727,10 @@ unittest {
 	runTest("m2");
 	runTest("w2");
 	runTest("mqueen1");
+	runTest("gator");
+	runTest("ooaintro");
+	runTest("cgb_bg_oam_priority");
+	runTest("cgb_oam_internal_priority");
 }
 
 immutable ushort[] pixelBitmasks = [
