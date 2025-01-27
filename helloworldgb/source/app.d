@@ -60,7 +60,7 @@ void readInput() {
 	gb.writeJoy(0x30);
 }
 void writeToVRAM(scope const ubyte[] data, ushort addr) {
-	gb.vram[addr .. addr + data.length] = data;
+	gb.vram[addr - 0x8000 .. addr - 0x8000 + data.length] = data;
 }
 void init() {
 	gb.LCDC = 0;
