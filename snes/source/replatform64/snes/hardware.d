@@ -72,22 +72,22 @@ enum Register {
 
 ///
 enum Pad {
-	extra4 = 0x0001, ///The SNES controller doesn't actually have a button like this
-	extra3 = 0x0002, ///The SNES controller doesn't actually have a button like this
-	extra2 = 0x0004, ///The SNES controller doesn't actually have a button like this
-	extra1 = 0x0008, ///The SNES controller doesn't actually have a button like this
-	r = 0x0010, ///
-	l = 0x0020, ///
-	x = 0x0040, ///
-	a = 0x0080, ///
-	right = 0x0100, ///
-	left = 0x0200, ///
-	down = 0x0400, ///
-	up = 0x0800, ///
-	start = 0x1000, ///
-	select = 0x2000, ///
-	y = 0x4000, ///
-	b = 0x8000, ///
+	extra4 = 0x0001, /// The SNES controller doesn't actually have a button like this. Unmapped by default
+	extra3 = 0x0002, /// The SNES controller doesn't actually have a button like this. Unmapped by default
+	extra2 = 0x0004, /// The SNES controller doesn't actually have a button like this. Unmapped by default
+	extra1 = 0x0008, /// The SNES controller doesn't actually have a button like this. Unmapped by default
+	r = 0x0010, /// Right shoulder button
+	l = 0x0020, /// Left shoulder button
+	x = 0x0040, /// The northern face button
+	a = 0x0080, /// The eastern face button
+	right = 0x0100, /// Right on the d-pad
+	left = 0x0200, /// Left on the d-pad
+	down = 0x0400, /// Down on the d-pad
+	up = 0x0800, /// Up on the d-pad
+	start = 0x1000, /// The start button in the centre
+	select = 0x2000, /// The select button in the centre
+	y = 0x4000, /// The western face button
+	b = 0x8000, /// The southern face button
 }
 
 enum OAMFlags : ubyte {
