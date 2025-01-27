@@ -22,10 +22,10 @@ static void dumpPNG(const Array2D!ABGR8888 frame, string file) {
 	import arsd.png : PngType, writePng;
 	writePng(file, cast(ubyte[])frame[], cast(int)frame.dimensions[0], cast(int)frame.dimensions[1], PngType.truecolor_with_alpha);
 }
-auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath) {
-	return comparePNG(convert(frame), baseDir, comparePath);
+auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath, ubyte compareTolerance = 0) {
+	return comparePNG(convert(frame), baseDir, comparePath, compareTolerance);
 }
-auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath) {
+auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath, ubyte compareTolerance = 0) {
 	import std.format : format;
 	import std.path : buildPath;
 	import arsd.png : readPng;
@@ -38,11 +38,13 @@ auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath
 			return (x != size_t.max) && (y != size_t.max);
 		}
 	}
+	const ubyte baseMask = cast(ubyte)~((1 << (compareTolerance + 1)) - 1);
+	const fullMask = (baseMask << 24) | (baseMask << 16) | (baseMask << 8) | (baseMask << 0);
 	auto reference = readPng(buildPath(baseDir, comparePath));
 	foreach (x; 0 .. frame.dimensions[0]) {
 		foreach (y; 0 .. frame.dimensions[1]) {
 			const refPixel = ABGR8888(reference.getPixel(cast(int)x, cast(int)y).asUint);
-			if (refPixel != frame[x, y]) {
+			if ((refPixel.value & fullMask) != (frame[x, y].value & fullMask)) {
 				return Result(x, y, refPixel, frame[x, y]);
 			}
 		}
