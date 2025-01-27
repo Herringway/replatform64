@@ -1,7 +1,7 @@
 module replatform64.gameboy.cpu;
 
-alias rra = rr;
-ubyte rr(ubyte value, ref bool carry) @safe pure {
+alias rrca = rrc;
+ubyte rrc(ubyte value, ref bool carry) @safe pure {
 	const inCarry = carry;
 	carry = !!(value & 0b00000001);
 	value >>= 1;
@@ -10,11 +10,11 @@ ubyte rr(ubyte value, ref bool carry) @safe pure {
 }
 ///
 @safe pure unittest {
-	runTest!rr(0b00000000, false, 0b00000000, false);
-	runTest!rr(0b00000000, true, 0b10000000, false);
-	runTest!rr(0b00000001, false, 0b00000000, true);
-	runTest!rr(0b00000010, false, 0b00000001, false);
-	runTest!rr(0b00000011, false, 0b00000001, true);
+	runTest!rrc(0b00000000, false, 0b00000000, false);
+	runTest!rrc(0b00000000, true, 0b10000000, false);
+	runTest!rrc(0b00000001, false, 0b00000000, true);
+	runTest!rrc(0b00000010, false, 0b00000001, false);
+	runTest!rrc(0b00000011, false, 0b00000001, true);
 }
 
 ubyte sra(ubyte value, ref bool carry) @safe pure {
