@@ -7,10 +7,8 @@ package:
 
 Array2D!ABGR8888 convert(const Array2D!ARGB8888 frame) {
 	auto result = Array2D!ABGR8888(frame.dimensions[0], frame.dimensions[1]);
-	foreach (x; 0 .. frame.dimensions[0]) {
-		foreach (y; 0 .. frame.dimensions[1]) {
-			result[x, y] = ABGR8888(frame[x, y].red, frame[x, y].green, frame[x, y].blue);
-		}
+	foreach (x, y, pixel; frame) {
+		result[x, y] = ABGR8888(pixel.red, pixel.green, pixel.blue);
 	}
 	return result;
 }
@@ -41,12 +39,10 @@ auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath
 	const ubyte baseMask = cast(ubyte)~((1 << (compareTolerance + 1)) - 1);
 	const fullMask = (baseMask << 24) | (baseMask << 16) | (baseMask << 8) | (baseMask << 0);
 	auto reference = readPng(buildPath(baseDir, comparePath));
-	foreach (x; 0 .. frame.dimensions[0]) {
-		foreach (y; 0 .. frame.dimensions[1]) {
-			const refPixel = ABGR8888(reference.getPixel(cast(int)x, cast(int)y).asUint);
-			if ((refPixel.value & fullMask) != (frame[x, y].value & fullMask)) {
-				return Result(x, y, refPixel, frame[x, y]);
-			}
+	foreach (x, y, pixel; frame) {
+		const refPixel = ABGR8888(reference.getPixel(cast(int)x, cast(int)y).asUint);
+		if ((refPixel.value & fullMask) != (pixel.value & fullMask)) {
+			return Result(x, y, refPixel, pixel);
 		}
 	}
 	return Result();
