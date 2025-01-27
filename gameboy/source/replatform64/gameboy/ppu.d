@@ -52,6 +52,7 @@ struct PPU {
 	enum height = 144;
 	Registers registers;
 	ubyte[] vram;
+	OAMEntry[40] _oam;
 	immutable(RGB555)[] gbPalette = pocketPalette;
 
 	private Array2D!RGB555 pixels;
@@ -128,22 +129,22 @@ struct PPU {
 		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
 	}
 	inout(ubyte)[] tileBlockA() inout @safe pure {
-		return vram[0x8000 .. 0x8800];
+		return vram[0x0000 .. 0x0800];
 	}
 	inout(ubyte)[] tileBlockB() inout @safe pure {
-		return vram[0x8800 .. 0x9000];
+		return vram[0x0800 .. 0x1000];
 	}
 	inout(ubyte)[] tileBlockC() inout @safe pure {
-		return vram[0x9000 .. 0x9800];
+		return vram[0x1000 .. 0x1800];
 	}
 	inout(ubyte)[] screenA() inout @safe pure {
-		return vram[0x9800 .. 0x9C00];
+		return vram[0x1800 .. 0x1C00];
 	}
 	inout(ubyte)[] screenB() inout @safe pure {
-		return vram[0x9C00 .. 0xA000];
+		return vram[0x1C00 .. 0x2000];
 	}
-	inout(ubyte)[] oam() inout @safe pure {
-		return vram[0xFE00 .. 0xFE00 + 40 * OAMEntry.sizeof];
+	inout(ubyte)[] oam() return inout @safe pure {
+		return cast(inout(ubyte)[])_oam[];
 	}
 	inout(ubyte)[] windowScreen() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenB : screenA;
@@ -157,7 +158,7 @@ struct PPU {
 		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
 	Intertwined2BPP getTileUnmapped(short id) const @safe pure {
-		return (cast(const(Intertwined2BPP)[])(vram[0x8000 .. 0x9800]))[id];
+		return (cast(const(Intertwined2BPP)[])(vram[0x0000 .. 0x1800]))[id];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
@@ -481,7 +482,7 @@ unittest {
 	}
 	static Array2D!ABGR8888 renderMesen2State(const ubyte[] file, FauxDMA[] dma = []) {
 		PPU ppu;
-		ppu.vram = new ubyte[](0x10000);
+		ppu.vram = new ubyte[](0x4000);
 		LCDCValue lcdc;
 		STATValue stat;
 		loadMesen2SaveState(file, 1, (key, data) @safe pure {
@@ -559,7 +560,7 @@ unittest {
 					stat.lycEqualsLYFlag = !!(byteData & 0b01000000);
 					break;
 				case "videoRam":
-					ppu.vram[0x8000 .. 0xA000] = data;
+					ppu.vram[0x0000 .. data.length] = data;
 					break;
 				case "spriteRam":
 					ppu.oam[] = data;
@@ -617,7 +618,7 @@ immutable RGB555[] ogPalette = [
 	RGB555(1, 7, 1)
 ];
 ushort tileAddr(ushort num, bool alt) {
-	return alt ? cast(ushort)(0x9000 + cast(byte)num) : cast(ushort)(0x8000 + num);
+	return alt ? cast(ushort)(0x1000 + cast(byte)num) : cast(ushort)(0x0000 + num);
 }
 
 ushort getPixel(ushort tile, int subX) @safe pure {

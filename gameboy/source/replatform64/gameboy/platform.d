@@ -70,14 +70,14 @@ struct GameBoySimple {
 	void initialize(Backend backendType = Backend.autoSelect) {
 		crashHandler = &dumpGBDebugData;
 		rng = Random(seed);
-		renderer.ppu.vram = new ubyte[](0x10000);
+		renderer.ppu.vram = new ubyte[](0x2000);
 
 		apu.initialize(platform.settings.audio.sampleRate);
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
 		renderer.initialize(title, platform.backend.video);
-		platform.registerMemoryRange("VRAM", vram[0x8000 .. 0xA000]);
-		platform.registerMemoryRange("OAM", vram[0xFE00 .. 0xFEA0]);
+		platform.registerMemoryRange("VRAM", renderer.ppu.vram);
+		platform.registerMemoryRange("OAM", renderer.ppu.oam);
 	}
 	immutable(ubyte)[] romData() {
 		if (!originalData && sourceFile.exists) {
@@ -109,10 +109,10 @@ struct GameBoySimple {
 		}
 	}
 	ref ubyte[0x400] getBGTilemap() @safe {
-		return renderer.ppu.vram[0x9800 .. 0x9C00];
+		return renderer.ppu.bgScreen[0 .. 0x400];
 	}
 	ref ubyte[0x400] getWindowTilemap() @safe {
-		return renderer.ppu.vram[0x9C00 .. 0xA000];
+		return renderer.ppu.windowScreen[0 .. 0x400];
 	}
 	void waitHBlank() {
 		// do nothing, we don't enforce the read/writeability of the different PPU modes
@@ -270,7 +270,7 @@ struct GameBoySimple {
 	ubyte[] screenB() @safe pure {
 		return renderer.ppu.screenB;
 	}
-	ubyte[] oam() @safe pure {
+	ubyte[] oam() return @safe pure {
 		return renderer.ppu.oam;
 	}
 	ubyte[] bgScreen() @safe pure {
