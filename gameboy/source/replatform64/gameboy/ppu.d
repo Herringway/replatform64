@@ -2,6 +2,7 @@ module replatform64.gameboy.ppu;
 
 import replatform64.backend.common.interfaces;
 import replatform64.gameboy.common;
+import replatform64.gameboy.hardware;
 
 import replatform64.testhelpers;
 import replatform64.ui;
@@ -31,22 +32,6 @@ enum OAMFlags {
 	priority = 1 << 7,
 }
 
-struct OAMEntry {
-	align(1):
-	ubyte y;
-	ubyte x;
-	ubyte tile;
-	ubyte flags;
-	this(byte a, byte b, ubyte c, ubyte d) {
-		y = a;
-		x = b;
-		tile = c;
-		flags = d;
-	}
-	this(ubyte a) {
-		y = a;
-	}
-}
 struct PPU {
 	static struct Registers {
 		ubyte stat;
