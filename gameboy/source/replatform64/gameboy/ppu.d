@@ -67,10 +67,10 @@ struct PPU {
 	Registers registers;
 	ubyte[] vram;
 	OAMEntry[40] _oam;
-	RGB555[64] paletteRAM;
-	immutable(RGB555)[] gbPalette = pocketPalette;
+	BGR555[64] paletteRAM;
+	immutable(BGR555)[] gbPalette = pocketPalette;
 
-	private Array2D!RGB555 pixels;
+	private Array2D!BGR555 pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
 		const baseX = registers.scx;
@@ -225,7 +225,7 @@ struct PPU {
 	inout(ubyte)[] windowScreenCGB() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenBCGB : screenACGB;
 	}
-	RGB555 getColour(int b, int palette) const @safe pure {
+	BGR555 getColour(int b, int palette) const @safe pure {
 		if (cgbMode) {
 			return paletteRAM[palette * 4 + b];
 		} else {
@@ -244,6 +244,9 @@ struct PPU {
 		return (cast(const(Intertwined2BPP)[])(vram[0x0000 + bank * 0x2000 .. 0x1800 + bank * 0x2000]))[id];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
+		beginDrawing(Array2D!BGR555(width, height, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels));
+	}
+	void beginDrawing(Array2D!BGR555 pixels) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
 		// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
 		// allows priority to be determined just by picking the first matching entry instead of iterating the entire array
@@ -252,7 +255,7 @@ struct PPU {
 			sort!((a, b) => a.x < b.x)(oamSorted);
 		}
 		registers.ly = 0;
-		this.pixels = Array2D!RGB555(width, height, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
+		this.pixels = pixels;
 	}
 	void drawFullFrame(ubyte[] pixels, size_t stride) @safe pure {
 		beginDrawing(pixels, stride);
@@ -261,7 +264,7 @@ struct PPU {
 		}
 	}
 	void drawFullBackground(ubyte[] pixels, size_t stride) const @safe pure {
-		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
+		auto buffer = Array2D!BGR555(256, 256, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, bgScreen)) {
 			const tile = getTile(tileID, true, 0);
 			foreach (subPixelX; 0 .. 8) {
@@ -272,7 +275,7 @@ struct PPU {
 		}
 	}
 	void drawFullWindow(ubyte[] pixels, size_t stride) @safe pure {
-		auto buffer = Array2D!RGB555(256, 256, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
+		auto buffer = Array2D!BGR555(256, 256, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
 		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, windowScreen)) {
 			const tile = getTile(tileID, true, 0);
 			foreach (subPixelX; 0 .. 8) {
@@ -282,7 +285,7 @@ struct PPU {
 			}
 		}
 	}
-	void drawFullTileData(Array2D!RGB555 buffer) @safe pure
+	void drawFullTileData(Array2D!BGR555 buffer) @safe pure
 		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
 		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
 		in (buffer.dimensions[0] * buffer.dimensions[1] <= 384 * 8 * 8, "Buffer too small")
@@ -300,7 +303,7 @@ struct PPU {
 	}
 	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
 		const tiles = 1 + !!(registers.lcdc & LCDCFlags.tallSprites);
-		auto buffer = Array2D!RGB555(8, 8 * tiles, cast(int)(stride / ushort.sizeof), cast(RGB555[])pixels);
+		auto buffer = Array2D!BGR555(8, 8 * tiles, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		foreach (tileID; 0 .. tiles) {
 			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, 0);
@@ -506,7 +509,7 @@ struct PPU {
 					ImGui.EndCombo();
 				}
 				static void* windowSurface;
-				static allTilesBuffer = Array2D!RGB555(16 * 8, 24 * 8);
+				static allTilesBuffer = Array2D!BGR555(16 * 8, 24 * 8);
 				if (windowSurface is null) {
 					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.rgb555);
 				}
@@ -584,9 +587,8 @@ unittest {
 		ubyte value;
 	}
 	static Array2D!ABGR8888 draw(ref PPU ppu, FauxDMA[] dma = []) {
-		auto buffer = new ushort[](width * height);
-		enum pitch = width * 2;
-		ppu.beginDrawing(cast(ubyte[])buffer, pitch);
+		auto buffer = Array2D!BGR555(width, height);
+		ppu.beginDrawing(buffer);
 		foreach (i; 0 .. height) {
 			foreach (entry; dma) {
 				if (i == entry.scanline) {
@@ -595,15 +597,14 @@ unittest {
 			}
 			ppu.runLine();
 		}
-		auto result = new uint[](width * height);
-		foreach (i, ref pixel; result) { //RGB555 -> ABGR8888
-			const realpixel = (cast(RGB555[])buffer)[i];
-			pixel = 0xFF000000;
-			pixel |= cast(ubyte)round((realpixel.red / 31.0) * 255.0) << 16;
-			pixel |= cast(ubyte)round((realpixel.green / 31.0) * 255.0) << 8;
-			pixel |= cast(ubyte)round((realpixel.blue / 31.0) * 255.0) << 0;
+		auto result = Array2D!ABGR8888(width, height);
+		foreach (x, y, pixel; buffer) { //BGR555 -> ABGR8888
+			const red = cast(ubyte)round((pixel.red / 31.0) * 255.0);
+			const green = cast(ubyte)round((pixel.green / 31.0) * 255.0);
+			const blue = cast(ubyte)round((pixel.blue / 31.0) * 255.0);
+			result[x, y] = ABGR8888(red: red, green: green, blue: blue);
 		}
-		return Array2D!ABGR8888(width, height, cast(ABGR8888[])result);
+		return result;
 	}
 	static Array2D!ABGR8888 renderMesen2State(const ubyte[] file, FauxDMA[] dma = []) {
 		PPU ppu;
@@ -694,10 +695,10 @@ unittest {
 					ppu.oam[] = data;
 					break;
 				case "ppu.cgbBgPalettes":
-					ppu.paletteRAM[0 .. 32] = cast(const(RGB555)[])data;
+					ppu.paletteRAM[0 .. 32] = cast(const(BGR555)[])data;
 					break;
 				case "ppu.cgbObjPalettes":
-					ppu.paletteRAM[32 .. 64] = cast(const(RGB555)[])data;
+					ppu.paletteRAM[32 .. 64] = cast(const(BGR555)[])data;
 					break;
 				default:
 					break;
@@ -743,17 +744,17 @@ immutable ushort[] pixelBitmasks = [
 	0b0100000001000000,
 	0b1000000010000000,
 ];
-immutable RGB555[] pocketPalette = [
-	RGB555(31, 31, 31),
-	RGB555(22, 22, 22),
-	RGB555(13, 13, 13),
-	RGB555(0, 0, 0)
+immutable BGR555[] pocketPalette = [
+	BGR555(31, 31, 31),
+	BGR555(22, 22, 22),
+	BGR555(13, 13, 13),
+	BGR555(0, 0, 0)
 ];
-immutable RGB555[] ogPalette = [
-	RGB555(19, 23, 1),
-	RGB555(17, 21, 1),
-	RGB555(6, 12, 6),
-	RGB555(1, 7, 1)
+immutable BGR555[] ogPalette = [
+	BGR555(19, 23, 1),
+	BGR555(17, 21, 1),
+	BGR555(6, 12, 6),
+	BGR555(1, 7, 1)
 ];
 ushort tileAddr(ushort num, bool alt) {
 	return alt ? cast(ushort)(0x1000 + cast(byte)num) : cast(ushort)(0x0000 + num);

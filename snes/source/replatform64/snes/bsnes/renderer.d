@@ -309,12 +309,12 @@ align:
 			ImGui.TreePop();
 		}
 	}
-	public void drawFrame(Array2D!RGB555 texture) const {
+	public void drawFrame(Array2D!BGR555 texture) const {
 		assert(texture.stride == 512);
 		texture[] = getFrameData();
 	}
-	RGB555[] getFrameData() const {
-		RGB555* rawdata = cast(RGB555*)libsfcppu_drawFrame(&this);
+	BGR555[] getFrameData() const {
+		BGR555* rawdata = cast(BGR555*)libsfcppu_drawFrame(&this);
 		return rawdata[ImgW * 16 .. ImgW * (ImgH + 16)];
 	}
 }

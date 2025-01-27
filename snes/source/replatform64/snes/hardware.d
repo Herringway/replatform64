@@ -276,30 +276,3 @@ immutable ushort[8] pixelPlaneMasks = [
 	0b0000001000000010,
 	0b0000000100000001,
 ];
-
-struct BGR555 {
-	align(1):
-	union {
-		ushort value;
-		struct {
-			mixin(bitfields!(
-				ubyte, "red", 5,
-				ubyte, "green", 5,
-				ubyte, "blue", 5,
-				bool, "", 1,
-			));
-		}
-	}
-	this(ubyte red, ubyte green, ubyte blue) @safe pure {
-		this.red = red;
-		this.green = green;
-		this.blue = blue;
-	}
-	this(ushort value) @safe pure {
-		this.value = value;
-	}
-	void toString(S)(S sink) const {
-		import std.format : formattedWrite;
-		sink.formattedWrite("BGR555(%s, %s, %s)", red, green, blue);
-	}
-}

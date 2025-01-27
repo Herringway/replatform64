@@ -83,7 +83,7 @@ struct SNESRenderer {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
-				bsnesFrame.drawFrame(Array2D!RGB555(width, height, pitch / RGB555.sizeof, cast(RGB555[])(texture[])));
+				bsnesFrame.drawFrame(Array2D!BGR555(width, height, pitch / BGR555.sizeof, cast(BGR555[])(texture[])));
 				break;
 			case Renderer.neo:
 				auto buffer = Array2D!ABGR8888(width, height, pitch / ABGR8888.sizeof, cast(ABGR8888[])texture);

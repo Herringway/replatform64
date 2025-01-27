@@ -212,14 +212,14 @@ struct ARGB8888 {
 	}
 }
 
-struct RGB555 {
+struct BGR555 {
 	align(1):
 	union {
 		struct {
 			mixin(bitfields!(
-				ubyte, "blue", 5,
-				ubyte, "green", 5,
 				ubyte, "red", 5,
+				ubyte, "green", 5,
+				ubyte, "blue", 5,
 				bool, "", 1,
 			));
 		}

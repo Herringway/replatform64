@@ -177,7 +177,7 @@ void registerBitSel(size_t bits = 1, size_t opts = 1 << bits)(string label, ref 
 }
 
 void showPalette(T)(T[] palettes, uint entries) {
-	static if (is(T : RGB555)) {
+	static if (is(T : BGR555)) {
 		enum maxChannel = 31.0;
 	} else {
 		enum maxChannel = 255.0;
