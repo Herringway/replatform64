@@ -7,6 +7,8 @@ import replatform64.util;
 import std.bitmanip;
 import std.typecons;
 
+public import tilemagic.colours : ARGB8888;
+
 alias AudioCallback = void function(void*, ubyte[]);
 interface AudioBackend {
 	void initialize(uint sampleRate, uint channels, uint samples) @safe;
@@ -184,32 +186,6 @@ struct ABGR8888 {
 	void toString(S)(S sink) const {
 		import std.format : formattedWrite;
 		sink.formattedWrite("ABGR8888(%s, %s, %s, %s)", red, green, blue, alpha);
-	}
-}
-
-struct ARGB8888 {
-	align(1):
-	union {
-		uint value;
-		struct {
-			ubyte blue;
-			ubyte green;
-			ubyte red;
-			ubyte alpha;
-		}
-	}
-	this(ubyte blue, ubyte green, ubyte red) @safe pure {
-		this.red = red;
-		this.green = green;
-		this.blue = blue;
-		this.alpha = 0xFF;
-	}
-	this(uint value) @safe pure {
-		this.value = value;
-	}
-	void toString(S)(S sink) const {
-		import std.format : formattedWrite;
-		sink.formattedWrite("ARGB8888(%s, %s, %s, %s)", red, green, blue, alpha);
 	}
 }
 

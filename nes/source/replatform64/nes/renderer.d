@@ -14,7 +14,7 @@ struct Renderer {
 		window.baseHeight = height;
 		backend = newBackend;
 		backend.createWindow(title, window);
-		backend.createTexture(width, height, PixelFormat.argb8888);
+		backend.createTexture(width, height, PixelFormat.bgra8888);
 		ppu.chr = new ubyte[](0x2000);
 		ppu.nametable = new ubyte[](0x1000);
 	}
