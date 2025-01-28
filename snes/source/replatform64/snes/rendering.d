@@ -234,25 +234,3 @@ struct SNESRenderer {
 		}
 	}
 }
-
-void writePalettedTilesPNG(string path, ushort[] data, ushort[] palette, uint tileWidth, uint tileHeight) {
-	const imageWidth = tileWidth * 8;
-	const imageHeight = tileHeight * 8;
-	auto img = new IndexedImage(imageWidth, imageHeight);
-	foreach (colour; renderer.cgram) {
-		img.addColor(Color(((colour >> 10) & 0x1F) << 3, ((colour >> 5) & 0x1F) << 3, ((colour >> 0) & 0x1F) << 3));
-	}
-	foreach (idx, tile; (cast(ushort[])renderer.vram).chunks(16).enumerate) {
-		const base = (idx % tileWidth) * 8 + (idx / tileWidth) * imageWidth * 8;
-		foreach (p; 0 .. 8 * 8) {
-			const px = p % 8;
-			const py = p / 8;
-			const plane01 = tile[py] & pixelPlaneMasks[px];
-			const plane23 = tile[py + 8] & pixelPlaneMasks[px];
-			const s = 7 - px;
-			const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
-			img.data[base + px + py * imageWidth] = cast(ubyte)pixel;
-		}
-	}
-	writePng(path, img);
-}
