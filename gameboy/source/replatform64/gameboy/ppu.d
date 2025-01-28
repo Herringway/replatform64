@@ -725,9 +725,9 @@ immutable BGR555[] pocketPalette = [
 	BGR555(13, 13, 13),
 	BGR555(0, 0, 0)
 ];
-immutable BGR555[] ogPalette = [
-	BGR555(19, 23, 1),
-	BGR555(17, 21, 1),
-	BGR555(6, 12, 6),
-	BGR555(1, 7, 1)
+immutable BGR555[] dmgPalette = [
+	BGR555(blue: 19, green: 23, red: 1),
+	BGR555(blue: 17, green: 21, red: 1),
+	BGR555(blue: 6, green: 12, red: 6),
+	BGR555(blue: 1, green: 7, red: 1)
 ];

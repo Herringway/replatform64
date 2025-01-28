@@ -25,9 +25,15 @@ import std.stdio;
 
 import siryul;
 
+enum GBPalette {
+	dmg,
+	pocket,
+}
+
 struct Settings {
 	bool yamlSave;
 	bool debugging;
+	GBPalette gbPalette = GBPalette.pocket;
 }
 
 enum settingsFile = "settings.yaml";
@@ -73,6 +79,10 @@ struct GameBoySimple {
 		rng = Random(seed);
 		if (model >= GameBoyModel.cgb) {
 			renderer.ppu.cgbMode = true;
+		}
+		final switch (settings.gbPalette) {
+			case GBPalette.dmg: renderer.ppu.gbPalette = dmgPalette; break;
+			case GBPalette.pocket: renderer.ppu.gbPalette = pocketPalette; break;
 		}
 		renderer.ppu.vram = new ubyte[](renderer.ppu.cgbMode ? 0x4000 : 0x2000);
 
