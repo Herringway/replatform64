@@ -731,23 +731,6 @@ immutable BGR555[] ogPalette = [
 	BGR555(6, 12, 6),
 	BGR555(1, 7, 1)
 ];
-ushort tileAddr(ushort num, bool alt) {
-	return alt ? cast(ushort)(0x1000 + cast(byte)num) : cast(ushort)(0x0000 + num);
-}
-
-ushort getPixel(ushort tile, int subX) @safe pure {
-	const ushort mask = tile & pixelBitmasks[7 - (subX % 8)];
-	const l1 = ((mask & 0xFF) >> (7 - (subX % 8)));
-	const l2 = ((mask & 0xFF00) >> (7 + (7 - (subX % 8))));
-	return l1 | l2;
-}
-
-@safe pure unittest {
-	assert(getPixel(0x7E3C, 0) == 0);
-	assert(getPixel(0x7E3C, 1) == 2);
-	assert(getPixel(0x7E3C, 2) == 3);
-	assert(getPixel(0x0A7E, 2) == 1);
-}
 
 bool inRange(T)(T value, T lower, T upper) {
 	return (lower <= value) && (upper > value);
