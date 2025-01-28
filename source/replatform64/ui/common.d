@@ -6,6 +6,8 @@ import replatform64.backend.common.interfaces;
 import replatform64.ui;
 import replatform64.util;
 
+version(Windows) pragma(lib, "user32"); // for imgui's clipboard functions
+
 alias DebugFunction = void delegate(const UIState);
 
 struct UIState {
