@@ -14,7 +14,7 @@ import replatform64.backend.common.interfaces;
 import replatform64.ui;
 import replatform64.util;
 
-import arsd.png;
+import justimages.png;
 import tilemagic;
 import squiz_box;
 

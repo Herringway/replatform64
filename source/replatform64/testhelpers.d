@@ -12,7 +12,7 @@ auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath, ub
 auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath, ubyte compareTolerance = 0) {
 	import std.format : format;
 	import std.path : buildPath;
-	import arsd.png : readPng;
+	import justimages.png : readPng;
 	static struct Result {
 		size_t x = size_t.max;
 		size_t y = size_t.max;
@@ -26,7 +26,7 @@ auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath
 	const fullMask = (baseMask << 24) | (baseMask << 16) | (baseMask << 8) | (baseMask << 0);
 	auto reference = readPng(buildPath(baseDir, comparePath));
 	foreach (x, y, pixel; frame) {
-		const refPixel = ABGR8888(reference.getPixel(cast(int)x, cast(int)y).asUint);
+		const refPixel = ABGR8888(reference[x, y].asUint);
 		if ((refPixel.value & fullMask) != (pixel.value & fullMask)) {
 			return Result(x, y, refPixel, pixel);
 		}

@@ -13,7 +13,7 @@ import std.logger;
 import std.range;
 import std.stdio;
 
-import arsd.png;
+import justimages.png;
 import bindbc.loader;
 
 enum Renderer {

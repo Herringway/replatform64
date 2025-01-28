@@ -7,7 +7,7 @@ import std.logger;
 import std.path;
 import std.stdio;
 
-import arsd.png;
+import justimages.png;
 
 import replatform64.backend.common.interfaces;
 import replatform64.util;
@@ -79,6 +79,5 @@ static void dumpPNG(T)(const Array2D!T frame, string file) {
 	dumpPNG(convert(frame), file);
 }
 static void dumpPNG(const Array2D!ABGR8888 frame, string file) {
-	import arsd.png : PngType, writePng;
 	writePng(file, cast(ubyte[])frame[], cast(int)frame.dimensions[0], cast(int)frame.dimensions[1], PngType.truecolor_with_alpha);
 }
