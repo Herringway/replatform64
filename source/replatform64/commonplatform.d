@@ -29,6 +29,17 @@ import siryul;
 
 enum settingsFile = "settings.yaml";
 
+struct ORect {
+	float x1;
+	float y1;
+	float x2;
+	float y2;
+	ubyte red;
+	ubyte green;
+	ubyte blue;
+	ubyte alpha = 128;
+}
+
 struct PlatformCommon {
 	PlatformBackend backend;
 	InputState inputState;
@@ -50,6 +61,7 @@ struct PlatformCommon {
 	private ImGui.ImGuiContext* imguiContext;
 	private bool renderUI = true;
 	private bool debuggingEnabled;
+	private ORect[] overlays = [];
 	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
 		string name;
@@ -500,6 +512,14 @@ struct PlatformCommon {
 				drawSize = ImGui.ImVec2(gameWidth * scaleFactor, gameHeight * scaleFactor);
 			}
 			ImGui.Image(backend.video.getRenderingTexture(), drawSize);
+			const minCoords = ImGui.GetItemRectMin();
+			const imageSize = ImGui.GetItemRectSize();
+			foreach (overlay; overlays) {
+				auto overlayPos = ImVec2(minCoords.x + imageSize.x * overlay.x1, minCoords.y + imageSize.y * overlay.y1);
+				auto overlaySize = ImVec2(imageSize.x * (overlay.x2 - overlay.x1), imageSize.y * (overlay.y2 - overlay.y1));
+				auto overlayEnd = ImVec2(overlayPos.x + overlaySize.x, overlayPos.y + overlaySize.y);
+				ImGui.GetForegroundDrawList().AddRectFilled(overlayPos, overlayEnd, IM_COL32(overlay.red, overlay.green, overlay.blue, overlay.alpha));
+			}
 			ImGui.End();
 		}
 		if (renderUI) {
