@@ -15,33 +15,6 @@ import std.range;
 
 import tilemagic.tiles.bpp2;
 
-enum LCDCFlags {
-	bgEnabled = 1 << 0,
-	spritesEnabled = 1 << 1,
-	tallSprites = 1 << 2,
-	bgTilemap = 1 << 3,
-	useAltBG = 1 << 4,
-	windowDisplay = 1 << 5,
-	windowTilemap = 1 << 6,
-	lcdEnabled = 1 << 7,
-}
-
-enum OAMFlags {
-	cgbPalette = 7 << 0,
-	dmgPalette = 1 << 4,
-	xFlip = 1 << 5,
-	yFlip = 1 << 6,
-	priority = 1 << 7,
-}
-
-enum CGBBGAttributes {
-	palette = 7 << 0,
-	bank = 1 << 3,
-	xFlip = 1 << 5,
-	yFlip = 1 << 6,
-	priority = 1 << 7,
-}
-
 private immutable ubyte[0x2000] dmgExt;
 struct PPU {
 	static struct Registers {
@@ -784,35 +757,4 @@ bool inRange(T)(T value, T lower, T upper) {
 	assert(10.inRange(0, 11));
 	assert(!10.inRange(0, 10));
 	assert(!9.inRange(10, 11));
-}
-
-union LCDCValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "bgEnabled", 1,
-			bool, "spritesEnabled", 1,
-			bool, "largeSprites", 1,
-			bool, "bgScreenB", 1,
-			bool, "bgTileblockA", 1,
-			bool, "windowEnabled", 1,
-			bool, "windowScreenB", 1,
-			bool, "lcdEnabled", 1,
-		));
-	}
-}
-
-union STATValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			uint, "mode", 2,
-			bool, "coincidence", 1,
-			bool, "mode0HBlankIRQ", 1,
-			bool, "mode1VBlankIRQ", 1,
-			bool, "mode2OAMIRQ", 1,
-			bool, "lycEqualsLYFlag", 1,
-			bool, "", 1,
-		));
-	}
 }
