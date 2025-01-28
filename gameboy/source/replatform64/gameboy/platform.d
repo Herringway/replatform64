@@ -70,7 +70,6 @@ struct GameBoySimple {
 	mixin PlatformCommonForwarders;
 
 	void initialize(Backend backendType = Backend.autoSelect) {
-		crashHandler = &dumpGBDebugData;
 		rng = Random(seed);
 		if (model >= GameBoyModel.cgb) {
 			renderer.ppu.cgbMode = true;
@@ -310,9 +309,6 @@ struct GameBoySimple {
 	}
 	ubyte[] windowScreen() @safe pure {
 		return renderer.ppu.windowScreen;
-	}
-	void dumpGBDebugData(string crashDir) {
-		dumpScreen(cast(ubyte[])renderer.getRGBA8888(), crashDir, renderer.width, renderer.height);
 	}
 }
 

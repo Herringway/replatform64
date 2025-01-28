@@ -42,6 +42,7 @@ enum CGBBGAttributes {
 	priority = 1 << 7,
 }
 
+private immutable ubyte[0x2000] dmgExt;
 struct PPU {
 	static struct Registers {
 		ubyte stat;
@@ -78,7 +79,7 @@ struct PPU {
 		auto pixelRow = pixels[0 .. $, registers.ly];
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
-		const tilemapRowAttributes = bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth];
+		const tilemapRowAttributes = cgbMode ? bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth];
 		lineLoop: foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
@@ -579,6 +580,7 @@ unittest {
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	import std.stdio : File;
+	import replatform64.dumping : dumpPNG;
 	enum width = 160;
 	enum height = 144;
 	static struct FauxDMA {

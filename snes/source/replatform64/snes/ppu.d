@@ -1551,6 +1551,7 @@ struct PpuWindows {
 }
 
 unittest {
+	import replatform64.dumping : dumpPNG;
 	import replatform64.snes.hardware : HDMAWrite;
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;

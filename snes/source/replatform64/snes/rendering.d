@@ -103,15 +103,6 @@ struct SNESRenderer {
 		uint _;
 		return getFrameData(_);
 	}
-	const(ubyte)[] getRGBA8888() {
-		uint stride;
-		const source = cast(ubyte[])getFrameData(stride);
-		if (renderer == Renderer.bsnes) {
-			return bgr555ToRGBA8888(source, stride);
-		} else {
-			return source;
-		}
-	}
 	ushort[] getFrameData(out uint pitch) {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);

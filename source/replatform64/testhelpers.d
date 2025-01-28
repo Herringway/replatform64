@@ -1,25 +1,11 @@
 module replatform64.testhelpers;
 
 import replatform64.backend.common.interfaces;
+import replatform64.dumping;
 import replatform64.util;
 
 package:
 
-Array2D!ABGR8888 convert(const Array2D!ARGB8888 frame) {
-	auto result = Array2D!ABGR8888(frame.dimensions[0], frame.dimensions[1]);
-	foreach (x, y, pixel; frame) {
-		result[x, y] = ABGR8888(pixel.red, pixel.green, pixel.blue);
-	}
-	return result;
-}
-
-static void dumpPNG(T)(const Array2D!T frame, string file) {
-	dumpPNG(convert(frame), file);
-}
-static void dumpPNG(const Array2D!ABGR8888 frame, string file) {
-	import arsd.png : PngType, writePng;
-	writePng(file, cast(ubyte[])frame[], cast(int)frame.dimensions[0], cast(int)frame.dimensions[1], PngType.truecolor_with_alpha);
-}
 auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath, ubyte compareTolerance = 0) {
 	return comparePNG(convert(frame), baseDir, comparePath, compareTolerance);
 }

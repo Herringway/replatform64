@@ -26,10 +26,10 @@ struct Renderer {
 	void draw() {
 		Texture texture;
 		backend.getDrawingTexture(texture);
-		draw(texture.buffer[], texture.pitch);
+		draw(texture.asArray2D!BGR555);
 	}
-	void draw(scope ubyte[] texture, int pitch) {
-		ppu.beginDrawing(texture, pitch);
+	void draw(scope Array2D!BGR555 texture) {
+		ppu.beginDrawing(texture);
 		foreach (i; 0 .. height) {
 			if (ppu.registers.ly == ppu.registers.lyc) {
 				ppu.registers.stat |= 0b00000100;
@@ -50,12 +50,6 @@ struct Renderer {
 				statInterrupt();
 			}
 		}
-	}
-	const(ubyte)[] getRGBA8888() {
-		enum pitch = width * ushort.sizeof;
-		auto buffer = new ubyte[](width * height * ushort.sizeof);
-		draw(buffer, pitch);
-		return bgr555ToRGBA8888(buffer, pitch);
 	}
 	void waitNextFrame() {
 		backend.waitNextFrame();

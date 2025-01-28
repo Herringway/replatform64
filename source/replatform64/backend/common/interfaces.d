@@ -130,6 +130,7 @@ struct Texture {
 	uint width;
 	uint height;
 	void* surface;
+	PixelFormat format;
 	Array2D!T asArray2D(T)() @safe pure {
 		return Array2D!T(width, height, pitch / T.sizeof, cast(T[])buffer);
 	}

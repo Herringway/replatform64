@@ -55,7 +55,6 @@ struct SNES {
 		renderer.selectRenderer(backendType == Backend.none ? RendererSettings(engine: Renderer.neo) : settings.renderer);
 		commonInitialization(renderer.getResolution(), { entryPoint(); }, backendType);
 		renderer.initialize(title, platform.backend.video);
-		crashHandler = &dumpSNESDebugData;
 		platform.registerMemoryRange("VRAM", renderer.vram);
 		platform.registerMemoryRange("OAM1", cast(ubyte[])renderer.oam1);
 		platform.registerMemoryRange("OAM2", renderer.oam2);
@@ -203,8 +202,7 @@ struct SNES {
 	mixin RegisterRedirect!("CGWSEL", "renderer", Register.CGWSEL);
 	mixin RegisterRedirect!("CGADSUB", "renderer", Register.CGADSUB);
 	mixin RegisterRedirect!("COLDATA", "renderer", Register.COLDATA);
-	void dumpSNESDebugData(string crashDir) {
-		dumpScreen(cast(ubyte[])renderer.getRGBA8888(), crashDir, renderer.width, renderer.height);
+	void dumpExtraDebugData(string crashDir) {
 		dumpVRAMToDir(crashDir);
 	}
 	void dumpVRAMToDir(string dir) {

@@ -22,6 +22,7 @@ import std.file;
 import std.format;
 import std.getopt;
 import std.logger;
+import std.path;
 import std.stdio;
 import std.string;
 import siryul;
@@ -154,7 +155,9 @@ struct PlatformCommon {
 					ImGui.EndMenu();
 				}
 				if (ImGui.MenuItem("Force crash")) {
-					assert(0, "Forced crash");
+					auto error = new Error("Pretend crash");
+					writeDebugDump(error.msg, error.info);
+					throw error;
 				}
 				ImGui.EndMenu();
 			}
@@ -274,7 +277,6 @@ struct PlatformCommon {
 		throw new Exception("Not found");
 	}
 	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data, bool toFilesystem = false) {
-		import std.path : buildPath, dirName;
 		static void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem, ExtractFunction extractor, string gameID) {
 			try {
 				PlanetArchive archive;
@@ -366,7 +368,6 @@ struct PlatformCommon {
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
 		import std.algorithm.sorting : sort;
-		import std.path : buildPath;
 		PlanetArchive archive;
 		if (assetsExist) {
 			archive = assets;
@@ -453,6 +454,29 @@ struct PlatformCommon {
 	}
 	private string saveFileName(uint slot) {
 		return format!"%s.%s.sav"(gameID, slot);
+	}
+	void dumpScreen(string dumpDir) {
+		Texture texture;
+		backend.video.getDrawingTexture(texture);
+		final switch (texture.format) {
+			case PixelFormat.rgb555:
+				dumpPNG(texture.asArray2D!BGR555, buildPath(dumpDir, "screen.png"));
+				break;
+			case PixelFormat.abgr8888:
+				dumpPNG(texture.asArray2D!ABGR8888, buildPath(dumpDir, "screen.png"));
+				break;
+			case PixelFormat.argb8888:
+				dumpPNG(texture.asArray2D!ARGB8888, buildPath(dumpDir, "screen.png"));
+				break;
+			case PixelFormat.bgra8888:
+				assert(0, "Not yet supported");
+				//dumpPNG(texture.asArray2D!BGRA8888, buildPath(dumpDir, "screen.png"));
+				break;
+			case PixelFormat.rgba8888:
+				assert(0, "Not yet supported");
+				//dumpPNG(texture.asArray2D!RGBA8888, buildPath(dumpDir, "screen.png"));
+				break;
+		}
 	}
 	private void renderUIElements() {
 		UIState state;
@@ -567,6 +591,7 @@ struct PlatformCommon {
 }
 
 mixin template PlatformCommonForwarders() {
+	import replatform64.dumping : crashHandler, dumpPNG;
 	DebugFunction debugMenuRenderer;
 	DebugFunction gameStateMenu;
 	void commonInitialization(Resolution resolution, PlatformCommon.EntryPoint entry, Backend backendType) {
@@ -576,6 +601,7 @@ mixin template PlatformCommonForwarders() {
 		platform.platformDebugMenu = &commonDebugMenu;
 		platform.debugState = gameStateMenu;
 		platform.platformDebugState = &commonDebugState;
+		crashHandler = &debugDump;
 	}
 	auto ref gameID() {
 		return platform.gameID;
@@ -645,6 +671,12 @@ mixin template PlatformCommonForwarders() {
 	}
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
 		platform.playbackDemo(demo);
+	}
+	void debugDump(string dumpDir) {
+		platform.dumpScreen(dumpDir);
+		static if (__traits(hasMember, this, "dumpExtraDebugData")) {
+			dumpExtraDebugData(dumpDir);
+		}
 	}
 }
 

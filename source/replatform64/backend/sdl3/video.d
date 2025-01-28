@@ -21,6 +21,7 @@ class SDL3Video : VideoBackend {
 	private WindowSettings window;
 	private VideoSettings settings;
 	private ulong lastTime;
+	private PixelFormat pixelFormat;
 	void initialize(VideoSettings settings) @trusted
 		in(settings.uiZoom > 0, "Zoom is invalid")
 	{
@@ -114,6 +115,7 @@ class SDL3Video : VideoBackend {
 		assert(width > 0, "Zero width is invalid");
 		assert(height > 0, "Zero height is invalid");
 		const fmt = getFormat(format);
+		this.pixelFormat = format;
 		drawTexture = SDL_CreateTexture(renderer, fmt, SDL_TEXTUREACCESS_STREAMING, width, height);
 		enforceSDL(drawTexture !is null, "Error creating SDL texture");
 	}
@@ -135,6 +137,7 @@ class SDL3Video : VideoBackend {
 		result.height = window.baseHeight;
 		result.buffer = drawBuffer[0 .. window.baseHeight * result.pitch];
 		result.cleanup = &freeTexture;
+		result.format = pixelFormat;
 	}
 	void* getRenderingTexture() @trusted {
 		return drawTexture;
