@@ -140,3 +140,14 @@ void printRegisterAccess(A, V)(A addr, V val) {
 		defaultTraceDeallocator(trace);
 	} catch (Exception) {}
 }
+
+bool inRange(T)(T value, T lower, T upper) {
+	return (lower <= value) && (upper > value);
+}
+
+@safe pure unittest {
+	assert(0.inRange(0, 1));
+	assert(10.inRange(0, 11));
+	assert(!10.inRange(0, 10));
+	assert(!9.inRange(10, 11));
+}

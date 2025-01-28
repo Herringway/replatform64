@@ -731,13 +731,3 @@ immutable BGR555[] ogPalette = [
 	BGR555(6, 12, 6),
 	BGR555(1, 7, 1)
 ];
-
-bool inRange(T)(T value, T lower, T upper) {
-	return (lower <= value) && (upper > value);
-}
-@safe pure unittest {
-	assert(0.inRange(0, 1));
-	assert(10.inRange(0, 11));
-	assert(!10.inRange(0, 10));
-	assert(!9.inRange(10, 11));
-}
