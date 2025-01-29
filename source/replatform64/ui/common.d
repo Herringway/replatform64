@@ -200,3 +200,6 @@ void showPalette(T)(T[] palettes, uint entries) {
 		}
 	}
 }
+
+// make sure core.stdc.* isn't publicly imported...
+static assert(!is(typeof(memcpy)));
