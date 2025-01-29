@@ -4,12 +4,11 @@ import replatform64.backend.common.interfaces;
 import replatform64.dumping;
 import replatform64.util;
 
+import tilemagic.colours;
+
 package:
 
-auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath, ubyte compareTolerance = 0) {
-	return comparePNG(convert(frame), baseDir, comparePath, compareTolerance);
-}
-auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath, ubyte compareTolerance = 0) {
+auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath) {
 	import std.format : format;
 	import std.path : buildPath;
 	import justimages.png : readPng;
@@ -22,13 +21,12 @@ auto comparePNG(const Array2D!ABGR8888 frame, string baseDir, string comparePath
 			return (x != size_t.max) && (y != size_t.max);
 		}
 	}
-	const ubyte baseMask = cast(ubyte)~((1 << (compareTolerance + 1)) - 1);
-	const fullMask = (baseMask << 24) | (baseMask << 16) | (baseMask << 8) | (baseMask << 0);
 	auto reference = readPng(buildPath(baseDir, comparePath));
 	foreach (x, y, pixel; frame) {
-		const refPixel = ABGR8888(reference[x, y].asUint);
-		if ((refPixel.value & fullMask) != (pixel.value & fullMask)) {
-			return Result(x, y, refPixel, pixel);
+		const tmp = reference[x, y].components;
+		const refPixel = ABGR8888(red: tmp[0], green: tmp[1], blue: tmp[2], alpha: tmp[3]);
+		if (!pixel.isSimilar(refPixel)) {
+			return Result(x, y, refPixel, pixel.convert!ABGR8888);
 		}
 	}
 	return Result();

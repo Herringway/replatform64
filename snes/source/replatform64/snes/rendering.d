@@ -13,6 +13,7 @@ import std.logger;
 import std.range;
 import std.stdio;
 
+import tilemagic.colours;
 import justimages.png;
 import bindbc.loader;
 
@@ -57,7 +58,7 @@ struct SNESRenderer {
 				enforce(libsfcppu_init(), "Could not initialize SnesDrawFrame");
 				break;
 			case Renderer.neo:
-				textureType = PixelFormat.abgr8888;
+				textureType = PixelFormat.rgba8888;
 				neoRenderer.extraLeftRight = (defaultWidth - 256) / 2;
 				neoRenderer.setExtraSideSpace((defaultWidth - 256) / 2, (defaultWidth - 256) / 2, (defaultHeight - 224) / 2);
 				break;

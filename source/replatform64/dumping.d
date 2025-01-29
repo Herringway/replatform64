@@ -8,6 +8,7 @@ import std.path;
 import std.stdio;
 
 import justimages.png;
+import tilemagic.colours : RGBA8888;
 
 import replatform64.backend.common.interfaces;
 import replatform64.util;
@@ -59,25 +60,16 @@ void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
 	debug writeln(msg, "\n", traceInfo);
 }
 
-Array2D!ABGR8888 convert(const Array2D!ARGB8888 frame) {
-	auto result = Array2D!ABGR8888(frame.dimensions[0], frame.dimensions[1]);
+Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
+	import tilemagic.colours.formats : convert;
+	auto result = Array2D!Target(frame.dimensions[0], frame.dimensions[1]);
 	foreach (x, y, pixel; frame) {
-		result[x, y] = ABGR8888(pixel.red, pixel.green, pixel.blue);
-	}
-	return result;
-}
-
-Array2D!ABGR8888 convert(const Array2D!BGR555 frame) {
-	auto result = Array2D!ABGR8888(frame.dimensions[0], frame.dimensions[1]);
-	foreach (x, y, pixel; frame) {
-		result[x, y] = ABGR8888(cast(ubyte)(pixel.red << 3), cast(ubyte)(pixel.green << 3), cast(ubyte)(pixel.blue << 3));
+		result[x, y] = pixel.convert!Target();
 	}
 	return result;
 }
 
 static void dumpPNG(T)(const Array2D!T frame, string file) {
-	dumpPNG(convert(frame), file);
-}
-static void dumpPNG(const Array2D!ABGR8888 frame, string file) {
-	writePng(file, cast(ubyte[])frame[], cast(int)frame.dimensions[0], cast(int)frame.dimensions[1], PngType.truecolor_with_alpha);
+	const output = convert!RGBA8888(frame);
+	writePng(file, cast(const(ubyte)[])output[], cast(int)output.dimensions[0], cast(int)output.dimensions[1], PngType.truecolor_with_alpha);
 }

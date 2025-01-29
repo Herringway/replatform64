@@ -2,6 +2,8 @@ module replatform64.gameboy.hardware;
 
 import std.bitmanip;
 
+public import tilemagic.colours : BGR555;
+
 alias P1Value = JOYPValue;
 ///
 enum JOYPValue : ubyte {

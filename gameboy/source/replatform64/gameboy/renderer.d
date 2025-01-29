@@ -9,6 +9,8 @@ import std.string;
 import replatform64.gameboy.ppu;
 import replatform64.util;
 
+import tilemagic.colours;
+
 struct Renderer {
 	PPU ppu;
 	enum width = PPU.width;

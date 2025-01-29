@@ -179,19 +179,16 @@ void registerBitSel(size_t bits = 1, size_t opts = 1 << bits)(string label, ref 
 }
 
 void showPalette(T)(T[] palettes, uint entries) {
-	static if (is(T : BGR555)) {
-		enum maxChannel = 31.0;
-	} else {
-		enum maxChannel = 255.0;
-	}
 	import std.format : format;
 	import std.range : chunks, enumerate;
+	import tilemagic.colours.raw : colourToInteger;
+	import tilemagic.colours.utils : blueFP, greenFP, redFP;
 	foreach (idx, ref palette; palettes[].chunks(entries).enumerate) {
 		ImGui.SeparatorText(format!"Palette %d"(idx));
 		foreach (i, ref colour; palette) {
 			ImGui.PushID(cast(int)i);
-			const c = ImVec4(colour.red / maxChannel, colour.green / maxChannel, colour.blue / maxChannel, 1.0);
-			ImGui.Text("$%06X", colour.value);
+			const c = ImVec4(colour.redFP, colour.greenFP, colour.blueFP, 1.0);
+			ImGui.Text("$%06X", colourToInteger(colour));
 			ImGui.SameLine();
 			if (ImGui.ColorButton("##colour", c, ImGuiColorEditFlags.None, ImVec2(40, 40))) {
 				// TODO: colour picker

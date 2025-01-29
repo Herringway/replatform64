@@ -10,6 +10,8 @@ import replatform64.watchdog;
 
 import imgui.flamegraph;
 
+import tilemagic.colours;
+
 import core.stdc.stdlib;
 import core.thread;
 import std.algorithm.comparison;

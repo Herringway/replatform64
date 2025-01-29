@@ -13,6 +13,7 @@ import std.bitmanip : bitfields;
 import std.format;
 import std.range;
 
+import tilemagic.colours;
 import tilemagic.tiles.bpp2;
 
 private immutable ubyte[0x2000] dmgExt;
@@ -553,7 +554,7 @@ unittest {
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	import std.stdio : File;
-	import replatform64.dumping : dumpPNG;
+	import replatform64.dumping : convert, dumpPNG;
 	enum width = 160;
 	enum height = 144;
 	static struct FauxDMA {
@@ -561,7 +562,7 @@ unittest {
 		GameBoyRegister register;
 		ubyte value;
 	}
-	static Array2D!ABGR8888 draw(ref PPU ppu, FauxDMA[] dma = []) {
+	static auto draw(ref PPU ppu, FauxDMA[] dma = []) {
 		auto buffer = Array2D!BGR555(width, height);
 		ppu.beginDrawing(buffer);
 		foreach (i; 0 .. height) {
@@ -572,16 +573,9 @@ unittest {
 			}
 			ppu.runLine();
 		}
-		auto result = Array2D!ABGR8888(width, height);
-		foreach (x, y, pixel; buffer) { //BGR555 -> ABGR8888
-			const red = cast(ubyte)round((pixel.red / 31.0) * 255.0);
-			const green = cast(ubyte)round((pixel.green / 31.0) * 255.0);
-			const blue = cast(ubyte)round((pixel.blue / 31.0) * 255.0);
-			result[x, y] = ABGR8888(red: red, green: green, blue: blue);
-		}
-		return result;
+		return buffer;
 	}
-	static Array2D!ABGR8888 renderMesen2State(const ubyte[] file, FauxDMA[] dma = []) {
+	static auto renderMesen2State(const ubyte[] file, FauxDMA[] dma = []) {
 		PPU ppu;
 		ppu.vram = new ubyte[](0x4000);
 		LCDCValue lcdc;
@@ -693,7 +687,7 @@ unittest {
 			}
 		}
 		const frame = renderMesen2State(cast(ubyte[])read(buildPath("testdata/gameboy", name~".mss")), dma);
-		if (const result = comparePNG(frame, "testdata/gameboy", name~".png", 3)) {
+		if (const result = comparePNG(frame, "testdata/gameboy", name~".png")) {
 			dumpPNG(frame, "failed/"~name~".png");
 			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
 		}

@@ -3,6 +3,8 @@ module replatform64.nes.renderer;
 import replatform64.backend.common;
 import replatform64.nes.ppu;
 
+import tilemagic.colours;
+
 struct Renderer {
 	PPU ppu;
 	enum width = PPU.width;
@@ -21,7 +23,7 @@ struct Renderer {
 	void draw() {
 		Texture texture;
 		backend.getDrawingTexture(texture);
-		ppu.render(cast(uint[])(texture.buffer[]));
+		ppu.render(texture.asArray2D!ARGB8888);
 	}
 	void waitNextFrame() {
 		backend.waitNextFrame();

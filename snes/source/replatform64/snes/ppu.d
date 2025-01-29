@@ -32,6 +32,7 @@ import replatform64.snes.hardware;
 import replatform64.ui;
 import replatform64.util;
 
+import tilemagic.colours;
 import tilemagic.tiles;
 
 import std.algorithm.comparison;
@@ -225,7 +226,7 @@ struct PPU {
 
 			// outside of visible range?
 			if (line >= 225 + extraBottomCur) {
-				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = ABGR8888(0);
+				renderBuffer[0 .. 256 + extraLeftRight * 2, line - 1] = ABGR8888(0, 0, 0);
 				return;
 			}
 
@@ -240,8 +241,8 @@ struct PPU {
 				}
 
 				if (extraLeftRight != 0) {
-					renderBuffer[0 .. extraLeftRight, line - 1] = ABGR8888(0);
-					renderBuffer[256 + extraLeftRight .. $, line - 1] = ABGR8888(0);
+					renderBuffer[0 .. extraLeftRight, line - 1] = ABGR8888(0, 0, 0);
+					renderBuffer[256 + extraLeftRight .. $, line - 1] = ABGR8888(0, 0, 0);
 				}
 			}
 		}
@@ -620,7 +621,7 @@ struct PPU {
 				const tile = vram[(ycur >> 25 & 0x7f) * 128 + (xcur >> 25 & 0x7f)] & 0xff;
 				auto pixel = vram[tile * 64 + (ycur >> 22 & 7) * 8 + (xcur >> 22 & 7)] >> 8;
 				pixel = (xcur & 0x80000000) ? 0 : pixel;
-				destPixel = halfColor ? ABGR8888((colorMapRgb[pixel].value & 0xfefefe) >> 1) : colorMapRgb[pixel];
+				destPixel = halfColor ? integerToColour!ABGR8888((colourToInteger(colorMapRgb[pixel]) & 0xfefefe) >> 1) : colorMapRgb[pixel];
 				xcur += m0;
 				ycur += m2;
 			}
@@ -640,14 +641,14 @@ struct PPU {
 		if (extraLeftRight - extraLeftCur != 0) {
 			const n = 4 * uint.sizeof * (extraLeftRight - extraLeftCur);
 			for(int i = 0; i < 4; i++) {
-				render_buffer_ptr[0 .. n, i] = ABGR8888(0);
+				render_buffer_ptr[0 .. n, i] = ABGR8888(0, 0, 0);
 			}
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			const n = 4 * uint.sizeof * (extraLeftRight - extraRightCur);
 			for (int i = 0; i < 4; i++) {
 				const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
-				render_buffer_ptr[start .. $, i] = ABGR8888(0);
+				render_buffer_ptr[start .. $, i] = ABGR8888(0, 0, 0);
 			}
 		}
 	}
@@ -718,7 +719,7 @@ struct PPU {
 
 	private void drawWholeLine(Array2D!ABGR8888 renderBuffer, scope ref PpuPixelPrioBufs[3] winBuffers, uint y) const @safe pure {
 		if (forcedBlank) {
-			renderBuffer[0 .. $, y - 1] = ABGR8888(0);
+			renderBuffer[0 .. $, y - 1] = ABGR8888(0, 0, 0);
 			return;
 		}
 
@@ -814,11 +815,11 @@ struct PPU {
 
 		// Clear out stuff on the sides.
 		if (extraLeftRight - extraLeftCur != 0) {
-			dst_org[0 .. uint.sizeof * (extraLeftRight - extraLeftCur)] = ABGR8888(0);
+			dst_org[0 .. uint.sizeof * (extraLeftRight - extraLeftCur)] = ABGR8888(0, 0, 0);
 		}
 		if (extraLeftRight - extraRightCur != 0) {
 			const start = 256 + extraLeftRight * 2 - (extraLeftRight - extraRightCur);
-			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = ABGR8888(0);
+			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = ABGR8888(0, 0, 0);
 		}
 	}
 
@@ -848,9 +849,9 @@ struct PPU {
 			// TODO: subscreen pixels can be clipped to black as well
 			// TODO: math for subscreen pixels (add/sub sub to main)
 			if (mathEnabled) {
-				short r = colour1.red;
-				short g = colour1.green;
-				short b = colour1.blue;
+				auto r = colour1.red;
+				auto g = colour1.green;
+				auto b = colour1.blue;
 				if (subtractColor) {
 					r -= (addSubscreen && secondLayer != 5) ? colour2.red: fixedColorR;
 					g -= (addSubscreen && secondLayer != 5) ? colour2.green: fixedColorG;
@@ -1352,7 +1353,7 @@ struct PPU {
 				if(!cgramSecondWrite) {
 					cgramBuffer = val;
 				} else {
-					cgram[cgramPointer++] = BGR555((val << 8) | cgramBuffer);
+					cgram[cgramPointer++] = integerToColour!BGR555((val << 8) | cgramBuffer);
 				}
 				cgramSecondWrite = !cgramSecondWrite;
 				break;
@@ -1511,7 +1512,7 @@ struct PPU {
 					const plane23 = tile[py + 8] & pixelPlaneMasks[px];
 					const s = 7 - px;
 					const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
-					pixels[base + px + py * texWidth] = palette[pixel].value & 0x7FFF;
+					pixels[base + px + py * texWidth] = colourToInteger(palette[pixel]) & 0x7FFF;
 				}
 			}
 			static void* windowSurface;
@@ -2046,7 +2047,7 @@ unittest {
 	runTest("ebspriteprio", true, true);
 	runTest("ebspriteprio2", true, false);
 	runTest("ebbattle", true, true);
-	runTest("ebmeteor", false, false);
+	runTest("ebmeteor", true, true);
 	runTest("ebgas", true, true);
 	runTest("eb_ss", true, true);
 	runTest("yi_intro", false, false);
@@ -2066,7 +2067,7 @@ unittest {
 	runTest("InterlaceFont", false, false);
 	runTest("InterlaceMystHDMA", false, false);
 	runTest("Perspective", false, false);
-	runTest("Rings", true, false);
+	runTest("Rings", true, true);
 	runTest("RotZoom", false, false);
 	runTest("extbgtest", true, false);
 	runTest("extbgtest2", true, false);

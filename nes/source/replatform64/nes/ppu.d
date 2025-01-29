@@ -12,6 +12,8 @@ import std.bitmanip;
 import std.format;
 import std.range;
 
+import tilemagic.colours;
+
 immutable ubyte[4][2] nametableMirrorLookup = [
 	[0, 0, 1, 1], // Vertical
 	[0, 1, 0, 1], // Horizontal
@@ -289,8 +291,7 @@ struct PPU {
 	/**
 	 * Render to a frame buffer.
 	 */
-	void render(uint[] target) @safe pure {
-		auto buffer = Array2D!ARGB8888(width, height, cast(ARGB8888[])target);
+	void render(Array2D!ARGB8888 buffer) @safe pure {
 		// Clear the buffer with the background color
 		buffer[0 .. $, 0 .. $] = paletteRGB[palette[0]];
 
@@ -631,10 +632,9 @@ unittest {
 	enum width = 256;
 	enum height = 240;
 	static Array2D!ARGB8888 draw(ref PPU ppu) {
-		auto buffer = new uint[](width * height);
-		enum pitch = width * 2;
+		auto buffer = Array2D!ARGB8888(width, height);
 		ppu.render(buffer);
-		return Array2D!ARGB8888(width, height, cast(ARGB8888[])buffer);
+		return buffer;
 	}
 	static Array2D!ARGB8888 renderMesen2State(string filename) {
 		PPU ppu;

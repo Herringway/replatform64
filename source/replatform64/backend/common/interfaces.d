@@ -7,8 +7,6 @@ import replatform64.util;
 import std.bitmanip;
 import std.typecons;
 
-public import tilemagic.colours : ARGB8888;
-
 alias AudioCallback = void function(void*, ubyte[]);
 interface AudioBackend {
 	void initialize(uint sampleRate, uint channels, uint samples) @safe;
@@ -161,57 +159,4 @@ private extern(C) __gshared ubyte internal;
 
 struct BackendID {
 	string id;
-}
-
-struct ABGR8888 {
-	align(1):
-	union {
-		uint value;
-		struct {
-			ubyte red;
-			ubyte green;
-			ubyte blue;
-			ubyte alpha;
-		}
-	}
-	this(ubyte red, ubyte green, ubyte blue) @safe pure {
-		this.red = red;
-		this.green = green;
-		this.blue = blue;
-		this.alpha = 0xFF;
-	}
-	this(uint value) @safe pure {
-		this.value = value;
-	}
-	void toString(S)(S sink) const {
-		import std.format : formattedWrite;
-		sink.formattedWrite("ABGR8888(%s, %s, %s, %s)", red, green, blue, alpha);
-	}
-}
-
-struct BGR555 {
-	align(1):
-	union {
-		struct {
-			mixin(bitfields!(
-				ubyte, "red", 5,
-				ubyte, "green", 5,
-				ubyte, "blue", 5,
-				bool, "", 1,
-			));
-		}
-		ushort value;
-	}
-	this(ubyte red, ubyte green, ubyte blue) @safe pure {
-		this.red = red;
-		this.green = green;
-		this.blue = blue;
-	}
-	this(ushort value) @safe pure {
-		this.value = value;
-	}
-	void toString(S)(S sink) const {
-		import std.format : formattedWrite;
-		sink.formattedWrite("RGB555(%s, %s, %s)", red, green, blue);
-	}
 }
