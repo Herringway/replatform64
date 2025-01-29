@@ -376,9 +376,14 @@ struct PlatformCommon {
 	private void loadAsset(alias Symbol)(const(ubyte)[] data, string label, string source) {
 		tracef("Loading %s from %s", label, source);
 		static if (Symbol.metadata.type == DataType.structured) {
-			Symbol.data = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(label);
+			auto symbolData = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(label);
 		} else {
-			Symbol.data = cast(Symbol.ReadableElementType!())data;
+			auto symbolData = cast(Symbol.ReadableElementType!())data;
+		}
+		static if (is(typeof(Symbol.data) : T[], T)) {
+			Symbol.data ~= symbolData;
+		} else {
+			Symbol.data = symbolData;
 		}
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
@@ -387,7 +392,7 @@ struct PlatformCommon {
 		if (assetsExist) {
 			archive = assets;
 		}
-		const(ubyte)[][string] arrayAssets;
+		const(ubyte)[][][string] arrayAssets;
 		bool[string] nonArrayAlreadyLoaded;
 		foreach (asset; archive.entries) {
 			bool matched;
@@ -396,7 +401,7 @@ struct PlatformCommon {
 					matched = true;
 					auto data = loadROMAsset(asset.data, Symbol.metadata);
 					static if (Symbol.metadata.array) {
-						arrayAssets[asset.name] = data;
+						arrayAssets[asset.name] ~= data;
 						Symbol.data = [];
 					} else {
 						nonArrayAlreadyLoaded[asset.name] = true;
@@ -412,7 +417,9 @@ struct PlatformCommon {
 			static foreach (Symbol; SymbolData!Modules) {
 				static if (Symbol.metadata.array) {
 					if (file.matches(Symbol.metadata)) {
-						loadAsset!Symbol(arrayAssets[file], file, "planet");
+						foreach (arrayAsset; arrayAssets[file]) {
+							loadAsset!Symbol(arrayAsset, file, "planet");
+						}
 					}
 				}
 			}
