@@ -277,6 +277,7 @@ struct PlatformCommon {
 	}
 	void handleAssets(Modules...)(immutable(ubyte)[] romData, ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
 		if (!assetsExist) {
+			enforce(romData != [], "No ROM data loaded!");
 			extractAssets!Modules(extractor, romData, toFilesystem);
 		}
 		loadAssets!Modules(loader);
