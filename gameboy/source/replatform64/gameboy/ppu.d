@@ -240,22 +240,30 @@ struct PPU {
 	}
 	void drawFullBackground(ubyte[] pixels, size_t stride) const @safe pure {
 		auto buffer = Array2D!BGR555(256, 256, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
-		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, bgScreen)) {
-			const tile = getTile(tileID, true, 0);
-			foreach (subPixelX; 0 .. 8) {
-				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
-				}
-			}
-		}
+		const attributes = Array2D!(const ubyte)(32, 32, 32, cgbMode ? bgScreenCGB : dmgExt[0 .. 0x400]);
+		const tiles = Array2D!(const ubyte)(32, 32, 32, bgScreen);
+		drawDebugCommon(buffer, tiles, attributes);
 	}
-	void drawFullWindow(ubyte[] pixels, size_t stride) @safe pure {
+	void drawFullWindow(ubyte[] pixels, size_t stride) const @safe pure {
 		auto buffer = Array2D!BGR555(256, 256, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
-		foreach (size_t tileX, size_t tileY, ref const ubyte tileID; Array2D!(const ubyte)(32, 32, 32, windowScreen)) {
-			const tile = getTile(tileID, true, 0);
+		const attributes = Array2D!(const ubyte)(32, 32, 32, cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]);
+		const tiles = Array2D!(const ubyte)(32, 32, 32, windowScreen);
+		drawDebugCommon(buffer, tiles, attributes);
+	}
+	void drawDebugCommon(Array2D!BGR555 buffer, const Array2D!(const ubyte) tiles, const Array2D!(const ubyte) attributes) const @safe pure {
+		foreach (size_t tileX, size_t tileY, const ubyte tileID; tiles) {
+			const tile = getTile(tileID, true, !!(attributes[tileX, tileY] & CGBBGAttributes.bank));
 			foreach (subPixelX; 0 .. 8) {
+				auto x = subPixelX;
+				if (attributes[tileX, tileY] & CGBBGAttributes.xFlip) {
+					x = 7 - x;
+				}
 				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
+					auto y = subPixelY;
+					if (attributes[tileX, tileY] & CGBBGAttributes.yFlip) {
+						y = 7 - y;
+					}
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[x, y], attributes[tileX, tileY] & CGBBGAttributes.palette);
 				}
 			}
 		}
@@ -281,7 +289,7 @@ struct PPU {
 		auto buffer = Array2D!BGR555(8, 8 * tiles, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		foreach (tileID; 0 .. tiles) {
-			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, 0);
+			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, !!(oamEntry.flags & OAMFlags.bank));
 			foreach (x; 0 .. 8) {
 				foreach (y; 0 .. 8) {
 					const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
@@ -456,7 +464,7 @@ struct PPU {
 			if (ImGui.BeginTabItem("Background")) {
 				static void* backgroundSurface;
 				if (backgroundSurface is null) {
-					backgroundSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.rgb555);
+					backgroundSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.bgr555);
 				}
 				drawFullBackground(cast(ubyte[])buffer[], width * ushort.sizeof);
 				video.setSurfacePixels(backgroundSurface, cast(ubyte[])buffer[]);
@@ -466,7 +474,7 @@ struct PPU {
 			if (ImGui.BeginTabItem("Window")) {
 				static void* windowSurface;
 				if (windowSurface is null) {
-					windowSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.rgb555);
+					windowSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.bgr555);
 				}
 				drawFullWindow(cast(ubyte[])buffer[], width * ushort.sizeof);
 				video.setSurfacePixels(windowSurface, cast(ubyte[])buffer[]);
@@ -486,7 +494,7 @@ struct PPU {
 				static void* windowSurface;
 				static allTilesBuffer = Array2D!BGR555(16 * 8, 24 * 8);
 				if (windowSurface is null) {
-					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.rgb555);
+					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.bgr555);
 				}
 				drawFullTileData(allTilesBuffer);
 				video.setSurfacePixels(windowSurface, cast(ubyte[])allTilesBuffer[]);
@@ -501,7 +509,7 @@ struct PPU {
 					foreach (idx, sprite; cast(OAMEntry[])oam) {
 						ImGui.TableNextColumn();
 						if (spriteSurfaces[idx] is null) {
-							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormat.rgb555);
+							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormat.bgr555);
 						}
 						auto sprBuffer = cast(ubyte[])(buffer[0 .. sprWidth * sprHeight]);
 						drawSprite(sprBuffer, sprWidth * ushort.sizeof, cast(uint)idx);
@@ -516,7 +524,7 @@ struct PPU {
 							ImGui.Text("Priority: ");
 							ImGui.SameLine();
 							ImGui.Text(["Normal", "High"][sprite.flags >> 7]);
-							ImGui.Text("Palette: %d", (sprite.flags >> 4) & 1);
+							ImGui.Text("Palette: %d", cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : ((sprite.flags >> 4) & 1));
 							ImGui.EndTooltip();
 						}
 					}
