@@ -207,5 +207,27 @@ void showPalette(T)(T[] palettes, uint entries) {
 	}
 }
 
+void drawZoomableImage(T)(Array2D!T buffer, VideoBackend video, ref void* surface, void delegate(int, int) onHover = null) {
+	static size_t zoom = 1;
+	if (ImGui.BeginCombo("Zoom", "1x")) {
+		foreach (i, label; ["1x", "2x", "3x", "4x"]) {
+			if (ImGui.Selectable(label, (i + 1) == zoom)) {
+				zoom = i + 1;
+			}
+		}
+		ImGui.EndCombo();
+	}
+	if (surface is null) {
+		surface = video.createSurface(buffer);
+	}
+	video.setSurfacePixels(surface, cast(ubyte[])buffer[]);
+	ImGui.Image(surface, ImVec2(buffer.dimensions[0] * zoom, buffer.dimensions[1] * zoom));
+	if (onHover) {
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.ForTooltip)) {
+			onHover(0, 0);
+		}
+	}
+}
+
 // make sure core.stdc.* isn't publicly imported...
 static assert(!is(typeof(memcpy)));

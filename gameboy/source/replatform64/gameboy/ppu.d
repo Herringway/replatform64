@@ -162,6 +162,12 @@ struct PPU {
 	inout(ubyte)[] bgScreenCGB() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenBCGB : screenACGB;
 	}
+	Array2D!(const ubyte) bgScreen2D() const @safe pure {
+		return Array2D!(const ubyte)(32, 32, 32, bgScreen);
+	}
+	Array2D!(const ubyte) bgScreenCGB2D() const @safe pure {
+		return Array2D!(const ubyte)(32, 32, 32, cgbMode ? bgScreenCGB : dmgExt[0 .. 0x400]);
+	}
 	inout(ubyte)[] tileBlockA() inout @safe pure {
 		return vram[0x0000 .. 0x0800];
 	}
@@ -201,6 +207,12 @@ struct PPU {
 	inout(ubyte)[] windowScreenCGB() inout @safe pure {
 		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenBCGB : screenACGB;
 	}
+	Array2D!(const ubyte) windowScreen2D() const @safe pure {
+		return Array2D!(const ubyte)(32, 32, 32, windowScreen);
+	}
+	Array2D!(const ubyte) windowScreenCGB2D() const @safe pure {
+		return Array2D!(const ubyte)(32, 32, 32, cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]);
+	}
 	BGR555 getColour(int b, int palette) const @safe pure {
 		if (cgbMode) {
 			return paletteRAM[palette * 4 + b];
@@ -220,7 +232,7 @@ struct PPU {
 		return (cast(const(Intertwined2BPP)[])(vram[0x0000 + bank * 0x2000 .. 0x1800 + bank * 0x2000]))[id];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
-		beginDrawing(Array2D!BGR555(width, height, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels));
+		beginDrawing(Array2D!BGR555(width, height, cast(int)(stride / BGR555.sizeof), cast(BGR555[])pixels));
 	}
 	void beginDrawing(Array2D!BGR555 pixels) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
@@ -239,17 +251,11 @@ struct PPU {
 			runLine();
 		}
 	}
-	void drawFullBackground(ubyte[] pixels, size_t stride) const @safe pure {
-		auto buffer = Array2D!BGR555(256, 256, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
-		const attributes = Array2D!(const ubyte)(32, 32, 32, cgbMode ? bgScreenCGB : dmgExt[0 .. 0x400]);
-		const tiles = Array2D!(const ubyte)(32, 32, 32, bgScreen);
-		drawDebugCommon(buffer, tiles, attributes);
+	void drawFullBackground(Array2D!BGR555 buffer) const @safe pure {
+		drawDebugCommon(buffer, bgScreen2D, bgScreenCGB2D);
 	}
-	void drawFullWindow(ubyte[] pixels, size_t stride) const @safe pure {
-		auto buffer = Array2D!BGR555(256, 256, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
-		const attributes = Array2D!(const ubyte)(32, 32, 32, cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]);
-		const tiles = Array2D!(const ubyte)(32, 32, 32, windowScreen);
-		drawDebugCommon(buffer, tiles, attributes);
+	void drawFullWindow(Array2D!BGR555 buffer) const @safe pure {
+		drawDebugCommon(buffer, windowScreen2D, windowScreenCGB2D);
 	}
 	void drawDebugCommon(Array2D!BGR555 buffer, const Array2D!(const ubyte) tiles, const Array2D!(const ubyte) attributes) const @safe pure {
 		foreach (size_t tileX, size_t tileY, const ubyte tileID; tiles) {
@@ -286,8 +292,10 @@ struct PPU {
 		}
 	}
 	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
+		drawSprite(Array2D!BGR555(8, 16, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels), sprite);
+	}
+	void drawSprite(Array2D!BGR555 buffer, uint sprite) @safe pure {
 		const tiles = 1 + !!(registers.lcdc & LCDCFlags.tallSprites);
-		auto buffer = Array2D!BGR555(8, 8 * tiles, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		foreach (tileID; 0 .. tiles) {
 			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, !!(oamEntry.flags & OAMFlags.bank));
@@ -410,7 +418,7 @@ struct PPU {
 		}
 		enum height = 256;
 		enum width = 256;
-		static ushort[width * height] buffer;
+		static Array2D!BGR555 buffer = Array2D!BGR555(width, height);
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("State")) {
 				if (ImGui.TreeNode("STAT", "STAT: %02X", registers.stat)) {
@@ -462,58 +470,44 @@ struct PPU {
 				showPalette(paletteRAM[], 4);
 				ImGui.EndTabItem();
 			}
+			void showTileInfo(int x, int y) {
+				ImGui.SetItemTooltip(format!"");
+			}
 			if (ImGui.BeginTabItem("Background")) {
-				static void* backgroundSurface;
-				if (backgroundSurface is null) {
-					backgroundSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.bgr555);
-				}
-				drawFullBackground(cast(ubyte[])buffer[], width * ushort.sizeof);
-				video.setSurfacePixels(backgroundSurface, cast(ubyte[])buffer[]);
-				ImGui.Image(backgroundSurface, ImVec2(width, height));
+				static void* surface;
+				drawFullBackground(buffer);
+				drawZoomableImage(buffer, video, surface, &showTileInfo);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Window")) {
-				static void* windowSurface;
-				if (windowSurface is null) {
-					windowSurface = video.createSurface(width, height, ushort.sizeof * width, PixelFormat.bgr555);
-				}
-				drawFullWindow(cast(ubyte[])buffer[], width * ushort.sizeof);
-				video.setSurfacePixels(windowSurface, cast(ubyte[])buffer[]);
-				ImGui.Image(windowSurface, ImVec2(width, height));
+				static void* surface;
+				drawFullWindow(buffer);
+				drawZoomableImage(buffer, video, surface, &showTileInfo);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Tiles")) {
-				static size_t zoom = 1;
-				if (ImGui.BeginCombo("Zoom", "1x")) {
-					foreach (i, label; ["1x", "2x", "3x", "4x"]) {
-						if (ImGui.Selectable(label, (i + 1) == zoom)) {
-							zoom = i + 1;
-						}
-					}
-					ImGui.EndCombo();
-				}
-				static void* windowSurface;
+				static void* surface;
 				static allTilesBuffer = Array2D!BGR555(16 * 8, 24 * 8);
-				if (windowSurface is null) {
-					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.bgr555);
-				}
 				drawFullTileData(allTilesBuffer);
-				video.setSurfacePixels(windowSurface, cast(ubyte[])allTilesBuffer[]);
-				ImGui.Image(windowSurface, ImVec2(allTilesBuffer.dimensions[0] * zoom, allTilesBuffer.dimensions[1] * zoom));
+				drawZoomableImage(allTilesBuffer, video, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
 				static void*[40] spriteSurfaces;
+				static Array2D!BGR555[40] sprBuffers;
 				const sprHeight = 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites));
 				enum sprWidth = 8;
 				if (ImGui.BeginTable("oamTable", 8)) {
 					foreach (idx, sprite; cast(OAMEntry[])oam) {
 						ImGui.TableNextColumn();
-						if (spriteSurfaces[idx] is null) {
-							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormat.bgr555);
+						if (sprBuffers[idx] == Array2D!BGR555.init) {
+							sprBuffers[idx] = Array2D!BGR555(8, 16);
 						}
-						auto sprBuffer = cast(ubyte[])(buffer[0 .. sprWidth * sprHeight]);
-						drawSprite(sprBuffer, sprWidth * ushort.sizeof, cast(uint)idx);
+						auto sprBuffer = sprBuffers[idx][0 .. $, 0 .. sprHeight];
+						if (spriteSurfaces[idx] is null) {
+							spriteSurfaces[idx] = video.createSurface(sprBuffer);
+						}
+						drawSprite(sprBuffer, cast(uint)idx);
 						video.setSurfacePixels(spriteSurfaces[idx], sprBuffer);
 						ImGui.Image(spriteSurfaces[idx], ImVec2(sprWidth * 4.0, sprHeight * 4.0));
 						if (ImGui.BeginItemTooltip()) {

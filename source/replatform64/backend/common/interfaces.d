@@ -25,7 +25,13 @@ interface VideoBackend {
 	WindowState getWindowState() const @safe;
 	void createTexture(uint width, uint height, PixelFormat format) @safe;
 	void* createSurface(size_t width, size_t height, size_t stride, PixelFormat format) @safe;
+	void* createSurface(T)(Array2D!T buffer) @safe {
+		return createSurface(buffer.dimensions[0], buffer.dimensions[1], T.sizeof * buffer.dimensions[0], buffer.pixelFormat);
+	}
 	void setSurfacePixels(void* surface, ubyte[] buffer) @safe;
+	void setSurfacePixels(T)(void* surface, Array2D!T buffer) @safe {
+		setSurfacePixels(surface, cast(ubyte[])buffer[]);
+	}
 	void startFrame() @safe;
 	void finishFrame() @safe;
 	void waitNextFrame() @safe;

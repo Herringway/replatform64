@@ -4,6 +4,8 @@ import std.algorithm.comparison;
 import std.bitmanip;
 import std.range;
 
+import replatform64.backend.common.interfaces;
+
 public import tilemagic.util : Array2D;
 
 /// Dumps the game state to a human-readable file
@@ -11,6 +13,13 @@ void function(string path) dumpStateToFile = (str) {};
 
 template typeMatches(T) {
 	enum typeMatches(alias t) = is(typeof(t) == T);
+}
+
+PixelFormat pixelFormat(T)(const Array2D!T) {
+	import tilemagic.colours : BGR555;
+	static if (is(T == BGR555)) {
+		return PixelFormat.bgr555;
+	}
 }
 
 private struct _NoDump {}
