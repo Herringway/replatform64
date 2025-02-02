@@ -91,7 +91,7 @@ struct PPU {
 				auto finalY = registers.ly - registers.wy;
 				const windowTilemapBase = (finalY / 8) * 32;
 				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-				const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+				const windowTilemapRowAttributes = cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth];
 				const tile = windowTilemapRow[finalX / 8];
 				const attributes = windowTilemapRowAttributes[finalX / 8];
 				if (attributes & CGBBGAttributes.xFlip) {
