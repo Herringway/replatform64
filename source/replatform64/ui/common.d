@@ -73,6 +73,12 @@ IMGUIValueChanged!V InputEditableR(ImGuiInputTextFlags flags = ImGuiInputTextFla
 				result.values[i] = value[i];
 				result.changed = true;
 			}
+		} else static if (is(T : FixedPoint2!(X, Y), size_t X, size_t Y)) { // fixed point type
+			auto tmpFloat = cast(float)value[i];
+			if (ImGui.InputFloat("##v", &tmpFloat, flags)) {
+				result.values[i] = tmpFloat;
+				result.changed = true;
+			}
 		} else { //integer type
 			int tmp = value[i];
 			if (ImGui.InputInt("##v", &tmp, flags)) {
