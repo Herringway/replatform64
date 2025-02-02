@@ -144,7 +144,7 @@ struct PPU {
 					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8];
 					if (pixel != 0) {
 						prospectivePixel = pixel;
-						prospectivePalette = 8;
+						prospectivePalette = 8 + (cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : 0);
 					}
 				}
 			}
