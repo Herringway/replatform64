@@ -63,6 +63,7 @@ struct PlatformCommon {
 	private ImGui.ImGuiContext* imguiContext;
 	private bool renderUI = true;
 	private bool debuggingEnabled;
+	bool testing;
 	private ORect[] overlays = [];
 	private CommonSettings commonSettings;
 	alias EntryPoint = void delegate();
@@ -111,28 +112,36 @@ struct PlatformCommon {
 		return result;
 	}
 	void initialize(EntryPoint dg, Backend backendType = Backend.autoSelect) {
-		detachConsoleIfUnneeded();
-		this.game = new Fiber(dg);
-		infof("Loading backend");
+		if (!testing) {
+			detachConsoleIfUnneeded();
+			this.game = new Fiber(dg);
+			infof("Loading backend");
+		}
 		backend = loadBackend(backendType, settings);
 
-		infof("Initializing UI");
-		IMGUI_CHECKVERSION();
-		imguiContext = ImGui.CreateContext();
-		ImGui.LoadIniSettingsFromMemory(settings.video.ui);
-		ImGuiIO* io = &ImGui.GetIO();
-		io.IniFilename = "";
-		ImGui.StyleColorsDark();
-		ImGui.GetStyle().ScaleAllSizes(settings.video.uiZoom);
-		io.FontGlobalScale = settings.video.uiZoom;
-		tracef("UI initialized");
+		if (!testing) {
+			infof("Initializing UI");
+			IMGUI_CHECKVERSION();
+			imguiContext = ImGui.CreateContext();
+			ImGui.LoadIniSettingsFromMemory(settings.video.ui);
+			ImGuiIO* io = &ImGui.GetIO();
+			io.IniFilename = "";
+			ImGui.StyleColorsDark();
+			ImGui.GetStyle().ScaleAllSizes(settings.video.uiZoom);
+			io.FontGlobalScale = settings.video.uiZoom;
+			tracef("UI initialized");
+		}
 
 		renderUI = false;
-		infof("Initializing watchdog");
-		startWatchDog();
+		if (!testing) {
+			infof("Initializing watchdog");
+			startWatchDog();
+		}
 	}
 	void deinitialize() {
-		ImGui.DestroyContext(imguiContext);
+		if (!testing) {
+			ImGui.DestroyContext(imguiContext);
+		}
 		backend.deinitialize();
 	}
 	void installAudioCallback(void* data, AudioCallback callback) @safe {
@@ -214,7 +223,9 @@ struct PlatformCommon {
 		}
 	}
 	void showUI() {
-		renderUI = true;
+		if (!testing) {
+			renderUI = true;
+		}
 	}
 	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
 		// pet the dog each frame so it knows we're ok
@@ -370,7 +381,9 @@ struct PlatformCommon {
 					exit(0);
 				}
 				backend.video.startFrame();
-				renderExtractionUI();
+				if (!testing) {
+					renderExtractionUI();
+				}
 				backend.video.finishFrame();
 				backend.video.waitNextFrame();
 			}
@@ -638,6 +651,10 @@ mixin template PlatformCommonForwarders() {
 		platform.debugState = gameStateMenu;
 		platform.platformDebugState = &commonDebugState;
 		crashHandler = &debugDump;
+	}
+	void initializeForTesting() {
+		platform.testing = true;
+		initialize(Backend.none);
 	}
 	auto ref gameID() {
 		return platform.gameID;
