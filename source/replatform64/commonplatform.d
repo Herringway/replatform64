@@ -238,13 +238,13 @@ struct PlatformCommon {
 				return true;
 			}
 			updateInput();
+			bool frameStep = inputState.step && !lastInput.step;
 			frameStatTracker.checkpoint(FrameStatistic.events);
 			if (inputState.exit) {
 				return true;
 			}
 
-			if (!paused || inputState.step) {
-				inputState.step = false;
+			if (!paused || frameStep) {
 				if (game.state != Fiber.State.HOLD) {
 					infof("Game exited normally");
 					return true;
