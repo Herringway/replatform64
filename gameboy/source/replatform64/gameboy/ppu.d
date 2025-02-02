@@ -95,13 +95,15 @@ struct PPU {
 				const windowTilemapRowAttributes = cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth];
 				const tile = windowTilemapRow[finalX / 8];
 				const attributes = windowTilemapRowAttributes[finalX / 8];
+				auto subX = finalX % 8;
+				auto subY = finalY % 8;
 				if (attributes & CGBBGAttributes.xFlip) {
-					finalX = 7 - finalX;
+					subX = 7 - subX;
 				}
 				if (attributes & CGBBGAttributes.yFlip) {
-					finalY = 7 - finalY;
+					subY = 7 - subY;
 				}
-				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[finalX % 8, finalY % 8];
+				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[subX, subY];
 				prospectivePalette = attributes & CGBBGAttributes.palette;
 				prospectivePriority = !!(attributes & CGBBGAttributes.priority);
 			} else {
@@ -109,13 +111,15 @@ struct PPU {
 				uint finalY = baseY;
 				const tile = tilemapRow[(finalX / 8) % 32];
 				const attributes = tilemapRowAttributes[(finalX / 8) % 32];
+				auto subX = finalX % 8;
+				auto subY = finalY % 8;
 				if (attributes & CGBBGAttributes.xFlip) {
-					finalX = 7 - (finalX % 8);
+					subX = 7 - (subX % 8);
 				}
 				if (attributes & CGBBGAttributes.yFlip) {
-					finalY = 7 - (finalY % 8);
+					subY = 7 - (subY % 8);
 				}
-				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[finalX % 8, finalY % 8];
+				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[subX % 8, subY % 8];
 				prospectivePalette = attributes & CGBBGAttributes.palette;
 				prospectivePriority = !!(attributes & CGBBGAttributes.priority);
 			}
@@ -704,6 +708,7 @@ unittest {
 	runTest("ooaintro");
 	runTest("ooaintro2");
 	runTest("ooaintro3");
+	runTest("ooaintro4");
 	runTest("cgb_bg_oam_priority");
 	runTest("cgb_oam_internal_priority");
 }
