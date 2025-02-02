@@ -69,7 +69,7 @@ struct PPU {
 						ypos = 7 - ypos;
 					}
 					// ignore transparent pixels
-					if (getTile(cast(short)(sprite.tile + ypos / 8), false, 0)[xpos, ypos % 8] == 0) {
+					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8] == 0) {
 						continue;
 					}
 					if (sprite.x - 8 < highestX) {
@@ -141,7 +141,7 @@ struct PPU {
 				];
 				const combinedPriority = ((!cgbMode || LCDCValue(registers.lcdc).bgEnabled) << 2) + (!!(sprite.flags & OAMFlags.priority) << 1) + prospectivePriority;
 				if (objPriority[combinedPriority] || (prospectivePixel == 0)) {
-					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, 0)[xpos, ypos % 8];
+					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8];
 					if (pixel != 0) {
 						prospectivePixel = pixel;
 						prospectivePalette = 8;
@@ -699,6 +699,7 @@ unittest {
 	runTest("mqueen1");
 	runTest("gator");
 	runTest("ooaintro");
+	runTest("ooaintro2");
 	runTest("cgb_bg_oam_priority");
 	runTest("cgb_oam_internal_priority");
 }

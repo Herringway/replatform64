@@ -108,6 +108,7 @@ enum LCDCFlags {
 ///
 enum OAMFlags {
 	cgbPalette = 7 << 0,
+	bank = 1 << 3,
 	dmgPalette = 1 << 4,
 	xFlip = 1 << 5,
 	yFlip = 1 << 6,
