@@ -48,6 +48,7 @@ struct PPU {
 	private Array2D!BGR555 pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
+		const sprHeight = 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites));
 		const baseX = registers.scx;
 		const baseY = registers.scy + registers.ly;
 		auto pixelRow = pixels[0 .. $, registers.ly];
@@ -66,7 +67,7 @@ struct PPU {
 						xpos = 7 - xpos;
 					}
 					if (sprite.flags & OAMFlags.yFlip) {
-						ypos = 7 - ypos;
+						ypos = sprHeight - 1 - ypos;
 					}
 					// ignore transparent pixels
 					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8] == 0) {
@@ -127,7 +128,7 @@ struct PPU {
 					xpos = 7 - xpos;
 				}
 				if (sprite.flags & OAMFlags.yFlip) {
-					ypos = 7 - ypos;
+					ypos = sprHeight - 1 - ypos;
 				}
 				static immutable bool[8] objPriority = [
 					0b000: true,
@@ -708,6 +709,7 @@ unittest {
 	runTest("gator");
 	runTest("ooaintro");
 	runTest("ooaintro2");
+	runTest("ooaintro3");
 	runTest("cgb_bg_oam_priority");
 	runTest("cgb_oam_internal_priority");
 }
