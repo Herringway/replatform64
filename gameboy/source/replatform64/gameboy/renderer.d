@@ -6,6 +6,7 @@ import std.logger;
 import std.traits;
 import std.string;
 
+import replatform64.gameboy.hardware;
 import replatform64.gameboy.ppu;
 import replatform64.util;
 
@@ -36,14 +37,14 @@ struct Renderer {
 		ppu.beginDrawing(texture);
 		foreach (i; 0 .. height) {
 			if (ppu.registers.ly == ppu.registers.lyc) {
-				ppu.registers.stat |= 0b00000100;
-				if ((ppu.registers.stat & 0b01000000) && (statInterrupt !is null)) {
+				ppu.registers.stat |= STATValues.lycEqualLY;
+				if ((ppu.registers.stat & STATValues.lycInterrupt) && (statInterrupt !is null)) {
 					statInterrupt();
 				}
 			} else {
-				ppu.registers.stat &= ~0b00000100;
+				ppu.registers.stat &= ~STATValues.lycEqualLY;
 			}
-			if ((ppu.registers.stat & 0b00100000) && (statInterrupt !is null)) {
+			if ((ppu.registers.stat & STATValues.mode2Interrupt) && (statInterrupt !is null)) {
 				statInterrupt();
 			}
 			ppu.runLine();
@@ -52,10 +53,10 @@ struct Renderer {
 				ppu.writeRegister(addr, value);
 			}
 			cachedWrites = null;
-			if ((ppu.registers.stat & 0b00001000) && (statInterrupt !is null)) {
+			if ((ppu.registers.stat & STATValues.mode0Interrupt) && (statInterrupt !is null)) {
 				statInterrupt();
 			}
-			if ((ppu.registers.ly == 144) && (ppu.registers.stat & 0b00010000) && (statInterrupt !is null)) {
+			if ((ppu.registers.ly == 144) && (ppu.registers.stat & STATValues.mode1Interrupt) && (statInterrupt !is null)) {
 				statInterrupt();
 			}
 		}
