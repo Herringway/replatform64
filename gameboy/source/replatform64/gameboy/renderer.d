@@ -17,6 +17,8 @@ struct Renderer {
 	enum height = PPU.height;
 	private VideoBackend backend;
 	void function() statInterrupt;
+	bool holdWritesUntilHBlank;
+	ubyte[ushort] cachedWrites;
 	void initialize(string title, VideoBackend newBackend) {
 		WindowSettings window;
 		window.baseWidth = width;
@@ -45,6 +47,11 @@ struct Renderer {
 				statInterrupt();
 			}
 			ppu.runLine();
+			holdWritesUntilHBlank = false;
+			foreach (addr, value; cachedWrites) {
+				ppu.writeRegister(addr, value);
+			}
+			cachedWrites = null;
 			if ((ppu.registers.stat & 0b00001000) && (statInterrupt !is null)) {
 				statInterrupt();
 			}
@@ -57,9 +64,18 @@ struct Renderer {
 		backend.waitNextFrame();
 	}
 	ubyte readRegister(ushort addr) @safe pure {
+		if (holdWritesUntilHBlank) {
+			if (auto val = addr in cachedWrites) {
+				return *val;
+			}
+		}
 		return ppu.readRegister(addr);
 	}
 	void writeRegister(ushort addr, ubyte val) @safe pure {
+		if (holdWritesUntilHBlank) {
+			cachedWrites[addr] = val;
+			return;
+		}
 		ppu.writeRegister(addr, val);
 	}
 }

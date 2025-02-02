@@ -131,7 +131,7 @@ struct GameBoySimple {
 		return renderer.ppu.windowScreen[0 .. 0x400];
 	}
 	void waitHBlank() {
-		// do nothing, we don't enforce the read/writeability of the different PPU modes
+		renderer.holdWritesUntilHBlank = true;
 	}
 	ubyte[] vram() {
 		const offset = renderer.ppu.cgbMode * renderer.ppu.registers.vbk;
