@@ -121,6 +121,7 @@ class SDL3Video : VideoBackend {
 	}
 	private SDL_PixelFormat getFormat(PixelFormat format) @safe {
 		final switch (format) {
+			case PixelFormat.bgr555: return SDL_PIXELFORMAT_XBGR1555; break;
 			case PixelFormat.rgb555: return SDL_PIXELFORMAT_XRGB1555; break;
 			case PixelFormat.argb8888: return SDL_PIXELFORMAT_ARGB8888; break;
 			case PixelFormat.bgra8888: return SDL_PIXELFORMAT_BGRA8888; break;

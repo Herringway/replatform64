@@ -482,6 +482,9 @@ struct PlatformCommon {
 		backend.video.getDrawingTexture(texture);
 		final switch (texture.format) {
 			case PixelFormat.rgb555:
+				dumpPNG(texture.asArray2D!RGB555, buildPath(dumpDir, "screen.png"));
+				break;
+			case PixelFormat.bgr555:
 				dumpPNG(texture.asArray2D!BGR555, buildPath(dumpDir, "screen.png"));
 				break;
 			case PixelFormat.abgr8888:

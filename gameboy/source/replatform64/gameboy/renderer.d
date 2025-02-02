@@ -23,7 +23,7 @@ struct Renderer {
 		window.baseHeight = height;
 		backend = newBackend;
 		backend.createWindow(title, window);
-		backend.createTexture(width, height, PixelFormat.rgb555);
+		backend.createTexture(width, height, PixelFormat.bgr555);
 	}
 	void draw() {
 		Texture texture;

@@ -123,6 +123,7 @@ class SDL2Video : VideoBackend {
 	}
 	private uint getFormat(PixelFormat format) @safe {
 		final switch (format) {
+			case PixelFormat.bgr555: return SDL_PIXELFORMAT_BGR555; break;
 			case PixelFormat.rgb555: return SDL_PIXELFORMAT_RGB555; break;
 			case PixelFormat.argb8888: return SDL_PIXELFORMAT_ARGB8888; break;
 			case PixelFormat.bgra8888: return SDL_PIXELFORMAT_BGRA8888; break;

@@ -141,6 +141,7 @@ struct Texture {
 }
 
 enum PixelFormat {
+	bgr555,
 	rgb555,
 	abgr8888,
 	argb8888,
