@@ -217,6 +217,7 @@ struct GameBoySimple {
 	mixin RegisterRedirect!("BCPD", "renderer", GameBoyRegister.BCPD);
 	mixin RegisterRedirect!("OCPS", "renderer", GameBoyRegister.OCPS);
 	mixin RegisterRedirect!("OCPD", "renderer", GameBoyRegister.OCPD);
+	mixin RegisterRedirect!("VBK", "renderer", GameBoyRegister.VBK);
 	mixin RegisterRedirect!("NR10", "apu", GameBoyRegister.NR10);
 	mixin RegisterRedirect!("NR11", "apu", GameBoyRegister.NR11);
 	mixin RegisterRedirect!("NR12", "apu", GameBoyRegister.NR12);
@@ -269,7 +270,6 @@ struct GameBoySimple {
 	ubyte TAC; /// NYI
 	ubyte DIV; /// NYI
 	ubyte RP; /// NYI
-	ubyte VBK; /// NYI
 	alias JOYP = readJoy;
 	alias JOYP = writeJoy;
 	ubyte SVBK; /// NYI
