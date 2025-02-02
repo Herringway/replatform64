@@ -19,6 +19,18 @@ enum JOYPValue : ubyte {
 	buttonSelect = 1 << 5, ///
 }
 
+///
+enum Pad : ubyte {
+	a = 1 << 0,
+	b = 1 << 1,
+	select = 1 << 2,
+	start = 1 << 3,
+	right = 1 << 4,
+	left = 1 << 5,
+	up = 1 << 6,
+	down = 1 << 7,
+}
+
 alias IEValue = InterruptFlag;
 alias IFValue = InterruptFlag;
 ///

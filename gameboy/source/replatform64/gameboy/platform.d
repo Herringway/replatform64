@@ -2,6 +2,7 @@ module replatform64.gameboy.platform;
 
 import replatform64.gameboy.apu;
 import replatform64.gameboy.common;
+import replatform64.gameboy.hardware;
 import replatform64.gameboy.ppu;
 import replatform64.gameboy.renderer;
 
@@ -320,18 +321,6 @@ struct GameBoySimple {
 	ubyte[] windowScreen() @safe pure {
 		return renderer.ppu.windowScreen;
 	}
-}
-
-
-enum Pad : ubyte {
-	a = 1 << 0,
-	b = 1 << 1,
-	select = 1 << 2,
-	start = 1 << 3,
-	right = 1 << 4,
-	left = 1 << 5,
-	up = 1 << 6,
-	down = 1 << 7,
 }
 
 //unittest {
