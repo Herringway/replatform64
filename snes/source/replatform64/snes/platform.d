@@ -251,10 +251,16 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 	void APUIO(ubyte port, ubyte val) {
-		spc700HLEWrite(port, val, platform.backend.audio);
+		if (spc700HLEWrite) {
+			spc700HLEWrite(port, val, platform.backend.audio);
+		}
 	}
 	ubyte APUIO(ubyte port) {
-		return spc700HLERead(port);
+		if (spc700HLERead) {
+			return spc700HLERead(port);
+		} else {
+			return 0;
+		}
 	}
 	void APUIO0(ubyte val) {
 		APUIO(0, val);
