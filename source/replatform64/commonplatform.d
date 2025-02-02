@@ -413,6 +413,7 @@ struct PlatformCommon {
 		foreach (asset; archive.entries) {
 			bool matched;
 			static foreach (Symbol; SymbolData!Modules) {
+				() {
 				if (asset.name.matches(Symbol.metadata)) {
 					matched = true;
 					auto data = loadROMAsset(asset.data, Symbol.metadata);
@@ -423,7 +424,7 @@ struct PlatformCommon {
 						nonArrayAlreadyLoaded[asset.name] = true;
 						loadAsset!Symbol(data, asset.name, "planet");
 					}
-				}
+				}}();
 			}
 			if (!matched) {
 				func(asset.name, asset.data, backend);
@@ -432,23 +433,25 @@ struct PlatformCommon {
 		foreach (file; arrayAssets.keys.sort) {
 			static foreach (Symbol; SymbolData!Modules) {
 				static if (Symbol.metadata.array) {
+					() {
 					if (file.matches(Symbol.metadata)) {
 						foreach (arrayAsset; arrayAssets[file]) {
 							loadAsset!Symbol(arrayAsset, file, "planet");
 						}
-					}
+					}}();
 				}
 			}
 		}
 		// fallback to filesystem
 		static foreach (Symbol; SymbolData!Modules) {
+			() {
 			if ((assetPath(Symbol.metadata, 0) !in arrayAssets) && (assetPath(Symbol.metadata, 0) !in nonArrayAlreadyLoaded)) {
 				const path = buildPath("data", assetPath(Symbol.metadata, 0));
 				if (path.exists) {
 					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
 					loadAsset!Symbol(fileData, assetPath(Symbol.metadata, 0), "filesystem");
 				}
-			}
+			}}();
 		}
 	}
 	void runHook(string id) {
