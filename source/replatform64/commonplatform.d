@@ -64,6 +64,7 @@ struct PlatformCommon {
 	private bool renderUI = true;
 	private bool debuggingEnabled;
 	private ORect[] overlays = [];
+	private CommonSettings commonSettings;
 	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
 		string name;
@@ -83,6 +84,8 @@ struct PlatformCommon {
 		}
 		auto result = fromFile!(Settings, YAML, DeSiryulize.optionalByDefault)(settingsFile);
 		settings = result.backend;
+		commonSettings = result.common;
+		paused = commonSettings.startPaused;
 		return result;
 	}
 
@@ -90,7 +93,7 @@ struct PlatformCommon {
 		alias Settings = FullSettings!(SystemSettings, GameSettings);
 		settings.video.ui = strip(ImGui.SaveIniSettingsToMemory());
 		settings.video.window = backend.video.getWindowState();
-		Settings(systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
+		Settings(commonSettings, systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
 	auto parseArgs(string[] args) {
 		bool verbose;
@@ -727,8 +730,11 @@ struct HookState {
 struct HookSettings {
 	HookType type;
 }
-
+private struct CommonSettings {
+	bool startPaused;
+}
 private struct FullSettings(SystemSettings, GameSettings) {
+	CommonSettings common;
 	SystemSettings system;
 	GameSettings game;
 	BackendSettings backend;
