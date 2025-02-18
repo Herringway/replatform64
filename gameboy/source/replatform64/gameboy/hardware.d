@@ -125,6 +125,20 @@ enum CGBBGAttributes {
 }
 
 ///
+union CGBBGAttributeValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			ubyte, "palette", 3,
+			bool, "bank", 1,
+			bool, "", 1,
+			bool, "xFlip", 1,
+			bool, "yFlip", 1,
+			bool, "priority", 1,
+		));
+	}
+}
+///
 union LCDCValue {
 	ubyte raw;
 	struct {
