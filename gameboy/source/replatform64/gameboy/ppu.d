@@ -42,8 +42,8 @@ struct PPU {
 	Registers registers;
 	ubyte[] vram;
 	OAMEntry[40] _oam;
-	BGR555[64] paletteRAM;
-	immutable(BGR555)[] gbPalette = pocketPalette;
+	BGR555[64] paletteRAM = pocketPaletteCGB;
+	const(BGR555)[] gbPalette = pocketPaletteCGB;
 
 	private Array2D!BGR555 pixels;
 	private OAMEntry[] oamSorted;
@@ -221,12 +221,7 @@ struct PPU {
 		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]));
 	}
 	BGR555 getColour(int b, int palette) const @safe pure {
-		if (cgbMode) {
-			return paletteRAM[palette * 4 + b];
-		} else {
-			const paletteMap = (registers.bgp >> (b * 2)) & 0x3;
-			return gbPalette[paletteMap];
-		}
+		return paletteRAM[palette * 4 + b];
 	}
 	Intertwined2BPP getTile(short id, bool useLCDC, ubyte bank) const @safe pure {
 		auto blockA = (cgbMode && bank) ? tileBlockACGB : tileBlockA;
@@ -325,6 +320,15 @@ struct PPU {
 				value &= 0b10111111;
 			}
 		}
+		void writePaletteDMG(ubyte value, size_t paletteIndex) {
+			if (!cgbMode) {
+				BGR555[] palette = paletteRAM[paletteIndex * 4 .. (paletteIndex + 1) * 4];
+				palette[0] = gbPalette[paletteIndex * 4 + (value & 3)];
+				palette[1] = gbPalette[paletteIndex * 4 + ((value >> 2) & 3)];
+				palette[2] = gbPalette[paletteIndex * 4 + ((value >> 4) & 3)];
+				palette[3] = gbPalette[paletteIndex * 4 + ((value >> 6) & 3)];
+			}
+		}
 		switch (addr) {
 			case GameBoyRegister.SCX:
 				registers.scx = val;
@@ -352,12 +356,15 @@ struct PPU {
 				break;
 			case GameBoyRegister.BGP:
 				registers.bgp = val;
+				writePaletteDMG(val, 0);
 				break;
 			case GameBoyRegister.OBP0:
 				registers.obp0 = val;
+				writePaletteDMG(val, 8);
 				break;
 			case GameBoyRegister.OBP1:
 				registers.obp1 = val;
+				writePaletteDMG(val, 9);
 				break;
 			case GameBoyRegister.BCPS:
 				registers.bcps = val & 0b10111111;
@@ -634,13 +641,13 @@ unittest {
 					ppu.registers.wx = byteData;
 					break;
 				case "ppu.objPalette0":
-					ppu.registers.obp0 = byteData;
+					ppu.writeRegister(GameBoyRegister.OBP0, byteData);
 					break;
 				case "ppu.objPalette1":
-					ppu.registers.obp1 = byteData;
+					ppu.writeRegister(GameBoyRegister.OBP1, byteData);
 					break;
 				case "ppu.bgPalette":
-					ppu.registers.bgp = byteData;
+					ppu.writeRegister(GameBoyRegister.BGP, byteData);
 					break;
 				case "ppu.ly":
 					ppu.registers.ly = byteData;
@@ -749,9 +756,11 @@ immutable BGR555[] pocketPalette = [
 	BGR555(13, 13, 13),
 	BGR555(0, 0, 0)
 ];
+enum pocketPaletteCGB = pocketPalette.repeat(16).joiner.array;
 immutable BGR555[] dmgPalette = [
-	BGR555(blue: 19, green: 23, red: 1),
-	BGR555(blue: 17, green: 21, red: 1),
-	BGR555(blue: 6, green: 12, red: 6),
-	BGR555(blue: 1, green: 7, red: 1)
+	BGR555(red: 19, green: 23, blue: 1),
+	BGR555(red: 17, green: 21, blue: 1),
+	BGR555(red: 6, green: 12, blue: 6),
+	BGR555(red: 1, green: 7, blue: 1)
 ];
+enum dmgPaletteCGB = dmgPalette.repeat(16).joiner.array;

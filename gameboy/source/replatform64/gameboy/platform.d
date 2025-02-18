@@ -82,9 +82,10 @@ struct GameBoySimple {
 			renderer.ppu.cgbMode = true;
 		}
 		final switch (settings.gbPalette) {
-			case GBPalette.dmg: renderer.ppu.gbPalette = dmgPalette; break;
-			case GBPalette.pocket: renderer.ppu.gbPalette = pocketPalette; break;
+			case GBPalette.dmg: renderer.ppu.gbPalette = dmgPaletteCGB; break;
+			case GBPalette.pocket: renderer.ppu.gbPalette = pocketPaletteCGB; break;
 		}
+		renderer.ppu.paletteRAM[] = renderer.ppu.gbPalette[0 .. 64];
 		renderer.ppu.vram = new ubyte[](renderer.ppu.cgbMode ? 0x4000 : 0x2000);
 
 		apu.initialize(platform.settings.audio.sampleRate);
