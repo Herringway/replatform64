@@ -172,8 +172,8 @@ struct PPU {
 	Array2D!(const ubyte) bgScreen2D() const @safe pure {
 		return Array2D!(const ubyte)(32, 32, 32, bgScreen);
 	}
-	Array2D!(const ubyte) bgScreenCGB2D() const @safe pure {
-		return Array2D!(const ubyte)(32, 32, 32, cgbMode ? bgScreenCGB : dmgExt[0 .. 0x400]);
+	Array2D!(const CGBBGAttributeValue) bgScreenCGB2D() const @safe pure {
+		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? bgScreenCGB : dmgExt[0 .. 0x400]));
 	}
 	inout(ubyte)[] tileBlockA() inout @safe pure {
 		return vram[0x0000 .. 0x0800];
@@ -217,8 +217,8 @@ struct PPU {
 	Array2D!(const ubyte) windowScreen2D() const @safe pure {
 		return Array2D!(const ubyte)(32, 32, 32, windowScreen);
 	}
-	Array2D!(const ubyte) windowScreenCGB2D() const @safe pure {
-		return Array2D!(const ubyte)(32, 32, 32, cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]);
+	Array2D!(const CGBBGAttributeValue) windowScreenCGB2D() const @safe pure {
+		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]));
 	}
 	BGR555 getColour(int b, int palette) const @safe pure {
 		if (cgbMode) {
@@ -266,20 +266,20 @@ struct PPU {
 	void drawFullWindow(Array2D!BGR555 buffer) const @safe pure {
 		drawDebugCommon(buffer, windowScreen2D, windowScreenCGB2D);
 	}
-	void drawDebugCommon(Array2D!BGR555 buffer, const Array2D!(const ubyte) tiles, const Array2D!(const ubyte) attributes) const @safe pure {
+	void drawDebugCommon(Array2D!BGR555 buffer, const Array2D!(const ubyte) tiles, const Array2D!(const CGBBGAttributeValue) attributes) const @safe pure {
 		foreach (size_t tileX, size_t tileY, const ubyte tileID; tiles) {
-			const tile = getTile(tileID, true, !!(attributes[tileX, tileY] & CGBBGAttributes.bank));
+			const tile = getTile(tileID, true, attributes[tileX, tileY].bank);
 			foreach (subPixelX; 0 .. 8) {
 				auto x = subPixelX;
-				if (attributes[tileX, tileY] & CGBBGAttributes.xFlip) {
+				if (attributes[tileX, tileY].xFlip) {
 					x = 7 - x;
 				}
 				foreach (subPixelY; 0 .. 8) {
 					auto y = subPixelY;
-					if (attributes[tileX, tileY] & CGBBGAttributes.yFlip) {
+					if (attributes[tileX, tileY].yFlip) {
 						y = 7 - y;
 					}
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[x, y], attributes[tileX, tileY] & CGBBGAttributes.palette);
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[x, y], attributes[tileX, tileY].palette);
 				}
 			}
 		}
@@ -287,12 +287,12 @@ struct PPU {
 	void drawFullTileData(Array2D!BGR555 buffer) @safe pure
 		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
 		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
-		in (buffer.dimensions[0] * buffer.dimensions[1] <= 384 * 8 * 8, "Buffer too small")
+		in (buffer.dimensions[0] * buffer.dimensions[1] <= 768 * 8 * 8, "Buffer too small")
 	{
-		foreach (tileID; 0 .. 384) {
+		foreach (tileID; 0 .. cgbMode ? 768 : 384) {
 			const tileX = (tileID % (buffer.dimensions[0] / 8));
 			const tileY = (tileID / (buffer.dimensions[0] / 8));
-			const tile = getTileUnmapped(cast(short)tileID, 0);
+			const tile = getTileUnmapped(cast(short)tileID % 384, cast(ubyte)(tileID / 384));
 			foreach (subPixelX; 0 .. 8) {
 				foreach (subPixelY; 0 .. 8) {
 					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
@@ -311,7 +311,7 @@ struct PPU {
 			foreach (x; 0 .. 8) {
 				foreach (y; 0 .. 8) {
 					const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
-					const tileY = oamEntry.flags & OAMFlags.yFlip ? height - 1 - y : y;
+					const tileY = oamEntry.flags & OAMFlags.yFlip ? 7 - y : y;
 					const palette = 8 + (cgbMode ? (oamEntry.flags & OAMFlags.cgbPalette) : !!(oamEntry.flags & OAMFlags.dmgPalette));
 					buffer[x, y + 8 * tileID] = getColour(tile[tileX, tileY], palette);
 				}
@@ -479,24 +479,39 @@ struct PPU {
 				showPalette(paletteRAM[], 4);
 				ImGui.EndTabItem();
 			}
-			void showTileInfo(int x, int y) {
-				ImGui.SetItemTooltip(format!"");
+			void showTileInfo(int x, int y, Array2D!(const ubyte) tileID, Array2D!(const CGBBGAttributeValue) tileAttributes) {
+				const tileX = x / 8;
+				const tileY = y / 8;
+				ImGui.SeparatorText(format!"Tile at %d, %d"(tileX, tileY));
+				ImGui.Text("Tile %d (%X)", tileID[tileX, tileY], tileID[tileX, tileY]);
+				ImGui.Text("Palette %d", tileAttributes[tileX, tileY].palette);
+				ImGui.Text("Bank %d", tileAttributes[tileX, tileY].bank);
+				bool xFlip = tileAttributes[tileX, tileY].xFlip;
+				ImGui.Checkbox("Flip (horizontal)", &xFlip);
+				bool yFlip = tileAttributes[tileX, tileY].yFlip;
+				ImGui.Checkbox("Flip (vertical)", &yFlip);
+				bool priority = tileAttributes[tileX, tileY].priority;
+				ImGui.Checkbox("Priority", &priority);
 			}
 			if (ImGui.BeginTabItem("Background")) {
 				static void* surface;
 				drawFullBackground(buffer);
-				drawZoomableImage(buffer, video, surface, &showTileInfo);
+				auto tiles = bgScreen2D();
+				auto attributes = bgScreenCGB2D();
+				drawZoomableImage(buffer, video, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Window")) {
 				static void* surface;
 				drawFullWindow(buffer);
-				drawZoomableImage(buffer, video, surface, &showTileInfo);
+				auto tiles = windowScreen2D();
+				auto attributes = windowScreenCGB2D();
+				drawZoomableImage(buffer, video, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Tiles")) {
 				static void* surface;
-				static allTilesBuffer = Array2D!BGR555(16 * 8, 24 * 8);
+				static allTilesBuffer = Array2D!BGR555(16 * 8, 48 * 8);
 				drawFullTileData(allTilesBuffer);
 				drawZoomableImage(allTilesBuffer, video, surface);
 				ImGui.EndTabItem();
