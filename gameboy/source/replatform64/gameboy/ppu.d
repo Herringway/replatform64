@@ -76,6 +76,9 @@ struct PPU {
 					if (sprite.x - 8 < highestX) {
 						highestX = sprite.x - 8;
 						highestMatchingSprite = idx;
+						if (cgbMode) {
+							break;
+						}
 						version(assumeOAMImmutableDiscarded) {
 							// it's sorted according to priority already, so we can stop at the first sprite
 							break;
@@ -240,11 +243,13 @@ struct PPU {
 	}
 	void beginDrawing(Array2D!BGR555 pixels) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
-		// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
-		// allows priority to be determined just by picking the first matching entry instead of iterating the entire array
-		version(assumeOAMImmutableDiscarded) {
-			import std.algorithm.sorting : sort;
-			sort!((a, b) => a.x < b.x)(oamSorted);
+		if (!cgbMode) {
+			// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
+			// allows priority to be determined just by picking the first matching entry instead of iterating the entire array
+			version(assumeOAMImmutableDiscarded) {
+				import std.algorithm.sorting : sort;
+				sort!((a, b) => a.x < b.x)(oamSorted);
+			}
 		}
 		registers.ly = 0;
 		this.pixels = pixels;
