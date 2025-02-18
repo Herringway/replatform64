@@ -763,6 +763,11 @@ private struct FullSettings(SystemSettings, GameSettings) {
 	BackendSettings backend;
 }
 
+version(Windows) {
+	import core.sys.windows.windows : DWORD, HANDLE, LPSTR;
+	extern(Windows) static DWORD GetFinalPathNameByHandleA(HANDLE, LPSTR, DWORD, DWORD);
+}
+
 /// Make sure we only have a console window when needed.
 void detachConsoleIfUnneeded() {
 	// windows handles consoles awkwardly. with the WINDOWS subsystem, manual detection is necessary to get a console with STDOUT, and even then it doesn't seem to work seamlessly.
@@ -773,6 +778,11 @@ void detachConsoleIfUnneeded() {
 		import core.sys.windows.winbase : GetStdHandle, STD_OUTPUT_HANDLE;
 		import std.windows.syserror : wenforce;
 		CONSOLE_SCREEN_BUFFER_INFO info;
+		char[10] _;
+		if (GetFinalPathNameByHandleA(GetStdHandle(STD_OUTPUT_HANDLE), &_[0], 10, 0) == 0) {
+			// redirected output, abort
+			return;
+		}
 		wenforce(GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info), "Buffer info retrieval failed");
 		// (0, 0) cursor coords means we probably don't have an existing console, detach
 		// might still happen if console was cleared immediately before running, but that's an unlikely case
