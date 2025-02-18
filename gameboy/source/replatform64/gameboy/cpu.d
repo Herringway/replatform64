@@ -92,3 +92,14 @@ version(unittest) {
 		}
 	}
 }
+
+///
+ubyte swap(ubyte value) @safe pure {
+	return cast(ubyte)((value >> 4) | (value << 4));
+}
+///
+@safe pure unittest {
+	assert(swap(0x00) == 0x00);
+	assert(swap(0x24) == 0x42);
+	assert(swap(0x80) == 0x08);
+}
