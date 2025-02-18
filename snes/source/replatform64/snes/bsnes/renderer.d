@@ -220,95 +220,103 @@ align:
 		return 0;
 	}
 	void debugUI(const UIState state, VideoBackend video) {
-		if (ImGui.TreeNode("Global state")) {
-			ImGui.Text("BG mode: %d", BGMODE & 7);
-			ImGui.Text("Brightness: %d", INIDISP & 15);
-			ImGui.TreePop();
-		}
-		if (ImGui.TreeNode("Sprites")) {
-			foreach (id, entry; oam1) {
-				const uint upperX = !!(oam2[id/4] & (1 << ((id % 4) * 2)));
-				const size = !!(oam2[id/4] & (1 << ((id % 4) * 2 + 1)));
-				if (entry.yCoord < 0xE0) {
-					if (ImGui.TreeNode(format!"Sprite %s"(id))) {
-						ImGui.BeginDisabled();
-						ImGui.Text(format!"Tile Offset: %s"(entry.startingTile));
-						ImGui.Text(format!"Coords: (%s, %s)"(entry.xCoord + (upperX << 8), entry.yCoord));
-						ImGui.Text(format!"Palette: %s"(entry.palette));
-						bool boolean = entry.flipVertical;
-						ImGui.Checkbox("Vertical flip", &boolean);
-						boolean = entry.flipHorizontal;
-						ImGui.Checkbox("Horizontal flip", &boolean);
-						ImGui.Text(format!"Priority: %s"(entry.priority));
-						boolean = size;
-						ImGui.Checkbox("Use alt size", &boolean);
-						ImGui.EndDisabled();
+		if (ImGui.BeginTabBar("rendererpreview")) {
+			if (ImGui.BeginTabItem("Global state")) {
+				ImGui.Text("BG mode: %d", BGMODE & 7);
+				ImGui.Text("Brightness: %d", INIDISP & 15);
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Sprites")) {
+				foreach (id, entry; oam1) {
+					const uint upperX = !!(oam2[id/4] & (1 << ((id % 4) * 2)));
+					const size = !!(oam2[id/4] & (1 << ((id % 4) * 2 + 1)));
+					if (entry.yCoord < 0xE0) {
+						if (ImGui.TreeNode(format!"Sprite %s"(id))) {
+							ImGui.BeginDisabled();
+							ImGui.Text(format!"Tile Offset: %s"(entry.startingTile));
+							ImGui.Text(format!"Coords: (%s, %s)"(entry.xCoord + (upperX << 8), entry.yCoord));
+							ImGui.Text(format!"Palette: %s"(entry.palette));
+							bool boolean = entry.flipVertical;
+							ImGui.Checkbox("Vertical flip", &boolean);
+							boolean = entry.flipHorizontal;
+							ImGui.Checkbox("Horizontal flip", &boolean);
+							ImGui.Text(format!"Priority: %s"(entry.priority));
+							boolean = size;
+							ImGui.Checkbox("Use alt size", &boolean);
+							ImGui.EndDisabled();
+							ImGui.TreePop();
+						}
+					}
+				}
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Palettes")) {
+				foreach (idx, ref palette; cgram[].chunks(16).enumerate) {
+					if (ImGui.TreeNode(format!"Palette %s"(idx))) {
+						foreach (i, ref colour; palette) {
+							float[3] c = [((colour >> 0) & 31) / 31.0, ((colour >> 5) & 31) / 31.0, ((colour >> 10) & 31) / 31.0];
+							if (ImGui.ColorEdit3(format!"%s"(i), c)) {
+								colour = cast(ushort)((cast(ushort)(c[2] * 31) << 10) | (cast(ushort)(c[1] * 31) << 5) | cast(ushort)(c[0] * 31));
+							}
+						}
 						ImGui.TreePop();
 					}
 				}
+				ImGui.EndTabItem();
 			}
-			ImGui.TreePop();
-		}
-		if (ImGui.TreeNode("Palettes")) {
-			foreach (idx, ref palette; cgram[].chunks(16).enumerate) {
-				if (ImGui.TreeNode(format!"Palette %s"(idx))) {
-					foreach (i, ref colour; palette) {
-						float[3] c = [((colour >> 0) & 31) / 31.0, ((colour >> 5) & 31) / 31.0, ((colour >> 10) & 31) / 31.0];
-						if (ImGui.ColorEdit3(format!"%s"(i), c)) {
-							colour = cast(ushort)((cast(ushort)(c[2] * 31) << 10) | (cast(ushort)(c[1] * 31) << 5) | cast(ushort)(c[0] * 31));
+			if (ImGui.BeginTabItem("Layers")) {
+				const screenRegisters = [BG1SC, BG2SC, BG3SC, BG4SC];
+				const screenRegisters2 = [BG12NBA & 0xF, BG12NBA >> 4, BG34NBA & 0xF, BG34NBA >> 4];
+				static foreach (layer, label; ["BG1", "BG2", "BG3", "BG4"]) {{
+					if (ImGui.TreeNode(label)) {
+						ImGui.Text(format!"Tilemap address: $%04X"((screenRegisters[layer] & 0xFC) << 8));
+						ImGui.Text(format!"Tile base address: $%04X"(screenRegisters2[layer] << 12));
+						ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][screenRegisters[layer] & 3]));
+						ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(BGMODE >> (4 + layer))]));
+						if (layer == 2) {
+							ImGui.BeginDisabled();
+							bool boolean = !!((BGMODE >> 3) & 1);
+							ImGui.Checkbox("Priority", &boolean);
+							ImGui.EndDisabled();
 						}
+						//disabledCheckbox("Mosaic Enabled", !!((MOSAIC >> layer) & 1));
+						ImGui.TreePop();
 					}
-					ImGui.TreePop();
-				}
+				}}
+				ImGui.EndTabItem();
 			}
-			ImGui.TreePop();
-		}
-		if (ImGui.TreeNode("Layers")) {
-			const screenRegisters = [BG1SC, BG2SC, BG3SC, BG4SC];
-			const screenRegisters2 = [BG12NBA & 0xF, BG12NBA >> 4, BG34NBA & 0xF, BG34NBA >> 4];
-			static foreach (layer, label; ["BG1", "BG2", "BG3", "BG4"]) {{
-				if (ImGui.TreeNode(label)) {
-					ImGui.Text(format!"Tilemap address: $%04X"((screenRegisters[layer] & 0xFC) << 8));
-					ImGui.Text(format!"Tile base address: $%04X"(screenRegisters2[layer] << 12));
-					ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][screenRegisters[layer] & 3]));
-					ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(BGMODE >> (4 + layer))]));
-					if (layer == 2) {
-						ImGui.BeginDisabled();
-						bool boolean = !!((BGMODE >> 3) & 1);
-						ImGui.Checkbox("Priority", &boolean);
-						ImGui.EndDisabled();
+			if (ImGui.BeginTabItem("VRAM")) {
+				static int paletteID = 0;
+				if (ImGui.InputInt("Palette", &paletteID)) {
+					paletteID = clamp(paletteID, 0, 16);
+				}
+				const texWidth = 16 * 8;
+				const texHeight = 0x8000 / 16 / 16 * 8;
+				static ubyte[2 * texWidth * texHeight] data;
+				auto pixels = cast(ushort[])(data[]);
+				ushort[16] palette = cgram[paletteID * 16 .. (paletteID + 1) * 16];
+				palette[] &= 0x7FFF;
+				foreach (idx, tile; (cast(ushort[])vram).chunks(16).enumerate) {
+					const base = (idx % 16) * 8 + (idx / 16) * texWidth * 8;
+					foreach (p; 0 .. 8 * 8) {
+						const px = p % 8;
+						const py = p / 8;
+						const plane01 = tile[py] & pixelPlaneMasks[px];
+						const plane23 = tile[py + 8] & pixelPlaneMasks[px];
+						const s = 7 - px;
+						const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
+						pixels[base + px + py * texWidth] = palette[pixel];
 					}
-					//disabledCheckbox("Mosaic Enabled", !!((MOSAIC >> layer) & 1));
-					ImGui.TreePop();
 				}
-			}}
-			ImGui.TreePop();
-		}
-		if (ImGui.TreeNode("VRAM")) {
-			static int paletteID = 0;
-			if (ImGui.InputInt("Palette", &paletteID)) {
-				paletteID = clamp(paletteID, 0, 16);
-			}
-			const texWidth = 16 * 8;
-			const texHeight = 0x8000 / 16 / 16 * 8;
-			static ubyte[2 * texWidth * texHeight] data;
-			auto pixels = cast(ushort[])(data[]);
-			ushort[16] palette = cgram[paletteID * 16 .. (paletteID + 1) * 16];
-			palette[] &= 0x7FFF;
-			foreach (idx, tile; (cast(ushort[])vram).chunks(16).enumerate) {
-				const base = (idx % 16) * 8 + (idx / 16) * texWidth * 8;
-				foreach (p; 0 .. 8 * 8) {
-					const px = p % 8;
-					const py = p / 8;
-					const plane01 = tile[py] & pixelPlaneMasks[px];
-					const plane23 = tile[py + 8] & pixelPlaneMasks[px];
-					const s = 7 - px;
-					const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
-					pixels[base + px + py * texWidth] = palette[pixel];
+				static void* windowSurface;
+				if (windowSurface is null) {
+					windowSurface = video.createSurface(texWidth, texHeight, ushort.sizeof * texWidth, PixelFormat.rgb555);
 				}
+				video.setSurfacePixels(windowSurface, data);
+				ImGui.Image(windowSurface, ImVec2(texWidth * 3, texHeight * 3));
+				ImGui.EndTabItem();
 			}
-			//ImGui.Image(createTexture(data[], texWidth, texHeight, ushort.sizeof * texWidth, nativeFormat), ImVec2(texWidth * 3, texHeight * 3));
-			ImGui.TreePop();
+			ImGui.EndTabBar();
 		}
 	}
 	public void drawFrame(Array2D!BGR555 texture) const {
