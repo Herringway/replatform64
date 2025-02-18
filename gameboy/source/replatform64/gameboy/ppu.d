@@ -152,7 +152,7 @@ struct PPU {
 					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8];
 					if (pixel != 0) {
 						prospectivePixel = pixel;
-						prospectivePalette = 8 + (cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : 0);
+						prospectivePalette = 8 + (cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : !!(sprite.flags & OAMFlags.dmgPalette));
 					}
 				}
 			}
@@ -732,6 +732,7 @@ unittest {
 	runTest("w2");
 	runTest("mqueen1");
 	runTest("gator");
+	runTest("ffa-obp1");
 	runTest("ooaintro");
 	runTest("ooaintro2");
 	runTest("ooaintro3");
