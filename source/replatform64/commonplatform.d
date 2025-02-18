@@ -728,6 +728,9 @@ mixin template PlatformCommonForwarders() {
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
 		platform.playbackDemo(demo);
 	}
+	void registerMemoryRange(string name, ubyte[] range) @safe pure {
+		platform.registerMemoryRange(name, range);
+	}
 	void debugDump(string dumpDir) {
 		platform.dumpScreen(dumpDir);
 		static if (__traits(hasMember, this, "dumpExtraDebugData")) {
