@@ -26,6 +26,7 @@ alias LoadFunction = void function(const scope char[], const scope ubyte[], scop
 enum DataType {
 	raw,
 	structured,
+	bpp1,
 	bpp2Intertwined,
 	bpp2Linear,
 	bpp4Intertwined,
@@ -67,6 +68,7 @@ string defaultExtension(DataType type) {
 	final switch(type) {
 		case DataType.raw: return "bin";
 		case DataType.structured: return "yaml";
+		case DataType.bpp1: return "png";
 		case DataType.bpp2Linear: return "png";
 		case DataType.bpp2Intertwined: return "png";
 		case DataType.bpp4Intertwined: return "png";
@@ -374,6 +376,8 @@ const(ubyte)[] loadROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
 		case DataType.raw:
 		case DataType.structured: // array of characters, array of bytes. same thing
 			return data;
+		case DataType.bpp1:
+			return readTilesFromImage!Simple1BPP(data);
 		case DataType.bpp2Linear:
 			return readTilesFromImage!Linear2BPP(data);
 		case DataType.bpp2Intertwined:
@@ -388,6 +392,8 @@ const(ubyte)[] saveROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
 			return data;
 		case DataType.bpp2Linear:
 			return saveTilesToImage(cast(const(Linear2BPP)[])data);
+		case DataType.bpp1:
+			return saveTilesToImage(cast(const(Simple1BPP)[])data);
 		case DataType.bpp2Intertwined:
 			return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
 		case DataType.bpp4Intertwined:
