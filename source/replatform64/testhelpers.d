@@ -23,10 +23,9 @@ auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath) {
 	}
 	auto reference = readPng(buildPath(baseDir, comparePath));
 	foreach (x, y, pixel; frame) {
-		const tmp = reference[x, y].components;
-		const refPixel = ABGR8888(red: tmp[0], green: tmp[1], blue: tmp[2], alpha: tmp[3]);
+		const refPixel = reference[x, y];
 		if (!pixel.isSimilar(refPixel)) {
-			return Result(x, y, refPixel, pixel.convert!ABGR8888);
+			return Result(x, y, refPixel.convert!ABGR8888, pixel.convert!ABGR8888);
 		}
 	}
 	return Result();

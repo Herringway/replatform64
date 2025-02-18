@@ -70,6 +70,5 @@ Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
 }
 
 static void dumpPNG(T)(const Array2D!T frame, string file) {
-	const output = convert!RGBA8888(frame);
-	writePng(file, cast(const(ubyte)[])output[], cast(int)output.dimensions[0], cast(int)output.dimensions[1], PngType.truecolor_with_alpha);
+	writePng(file, convert!RGBA8888(frame), PngType.truecolor_with_alpha);
 }
