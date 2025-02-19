@@ -1,7 +1,6 @@
 module replatform64.gameboy.ppu;
 
 import replatform64.backend.common.interfaces;
-import replatform64.gameboy.common;
 import replatform64.gameboy.hardware;
 
 import replatform64.testhelpers;
@@ -56,7 +55,7 @@ struct PPU {
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
 		const tilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
-		lineLoop: foreach (x; 0 .. width) {
+		foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
 			// first, find a sprite at these coords with a non-transparent pixel
