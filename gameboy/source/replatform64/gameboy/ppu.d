@@ -55,7 +55,7 @@ struct PPU {
 		auto pixelRow = pixels[0 .. $, registers.ly];
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
-		const tilemapRowAttributes = cgbMode ? bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth];
+		const tilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
 		lineLoop: foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
@@ -87,46 +87,26 @@ struct PPU {
 					}
 				}
 			}
-			ushort prospectivePixel;
-			ubyte prospectivePalette;
-			bool prospectivePriority;
 			// grab pixel from background or window
-			if (registers.lcdc.windowDisplay && (x >= registers.wx - 7) && (registers.ly >= registers.wy)) {
-				auto finalX = x - (registers.wx - 7);
-				auto finalY = registers.ly - registers.wy;
-				const windowTilemapBase = (finalY / 8) * 32;
-				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-				const windowTilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
-				const tile = windowTilemapRow[finalX / 8];
-				const attributes = windowTilemapRowAttributes[finalX / 8];
-				auto subX = finalX % 8;
-				auto subY = finalY % 8;
-				if (attributes.xFlip) {
-					subX = 7 - subX;
-				}
-				if (attributes.yFlip) {
-					subY = 7 - subY;
-				}
-				prospectivePixel = getTile(tile, true, attributes.bank)[subX, subY];
-				prospectivePalette = attributes.palette;
-				prospectivePriority = attributes.priority;
-			} else {
-				uint finalX = baseX + x;
-				uint finalY = baseY;
-				const tile = tilemapRow[(finalX / 8) % 32];
-				const attributes = cast(CGBBGAttributeValue)tilemapRowAttributes[(finalX / 8) % 32];
-				auto subX = finalX % 8;
-				auto subY = finalY % 8;
-				if (attributes.xFlip) {
-					subX = 7 - (subX % 8);
-				}
-				if (attributes.yFlip) {
-					subY = 7 - (subY % 8);
-				}
-				prospectivePixel = getTile(tile, true, attributes.bank)[subX % 8, subY % 8];
-				prospectivePalette = attributes.palette;
-				prospectivePriority = attributes.priority;
+			const bool useWindow = registers.lcdc.windowDisplay && (x >= registers.wx - 7) && (registers.ly >= registers.wy);
+			const finalX = useWindow ? (x - (registers.wx - 7)) : (baseX + x);
+			const finalY = useWindow ? (registers.ly - registers.wy) : baseY;
+			const windowTilemapBase = (finalY / 8) * 32;
+			const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+			const windowTilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
+			const attributes = (useWindow ? windowTilemapRowAttributes : tilemapRowAttributes)[(finalX / 8) % 32];
+			const tile = (useWindow ? windowTilemapRow : tilemapRow)[(finalX / 8) % 32];
+			ubyte subX = cast(ubyte)(finalX % 8);
+			ubyte subY = cast(ubyte)(finalY % 8);
+			if (attributes.xFlip) {
+				subX = cast(ubyte)(7 - subX);
 			}
+			if (attributes.yFlip) {
+				subY = cast(ubyte)(7 - subY);
+			}
+			auto prospectivePixel = getTile(tile, true, attributes.bank)[subX, subY];
+			auto prospectivePalette = attributes.palette;
+			auto prospectivePriority = attributes.priority;
 			// decide between sprite pixel and background pixel using priority settings
 			if (highestMatchingSprite != size_t.max) {
 				const sprite = oamSorted[highestMatchingSprite];
