@@ -90,9 +90,11 @@ struct PPU {
 					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8] == 0) {
 						continue;
 					}
+					// in non-CGB mode, the sprite with the lowest X coordinate takes priority
 					if (sprite.x - 8 < highestX) {
 						highestX = sprite.x - 8;
 						highestMatchingSprite = idx;
+						// in CGB mode, the first matching sprite has priority instead, so we can just stop searching
 						if (cgbMode) {
 							break;
 						}
