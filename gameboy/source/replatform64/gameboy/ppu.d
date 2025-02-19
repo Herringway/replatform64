@@ -64,14 +64,14 @@ struct PPU {
 				if (registers.ly.inRange(sprite.y - 16, sprite.y - ((registers.lcdc & LCDCFlags.tallSprites) ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
 					auto xpos = x - (sprite.x - 8);
 					auto ypos = (registers.ly - (sprite.y - 16));
-					if (sprite.flags & OAMFlags.xFlip) {
+					if (sprite.flags.xFlip) {
 						xpos = 7 - xpos;
 					}
-					if (sprite.flags & OAMFlags.yFlip) {
+					if (sprite.flags.yFlip) {
 						ypos = sprHeight - 1 - ypos;
 					}
 					// ignore transparent pixels
-					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8] == 0) {
+					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8] == 0) {
 						continue;
 					}
 					if (sprite.x - 8 < highestX) {
@@ -132,10 +132,10 @@ struct PPU {
 				const sprite = oamSorted[highestMatchingSprite];
 				auto xpos = x - (sprite.x - 8);
 				auto ypos = (registers.ly - (sprite.y - 16));
-				if (sprite.flags & OAMFlags.xFlip) {
+				if (sprite.flags.xFlip) {
 					xpos = 7 - xpos;
 				}
-				if (sprite.flags & OAMFlags.yFlip) {
+				if (sprite.flags.yFlip) {
 					ypos = sprHeight - 1 - ypos;
 				}
 				static immutable bool[8] objPriority = [
@@ -148,12 +148,12 @@ struct PPU {
 					0b110: false,
 					0b111: false,
 				];
-				const combinedPriority = ((!cgbMode || LCDCValue(registers.lcdc).bgEnabled) << 2) + (!!(sprite.flags & OAMFlags.priority) << 1) + prospectivePriority;
+				const combinedPriority = ((!cgbMode || LCDCValue(registers.lcdc).bgEnabled) << 2) + (sprite.flags.priority << 1) + prospectivePriority;
 				if (objPriority[combinedPriority] || (prospectivePixel == 0)) {
-					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && !!(sprite.flags & OAMFlags.bank))[xpos, ypos % 8];
+					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8];
 					if (pixel != 0) {
 						prospectivePixel = pixel;
-						prospectivePalette = 8 + (cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : !!(sprite.flags & OAMFlags.dmgPalette));
+						prospectivePalette = cast(ubyte)(8 + (cgbMode ? sprite.flags.cgbPalette : sprite.flags.dmgPalette));
 					}
 				}
 			}
@@ -300,12 +300,12 @@ struct PPU {
 		const tiles = 1 + !!(registers.lcdc & LCDCFlags.tallSprites);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		foreach (tileID; 0 .. tiles) {
-			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, !!(oamEntry.flags & OAMFlags.bank));
+			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, oamEntry.flags.bank);
 			foreach (x; 0 .. 8) {
 				foreach (y; 0 .. 8) {
-					const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
-					const tileY = oamEntry.flags & OAMFlags.yFlip ? 7 - y : y;
-					const palette = 8 + (cgbMode ? (oamEntry.flags & OAMFlags.cgbPalette) : !!(oamEntry.flags & OAMFlags.dmgPalette));
+					const tileX = oamEntry.flags.xFlip ? 7 - x : x;
+					const tileY = oamEntry.flags.yFlip ? 7 - y : y;
+					const palette = 8 + (cgbMode ? oamEntry.flags.cgbPalette : oamEntry.flags.dmgPalette);
 					buffer[x, y + 8 * tileID] = paletteRAM[palette][tile[tileX, tileY]];
 				}
 			}
@@ -528,11 +528,11 @@ struct PPU {
 					ImGui.Text("Tile: %d", sprite.tile);
 					ImGui.Text("Orientation: ");
 					ImGui.SameLine();
-					ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flags >> 5) & 3]);
+					ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flags.raw >> 5) & 3]);
 					ImGui.Text("Priority: ");
 					ImGui.SameLine();
-					ImGui.Text(["Normal", "High"][sprite.flags >> 7]);
-					ImGui.Text("Palette: %d", cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : ((sprite.flags >> 4) & 1));
+					ImGui.Text(["Normal", "High"][sprite.flags.priority]);
+					ImGui.Text("Palette: %d", cgbMode ? sprite.flags.cgbPalette : sprite.flags.dmgPalette);
 				});
 				ImGui.EndTabItem();
 			}

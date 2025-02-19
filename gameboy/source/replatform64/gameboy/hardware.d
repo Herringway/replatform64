@@ -79,13 +79,13 @@ struct OAMEntry {
 	ubyte y; /// Y coordinate (0 or any value >= 160 hides an object)
 	ubyte x; /// X coordinate (0 or any value >= 168 hides an object)
 	ubyte tile; /// Tile index. Least significant bit is ignored in tall sprite mode
-	ubyte flags; /// Palette, bank, X flip, Y flip, priority
+	OAMFlagsValue flags; /// Palette, bank, X flip, Y flip, priority
 	///
 	this(byte a, byte b, ubyte c, ubyte d) {
 		y = a;
 		x = b;
 		tile = c;
-		flags = d;
+		flags.raw = d;
 	}
 	///
 	this(ubyte a) {
@@ -151,6 +151,20 @@ union LCDCValue {
 			bool, "windowEnabled", 1,
 			bool, "windowScreenB", 1,
 			bool, "lcdEnabled", 1,
+		));
+	}
+}
+///
+union OAMFlagsValue {
+	ubyte raw;
+	struct {
+		mixin(bitfields!(
+			ubyte, "cgbPalette", 3,
+			bool, "bank", 1,
+			bool, "dmgPalette", 1,
+			bool, "xFlip", 1,
+			bool, "yFlip", 1,
+			bool, "priority", 1,
 		));
 	}
 }
