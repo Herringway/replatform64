@@ -516,46 +516,26 @@ struct PPU {
 				drawZoomableImage(buffer, video, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
 				ImGui.EndTabItem();
 			}
-			if (ImGui.BeginTabItem("Tiles")) {
+			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				static allTilesBuffer = Array2D!BGR555(16 * 8, 48 * 8);
-				drawFullTileData(allTilesBuffer);
-				drawZoomableImage(allTilesBuffer, video, surface);
+				drawZoomableTiles(cast(Intertwined2BPP[])vram, cast(BGR555[4][])(paletteRAM[]), video, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
-				static void*[40] spriteSurfaces;
-				static Array2D!BGR555[40] sprBuffers;
-				const sprHeight = 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites));
-				enum sprWidth = 8;
-				if (ImGui.BeginTable("oamTable", 8)) {
-					foreach (idx, sprite; cast(OAMEntry[])oam) {
-						ImGui.TableNextColumn();
-						if (sprBuffers[idx] == Array2D!BGR555.init) {
-							sprBuffers[idx] = Array2D!BGR555(8, 16);
-						}
-						auto sprBuffer = sprBuffers[idx][0 .. $, 0 .. sprHeight];
-						if (spriteSurfaces[idx] is null) {
-							spriteSurfaces[idx] = video.createSurface(sprBuffer);
-						}
-						drawSprite(sprBuffer, cast(uint)idx);
-						video.setSurfacePixels(spriteSurfaces[idx], sprBuffer);
-						ImGui.Image(spriteSurfaces[idx], ImVec2(sprWidth * 4.0, sprHeight * 4.0));
-						if (ImGui.BeginItemTooltip()) {
-							ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
-							ImGui.Text("Tile: %d", sprite.tile);
-							ImGui.Text("Orientation: ");
-							ImGui.SameLine();
-							ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flags >> 5) & 3]);
-							ImGui.Text("Priority: ");
-							ImGui.SameLine();
-							ImGui.Text(["Normal", "High"][sprite.flags >> 7]);
-							ImGui.Text("Palette: %d", cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : ((sprite.flags >> 4) & 1));
-							ImGui.EndTooltip();
-						}
-					}
-					ImGui.EndTable();
-				}
+				drawSprites!BGR555(_oam.length, video, 8, 16, (canvas, index) {
+					drawSprite(canvas, cast(uint)index);
+				}, (index) {
+					const sprite = _oam[index];
+					ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
+					ImGui.Text("Tile: %d", sprite.tile);
+					ImGui.Text("Orientation: ");
+					ImGui.SameLine();
+					ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flags >> 5) & 3]);
+					ImGui.Text("Priority: ");
+					ImGui.SameLine();
+					ImGui.Text(["Normal", "High"][sprite.flags >> 7]);
+					ImGui.Text("Palette: %d", cgbMode ? (sprite.flags & OAMFlags.cgbPalette) : ((sprite.flags >> 4) & 1));
+				});
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();

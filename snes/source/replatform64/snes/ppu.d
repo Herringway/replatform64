@@ -1443,42 +1443,29 @@ struct PPU {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Sprites")) {
-				const oam2 = oamHigh[];
-				foreach (id, entry; oam[]) {
-					const uint upperX = !!(oam2[id/4] & (1 << ((id % 4) * 2)));
-					const size = !!(oam2[id/4] & (1 << ((id % 4) * 2 + 1)));
-					if (entry.yCoord < 0xE0) {
-						if (ImGui.TreeNode(format!"Sprite %s"(id))) {
-							ImGui.BeginDisabled();
-							ImGui.Text(format!"Tile Offset: %s"(entry.startingTile));
-							ImGui.Text(format!"Coords: (%s, %s)"(entry.xCoord + (upperX << 8), entry.yCoord));
-							ImGui.Text(format!"Palette: %s"(entry.palette));
-							bool boolean = entry.flipVertical;
-							ImGui.Checkbox("Vertical flip", &boolean);
-							boolean = entry.flipHorizontal;
-							ImGui.Checkbox("Horizontal flip", &boolean);
-							ImGui.Text(format!"Priority: %s"(entry.priority));
-							boolean = size;
-							ImGui.Checkbox("Use alt size", &boolean);
-							ImGui.EndDisabled();
-							ImGui.TreePop();
-						}
-					}
-				}
+				.drawSprites!BGR555(oam.length, video, 64, 64, (canvas, index) {
+					canvas[] = BGR555(31, 0, 31); // placeholder until we have some real drawing code
+				}, (index) {
+					const entry = oam[index];
+					const uint upperX = !!(oamHigh[index / 4] & (1 << ((index % 4) * 2)));
+					const size = !!(oamHigh[index / 4] & (1 << ((index % 4) * 2 + 1)));
+					ImGui.BeginDisabled();
+					ImGui.Text(format!"Tile Offset: %s"(entry.startingTile));
+					ImGui.Text(format!"Coords: (%s, %s)"(entry.xCoord + (upperX << 8), entry.yCoord));
+					ImGui.Text(format!"Palette: %s"(entry.palette));
+					bool boolean = entry.flipVertical;
+					ImGui.Checkbox("Vertical flip", &boolean);
+					boolean = entry.flipHorizontal;
+					ImGui.Checkbox("Horizontal flip", &boolean);
+					ImGui.Text(format!"Priority: %s"(entry.priority));
+					boolean = size;
+					ImGui.Checkbox("Use alt size", &boolean);
+					ImGui.EndDisabled();
+				});
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Palettes")) {
-				foreach (idx, ref palette; cgram[].chunks(16).enumerate) {
-					if (ImGui.TreeNode(format!"Palette %s"(idx))) {
-						foreach (i, ref colour; palette) {
-							float[3] c = [colour.red / 31.0, colour.green / 31.0, colour.blue / 31.0];
-							if (ImGui.ColorEdit3(format!"%s"(i), c)) {
-								colour = BGR555(cast(ubyte)(c[0] * 31), cast(ubyte)(c[1] * 31), cast(ubyte)(c[2] * 31));
-							}
-						}
-						ImGui.TreePop();
-					}
-				}
+				showPalette(cgram[], 16);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Layers")) {
@@ -1495,33 +1482,8 @@ struct PPU {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
-				static int paletteID = 0;
-				if (ImGui.InputInt("Palette", &paletteID)) {
-					paletteID = clamp(paletteID, 0, 15);
-				}
-				const texWidth = 16 * 8;
-				const texHeight = 0x8000 / 16 / 16 * 8;
-				static ubyte[2 * texWidth * texHeight] data;
-				auto pixels = cast(ushort[])(data[]);
-				BGR555[16] palette = cgram[paletteID * 16 .. (paletteID + 1) * 16];
-				foreach (idx, tile; (cast(ushort[])vram).chunks(16).enumerate) {
-					const base = (idx % 16) * 8 + (idx / 16) * texWidth * 8;
-					foreach (p; 0 .. 8 * 8) {
-						const px = p % 8;
-						const py = p / 8;
-						const plane01 = tile[py] & pixelPlaneMasks[px];
-						const plane23 = tile[py + 8] & pixelPlaneMasks[px];
-						const s = 7 - px;
-						const pixel = ((plane01 & 0xFF) >> s) | (((plane01 >> 8) >> s) << 1) | (((plane23 & 0xFF) >> s) << 2) | (((plane23 >> 8) >> s) << 3);
-						pixels[base + px + py * texWidth] = colourToInteger(palette[pixel]) & 0x7FFF;
-					}
-				}
-				static void* windowSurface;
-				if (windowSurface is null) {
-					windowSurface = video.createSurface(texWidth, texHeight, ushort.sizeof * kPpuXPixels, PixelFormat.rgb555);
-				}
-				video.setSurfacePixels(windowSurface, data);
-				ImGui.Image(windowSurface, ImVec2(texWidth * 3, texHeight * 3));
+				static void* surface;
+				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(BGR555[16][])cgram, video, surface);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();

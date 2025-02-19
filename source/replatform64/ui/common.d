@@ -207,6 +207,31 @@ void showPalette(T)(T[] palettes, uint entries) {
 	}
 }
 
+void drawZoomableTiles(Tile, Colour, size_t paletteLength = 1 << Tile.bpp)(const scope Tile[] raw, scope const Colour[paletteLength][] palettes, VideoBackend video, ref void* surface, scope void delegate(int, int) onHover = null) {
+	import std.algorithm.comparison : clamp;
+	enum tileWidth = 8;
+	enum tileHeight = 8;
+	enum numTilesWidth = 16;
+	static int paletteID = 0;
+	if (ImGui.InputInt("Palette", &paletteID)) {
+		paletteID = clamp(paletteID, 0, cast(int)(palettes.length - 1));
+	}
+	const palette = palettes[paletteID];
+
+	static Array2D!Colour allTilesBuffer;
+	if (allTilesBuffer == allTilesBuffer.init) {
+		allTilesBuffer = Array2D!Colour(numTilesWidth * tileWidth, (raw.length / numTilesWidth) * tileHeight);
+	}
+	foreach (idx, tile; raw) {
+		const tileX = (idx % numTilesWidth) * tileWidth;
+		const tileY = (idx / numTilesWidth) * tileHeight;
+		foreach (px, py, pixel; tile) {
+			allTilesBuffer[tileX + px, tileY + py] = palette[pixel];
+		}
+	}
+	drawZoomableImage(allTilesBuffer, video, surface);
+}
+
 void drawZoomableImage(T)(Array2D!T buffer, VideoBackend video, ref void* surface, scope void delegate(int, int) onHover = null) {
 	static size_t zoom = 1;
 	if (ImGui.BeginCombo("Zoom", "1x")) {
@@ -227,6 +252,47 @@ void drawZoomableImage(T)(Array2D!T buffer, VideoBackend video, ref void* surfac
 		if (ImGui.IsItemHovered(ImGuiHoveredFlags.ForTooltip)) {
 			onHover(cast(int)((ImGui.GetIO().MousePos.x - imgCoords.x) / zoom), cast(int)((ImGui.GetIO().MousePos.y - imgCoords.y) / zoom));
 		}
+	}
+}
+
+void drawSprites(T)(size_t count, VideoBackend video, size_t maxWidth, size_t maxHeight, scope void delegate(Array2D!T canvas, size_t idx) drawSprite, scope void delegate(size_t offset) onHover = null) {
+	static size_t zoom = 1;
+	if (ImGui.BeginCombo("Zoom", "1x")) {
+		foreach (i, label; ["1x", "2x", "3x", "4x"]) {
+			if (ImGui.Selectable(label, (i + 1) == zoom)) {
+				zoom = i + 1;
+			}
+		}
+		ImGui.EndCombo();
+	}
+	static void*[] surfaces;
+	static Array2D!T[] sprBuffers;
+	if (surfaces.length != count) {
+		surfaces.length = count;
+		sprBuffers.length = count;
+	}
+
+	if (ImGui.BeginTable("oamTable", 8)) {
+		foreach (idx; 0 .. count) {
+			ImGui.TableNextColumn();
+			if (sprBuffers[idx] == Array2D!T.init) {
+				sprBuffers[idx] = Array2D!T(maxWidth, maxHeight);
+			}
+			auto sprBuffer = sprBuffers[idx];
+			if (surfaces[idx] is null) {
+				surfaces[idx] = video.createSurface(sprBuffer);
+			}
+			drawSprite(sprBuffer, idx);
+			video.setSurfacePixels(surfaces[idx], sprBuffer);
+			ImGui.Image(surfaces[idx], ImVec2(maxWidth * zoom, maxHeight * zoom));
+			if (onHover) {
+				if (ImGui.BeginItemTooltip()) {
+					onHover(idx);
+					ImGui.EndTooltip();
+				}
+			}
+		}
+		ImGui.EndTable();
 	}
 }
 
