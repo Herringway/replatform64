@@ -225,12 +225,6 @@ struct PPU {
 		registers.ly = 0;
 		this.pixels = pixels;
 	}
-	void drawFullFrame(ubyte[] pixels, size_t stride) @safe pure {
-		beginDrawing(pixels, stride);
-		foreach (i; 0 .. height) {
-			runLine();
-		}
-	}
 	void drawFullBackground(Array2D!ColourFormat buffer) const @safe pure {
 		drawDebugCommon(buffer, bgScreen2D, bgScreenCGB2D);
 	}
