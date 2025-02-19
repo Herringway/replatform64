@@ -7,6 +7,7 @@ import replatform64.testhelpers;
 import replatform64.ui;
 import replatform64.util;
 
+import std.algorithm.comparison;
 import std.algorithm.iteration;
 import std.bitmanip : bitfields;
 import std.format;
@@ -68,10 +69,14 @@ struct PPU {
 		const sprHeight = 8 * (1 + registers.lcdc.tallSprites);
 		const baseX = registers.scx;
 		const baseY = registers.scy + registers.ly;
+		const baseWindowY = registers.ly - registers.wy;
 		auto pixelRow = pixels[0 .. $, registers.ly];
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
 		const tilemapRowAttributes = bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth];
+		const windowTilemapBase = (max(0, baseWindowY) / 8) * 32;
+		const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+		const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
 		foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
@@ -108,10 +113,7 @@ struct PPU {
 			// grab pixel from background or window
 			const bool useWindow = registers.lcdc.windowDisplay && (x >= registers.wx - 7) && (registers.ly >= registers.wy);
 			const finalX = useWindow ? (x - (registers.wx - 7)) : (baseX + x);
-			const finalY = useWindow ? (registers.ly - registers.wy) : baseY;
-			const windowTilemapBase = (finalY / 8) * 32;
-			const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-			const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+			const finalY = useWindow ? baseWindowY : baseY;
 			const attributes = (useWindow ? windowTilemapRowAttributes : tilemapRowAttributes)[(finalX / 8) % 32];
 			const tile = (useWindow ? windowTilemapRow : tilemapRow)[(finalX / 8) % 32];
 			ubyte subX = cast(ubyte)(finalX % 8);
