@@ -145,11 +145,11 @@ union LCDCValue {
 		mixin(bitfields!(
 			bool, "bgEnabled", 1,
 			bool, "spritesEnabled", 1,
-			bool, "largeSprites", 1,
-			bool, "bgScreenB", 1,
-			bool, "bgTileblockA", 1,
-			bool, "windowEnabled", 1,
-			bool, "windowScreenB", 1,
+			bool, "tallSprites", 1,
+			ubyte, "bgTilemap", 1,
+			bool, "useAltBG", 1,
+			bool, "windowDisplay", 1,
+			ubyte, "windowTilemap", 1,
 			bool, "lcdEnabled", 1,
 		));
 	}

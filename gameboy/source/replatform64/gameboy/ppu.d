@@ -21,7 +21,7 @@ struct PPU {
 	alias ColourFormat = BGR555;
 	static struct Registers {
 		ubyte stat;
-		ubyte lcdc;
+		LCDCValue lcdc;
 		ubyte scy;
 		ubyte scx;
 		ubyte ly;
@@ -49,7 +49,7 @@ struct PPU {
 	private Array2D!ColourFormat pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
-		const sprHeight = 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites));
+		const sprHeight = 8 * (1 + registers.lcdc.tallSprites);
 		const baseX = registers.scx;
 		const baseY = registers.scy + registers.ly;
 		auto pixelRow = pixels[0 .. $, registers.ly];
@@ -61,7 +61,7 @@ struct PPU {
 			int highestX = int.max;
 			// first, find a sprite at these coords with a non-transparent pixel
 			foreach (idx, sprite; oamSorted) {
-				if (registers.ly.inRange(sprite.y - 16, sprite.y - ((registers.lcdc & LCDCFlags.tallSprites) ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
+				if (registers.ly.inRange(sprite.y - 16, sprite.y - (registers.lcdc.tallSprites ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
 					auto xpos = x - (sprite.x - 8);
 					auto ypos = (registers.ly - (sprite.y - 16));
 					if (sprite.flags.xFlip) {
@@ -91,7 +91,7 @@ struct PPU {
 			ubyte prospectivePalette;
 			bool prospectivePriority;
 			// grab pixel from background or window
-			if ((registers.lcdc & LCDCFlags.windowDisplay) && (x >= registers.wx - 7) && (registers.ly >= registers.wy)) {
+			if (registers.lcdc.windowDisplay && (x >= registers.wx - 7) && (registers.ly >= registers.wy)) {
 				auto finalX = x - (registers.wx - 7);
 				auto finalY = registers.ly - registers.wy;
 				const windowTilemapBase = (finalY / 8) * 32;
@@ -148,7 +148,7 @@ struct PPU {
 					0b110: false,
 					0b111: false,
 				];
-				const combinedPriority = ((!cgbMode || LCDCValue(registers.lcdc).bgEnabled) << 2) + (sprite.flags.priority << 1) + prospectivePriority;
+				const combinedPriority = ((!cgbMode || registers.lcdc.bgEnabled) << 2) + (sprite.flags.priority << 1) + prospectivePriority;
 				if (objPriority[combinedPriority] || (prospectivePixel == 0)) {
 					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8];
 					if (pixel != 0) {
@@ -165,10 +165,10 @@ struct PPU {
 		return (cgbMode && registers.vbk) ? vram[0x2000 .. 0x4000] : vram[0x0000 .. 0x2000];
 	}
 	inout(ubyte)[] bgScreen() inout @safe pure {
-		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenB : screenA;
+		return registers.lcdc.bgTilemap ? screenB : screenA;
 	}
 	inout(ubyte)[] bgScreenCGB() inout @safe pure {
-		return (registers.lcdc & LCDCFlags.bgTilemap) ? screenBCGB : screenACGB;
+		return registers.lcdc.bgTilemap ? screenBCGB : screenACGB;
 	}
 	Array2D!(const ubyte) bgScreen2D() const @safe pure {
 		return Array2D!(const ubyte)(32, 32, 32, bgScreen);
@@ -210,10 +210,10 @@ struct PPU {
 		return cast(inout(ubyte)[])_oam[];
 	}
 	inout(ubyte)[] windowScreen() inout @safe pure {
-		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenB : screenA;
+		return registers.lcdc.windowTilemap ? screenB : screenA;
 	}
 	inout(ubyte)[] windowScreenCGB() inout @safe pure {
-		return (registers.lcdc & LCDCFlags.windowTilemap) ? screenBCGB : screenACGB;
+		return registers.lcdc.windowTilemap ? screenBCGB : screenACGB;
 	}
 	Array2D!(const ubyte) windowScreen2D() const @safe pure {
 		return Array2D!(const ubyte)(32, 32, 32, windowScreen);
@@ -225,7 +225,7 @@ struct PPU {
 		auto blockA = (cgbMode && bank) ? tileBlockACGB : tileBlockA;
 		auto blockB = (cgbMode && bank) ? tileBlockBCGB : tileBlockB;
 		auto blockC = (cgbMode && bank) ? tileBlockCCGB : tileBlockC;
-		const tileBlock = (id > 127) ? blockB : ((useLCDC && !(registers.lcdc & LCDCFlags.useAltBG) ? blockC : blockA));
+		const tileBlock = (id > 127) ? blockB : ((useLCDC && !registers.lcdc.useAltBG ? blockC : blockA));
 		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
 	}
 	Intertwined2BPP getTileUnmapped(short id, ubyte bank) const @safe pure {
@@ -297,7 +297,7 @@ struct PPU {
 		drawSprite(Array2D!ColourFormat(8, 16, cast(int)(stride / ushort.sizeof), cast(ColourFormat[])pixels), sprite);
 	}
 	void drawSprite(Array2D!ColourFormat buffer, uint sprite) @safe pure {
-		const tiles = 1 + !!(registers.lcdc & LCDCFlags.tallSprites);
+		const tiles = 1 + registers.lcdc.tallSprites;
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		foreach (tileID; 0 .. tiles) {
 			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, oamEntry.flags.bank);
@@ -347,7 +347,7 @@ struct PPU {
 				registers.lyc = val;
 				break;
 			case GameBoyRegister.LCDC:
-				registers.lcdc = val;
+				registers.lcdc.raw = val;
 				break;
 			case GameBoyRegister.STAT:
 				registers.stat = val;
@@ -400,7 +400,7 @@ struct PPU {
 			case GameBoyRegister.LYC:
 				return registers.lyc;
 			case GameBoyRegister.LCDC:
-				return registers.lcdc;
+				return registers.lcdc.raw;
 			case GameBoyRegister.STAT:
 				return registers.stat;
 			case GameBoyRegister.BGP:
@@ -450,22 +450,22 @@ struct PPU {
 					ImGui.SetItemTooltip("Interrupt is enabled for when LY == LYC.");
 					ImGui.TreePop();
 				}
-				if (ImGui.TreeNode("LCDC", "LCDC: %02X", registers.lcdc)) {
-					registerBit("BG+window enable", registers.lcdc, 0);
+				if (ImGui.TreeNode("LCDC", "LCDC: %02X", registers.lcdc.raw)) {
+					registerBit("BG+window enable", registers.lcdc.raw, 0);
 					ImGui.SetItemTooltip("If disabled, the BG and window layers will not be rendered.");
-					registerBit("OBJ enable", registers.lcdc, 1);
+					registerBit("OBJ enable", registers.lcdc.raw, 1);
 					ImGui.SetItemTooltip("Whether or not sprites are enabled.");
-					registerBitSel("OBJ size", registers.lcdc, 2, ["8x8", "8x16"]);
+					registerBitSel("OBJ size", registers.lcdc.raw, 2, ["8x8", "8x16"]);
 					ImGui.SetItemTooltip("The size of all sprites currently being rendered.");
-					registerBitSel("BG tilemap area", registers.lcdc, 3, ["$9800", "$9C00"]);
+					registerBitSel("BG tilemap area", registers.lcdc.raw, 3, ["$9800", "$9C00"]);
 					ImGui.SetItemTooltip("The region of VRAM where the BG tilemap is located.");
-					registerBitSel("BG+Window tile area", registers.lcdc, 4, ["$8800", "$8000"]);
+					registerBitSel("BG+Window tile area", registers.lcdc.raw, 4, ["$8800", "$8000"]);
 					ImGui.SetItemTooltip("The region of VRAM where the BG and window tile data is located.");
-					registerBit("Window enable", registers.lcdc, 5);
+					registerBit("Window enable", registers.lcdc.raw, 5);
 					ImGui.SetItemTooltip("Whether or not the window layer is enabled.");
-					registerBitSel("Window tilemap area", registers.lcdc, 6, ["$9800", "$9C00"]);
+					registerBitSel("Window tilemap area", registers.lcdc.raw, 6, ["$9800", "$9C00"]);
 					ImGui.SetItemTooltip("The region of VRAM where the window tilemap is located.");
-					registerBit("LCD+PPU enable", registers.lcdc, 7);
+					registerBit("LCD+PPU enable", registers.lcdc.raw, 7);
 					ImGui.SetItemTooltip("Whether or not the LCD and PPU are active.");
 					ImGui.TreePop();
 				}
@@ -637,22 +637,22 @@ unittest {
 					lcdc.spritesEnabled = byteData & 1;
 					break;
 				case "ppu.largeSprites":
-					lcdc.largeSprites = byteData & 1;
+					lcdc.tallSprites = byteData & 1;
 					break;
 				case "ppu.bgTilemapSelect":
-					lcdc.bgScreenB = byteData & 1;
+					lcdc.bgTilemap = byteData & 1;
 					break;
 				case "ppu.windowEnabled":
-					lcdc.windowEnabled = byteData & 1;
+					lcdc.windowDisplay = byteData & 1;
 					break;
 				case "ppu.windowTilemapSelect":
-					lcdc.windowScreenB = byteData & 1;
+					lcdc.windowTilemap = byteData & 1;
 					break;
 				case "ppu.lcdEnabled":
 					lcdc.lcdEnabled = byteData & 1;
 					break;
 				case "ppu.bgTileSelect":
-					lcdc.bgTileblockA = byteData & 1;
+					lcdc.useAltBG = byteData & 1;
 					break;
 				case "ppu.mode":
 					stat.mode = intData & 3;
@@ -685,7 +685,7 @@ unittest {
 					break;
 			}
 		});
-		ppu.registers.lcdc = lcdc.raw;
+		ppu.registers.lcdc = lcdc;
 		ppu.registers.stat = stat.raw;
 		return draw(ppu, dma);
 	}
