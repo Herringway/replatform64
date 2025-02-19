@@ -96,36 +96,36 @@ struct PPU {
 				auto finalY = registers.ly - registers.wy;
 				const windowTilemapBase = (finalY / 8) * 32;
 				const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-				const windowTilemapRowAttributes = cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth];
+				const windowTilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
 				const tile = windowTilemapRow[finalX / 8];
 				const attributes = windowTilemapRowAttributes[finalX / 8];
 				auto subX = finalX % 8;
 				auto subY = finalY % 8;
-				if (attributes & CGBBGAttributes.xFlip) {
+				if (attributes.xFlip) {
 					subX = 7 - subX;
 				}
-				if (attributes & CGBBGAttributes.yFlip) {
+				if (attributes.yFlip) {
 					subY = 7 - subY;
 				}
-				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[subX, subY];
-				prospectivePalette = attributes & CGBBGAttributes.palette;
-				prospectivePriority = !!(attributes & CGBBGAttributes.priority);
+				prospectivePixel = getTile(tile, true, attributes.bank)[subX, subY];
+				prospectivePalette = attributes.palette;
+				prospectivePriority = attributes.priority;
 			} else {
 				uint finalX = baseX + x;
 				uint finalY = baseY;
 				const tile = tilemapRow[(finalX / 8) % 32];
-				const attributes = tilemapRowAttributes[(finalX / 8) % 32];
+				const attributes = cast(CGBBGAttributeValue)tilemapRowAttributes[(finalX / 8) % 32];
 				auto subX = finalX % 8;
 				auto subY = finalY % 8;
-				if (attributes & CGBBGAttributes.xFlip) {
+				if (attributes.xFlip) {
 					subX = 7 - (subX % 8);
 				}
-				if (attributes & CGBBGAttributes.yFlip) {
+				if (attributes.yFlip) {
 					subY = 7 - (subY % 8);
 				}
-				prospectivePixel = getTile(tile, true, !!(attributes & CGBBGAttributes.bank))[subX % 8, subY % 8];
-				prospectivePalette = attributes & CGBBGAttributes.palette;
-				prospectivePriority = !!(attributes & CGBBGAttributes.priority);
+				prospectivePixel = getTile(tile, true, attributes.bank)[subX % 8, subY % 8];
+				prospectivePalette = attributes.palette;
+				prospectivePriority = attributes.priority;
 			}
 			// decide between sprite pixel and background pixel using priority settings
 			if (highestMatchingSprite != size_t.max) {
