@@ -482,7 +482,7 @@ struct PPU {
 				ImGui.InputScalar("WY", ImGuiDataType.U8, &registers.wy, null, null, "%02X");
 				ImGui.EndTabItem();
 			}
-			if (cgbMode && ImGui.BeginTabItem("Palettes")) {
+			if (ImGui.BeginTabItem("Palettes")) {
 				showPalette(paletteRAM[], 4);
 				ImGui.EndTabItem();
 			}
