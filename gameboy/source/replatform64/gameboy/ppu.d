@@ -43,8 +43,8 @@ struct PPU {
 	Registers registers;
 	ubyte[] vram;
 	OAMEntry[40] _oam;
-	ColourFormat[64] paletteRAM = pocketPaletteCGB;
-	const(ColourFormat)[] gbPalette = pocketPaletteCGB;
+	ColourFormat[4][16] paletteRAM = pocketPaletteCGB;
+	const(ColourFormat)[4][] gbPalette = pocketPaletteCGB;
 
 	private Array2D!ColourFormat pixels;
 	private OAMEntry[] oamSorted;
@@ -157,7 +157,7 @@ struct PPU {
 					}
 				}
 			}
-			pixelRow[x] = getColour(prospectivePixel, prospectivePalette);
+			pixelRow[x] = paletteRAM[prospectivePalette][prospectivePixel];
 		}
 		registers.ly++;
 	}
@@ -221,9 +221,6 @@ struct PPU {
 	Array2D!(const CGBBGAttributeValue) windowScreenCGB2D() const @safe pure {
 		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]));
 	}
-	ColourFormat getColour(int b, int palette) const @safe pure {
-		return paletteRAM[palette * 4 + b];
-	}
 	Intertwined2BPP getTile(short id, bool useLCDC, ubyte bank) const @safe pure {
 		auto blockA = (cgbMode && bank) ? tileBlockACGB : tileBlockA;
 		auto blockB = (cgbMode && bank) ? tileBlockBCGB : tileBlockB;
@@ -275,7 +272,7 @@ struct PPU {
 					if (attributes[tileX, tileY].yFlip) {
 						y = 7 - y;
 					}
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[x, y], attributes[tileX, tileY].palette);
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRAM[attributes[tileX, tileY].palette][tile[x, y]];
 				}
 			}
 		}
@@ -291,7 +288,7 @@ struct PPU {
 			const tile = getTileUnmapped(cast(short)tileID % 384, cast(ubyte)(tileID / 384));
 			foreach (subPixelX; 0 .. 8) {
 				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = getColour(tile[subPixelX, subPixelY], 0);
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRAM[0][tile[subPixelX, subPixelY]];
 				}
 			}
 		}
@@ -309,7 +306,7 @@ struct PPU {
 					const tileX = oamEntry.flags & OAMFlags.xFlip ? 7 - x : x;
 					const tileY = oamEntry.flags & OAMFlags.yFlip ? 7 - y : y;
 					const palette = 8 + (cgbMode ? (oamEntry.flags & OAMFlags.cgbPalette) : !!(oamEntry.flags & OAMFlags.dmgPalette));
-					buffer[x, y + 8 * tileID] = getColour(tile[tileX, tileY], palette);
+					buffer[x, y + 8 * tileID] = paletteRAM[palette][tile[tileX, tileY]];
 				}
 			}
 		}
@@ -323,11 +320,11 @@ struct PPU {
 		}
 		void writePaletteDMG(ubyte value, size_t paletteIndex) {
 			if (!cgbMode) {
-				ColourFormat[] palette = paletteRAM[paletteIndex * 4 .. (paletteIndex + 1) * 4];
-				palette[0] = gbPalette[paletteIndex * 4 + (value & 3)];
-				palette[1] = gbPalette[paletteIndex * 4 + ((value >> 2) & 3)];
-				palette[2] = gbPalette[paletteIndex * 4 + ((value >> 4) & 3)];
-				palette[3] = gbPalette[paletteIndex * 4 + ((value >> 6) & 3)];
+				ColourFormat[] palette = paletteRAM[paletteIndex][];
+				palette[0] = gbPalette[paletteIndex][value & 3];
+				palette[1] = gbPalette[paletteIndex][(value >> 2) & 3];
+				palette[2] = gbPalette[paletteIndex][(value >> 4) & 3];
+				palette[3] = gbPalette[paletteIndex][(value >> 6) & 3];
 			}
 		}
 		switch (addr) {
@@ -484,7 +481,7 @@ struct PPU {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Palettes")) {
-				showPalette(paletteRAM[], 4);
+				showPalette(cast(ColourFormat[])paletteRAM[], 4);
 				ImGui.EndTabItem();
 			}
 			void showTileInfo(int x, int y, Array2D!(const ubyte) tileID, Array2D!(const CGBBGAttributeValue) tileAttributes) {
@@ -679,10 +676,10 @@ unittest {
 					ppu.oam[] = data;
 					break;
 				case "ppu.cgbBgPalettes":
-					ppu.paletteRAM[0 .. 32] = cast(const(PPU.ColourFormat)[])data;
+					ppu.paletteRAM[0 .. 8] = cast(const(PPU.ColourFormat)[4][])data;
 					break;
 				case "ppu.cgbObjPalettes":
-					ppu.paletteRAM[32 .. 64] = cast(const(PPU.ColourFormat)[])data;
+					ppu.paletteRAM[8 .. 16] = cast(const(PPU.ColourFormat)[4][])data;
 					break;
 				default:
 					break;
@@ -738,11 +735,11 @@ immutable PPU.ColourFormat[] pocketPalette = [
 	PPU.ColourFormat(13, 13, 13),
 	PPU.ColourFormat(0, 0, 0)
 ];
-enum pocketPaletteCGB = pocketPalette.repeat(16).joiner.array;
+enum pocketPaletteCGB = pocketPalette.repeat(16).array;
 immutable PPU.ColourFormat[] dmgPalette = [
 	PPU.ColourFormat(red: 19, green: 23, blue: 1),
 	PPU.ColourFormat(red: 17, green: 21, blue: 1),
 	PPU.ColourFormat(red: 6, green: 12, blue: 6),
 	PPU.ColourFormat(red: 1, green: 7, blue: 1)
 ];
-enum dmgPaletteCGB = dmgPalette.repeat(16).joiner.array;
+enum dmgPaletteCGB = dmgPalette.repeat(16).array;
