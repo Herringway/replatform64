@@ -98,7 +98,6 @@ unittest {
 	static Renderer currentRenderer;
 	static auto ref newRenderer() {
 		currentRenderer = Renderer();
-		currentRenderer.ppu.vram = new ubyte[](0x4000);
 		return currentRenderer;
 	}
 	auto buffer = Array2D!(PPU.ColourFormat)(Renderer.width, Renderer.height);

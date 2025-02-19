@@ -15,7 +15,23 @@ import std.range;
 import tilemagic.colours;
 import tilemagic.tiles.bpp2;
 
-private immutable ubyte[0x2000] dmgExt;
+union VRAM {
+	ubyte[0x4000] raw;
+	struct {
+		Intertwined2BPP[0x80] tileBlockA;
+		Intertwined2BPP[0x80] tileBlockB;
+		Intertwined2BPP[0x80] tileBlockC;
+		ubyte[0x0400] screenA;
+		ubyte[0x0400] screenB;
+		Intertwined2BPP[0x80] tileBlockACGB;
+		Intertwined2BPP[0x80] tileBlockBCGB;
+		Intertwined2BPP[0x80] tileBlockCCGB;
+		CGBBGAttributeValue[0x0400] screenACGB;
+		CGBBGAttributeValue[0x0400] screenBCGB;
+	}
+}
+static assert(VRAM.sizeof == 0x4000);
+
 struct PPU {
 	alias ColourFormat = BGR555;
 	static struct Registers {
@@ -40,7 +56,7 @@ struct PPU {
 	enum height = 144;
 	bool cgbMode;
 	Registers registers;
-	ubyte[] vram;
+	VRAM vram;
 	OAMEntry[40] _oam;
 	ColourFormat[4][16] paletteRAM = pocketPaletteCGB;
 	const(ColourFormat)[4][] gbPalette = pocketPaletteCGB;
@@ -48,13 +64,14 @@ struct PPU {
 	private Array2D!ColourFormat pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
+		static ubyte flip(int old, ubyte dimension = 8) => cast(ubyte)(dimension - 1 - old);
 		const sprHeight = 8 * (1 + registers.lcdc.tallSprites);
 		const baseX = registers.scx;
 		const baseY = registers.scy + registers.ly;
 		auto pixelRow = pixels[0 .. $, registers.ly];
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
-		const tilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
+		const tilemapRowAttributes = bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth];
 		foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
@@ -64,10 +81,10 @@ struct PPU {
 					auto xpos = x - (sprite.x - 8);
 					auto ypos = (registers.ly - (sprite.y - 16));
 					if (sprite.flags.xFlip) {
-						xpos = 7 - xpos;
+						xpos = flip(xpos);
 					}
 					if (sprite.flags.yFlip) {
-						ypos = sprHeight - 1 - ypos;
+						ypos = flip(ypos, sprHeight);
 					}
 					// ignore transparent pixels
 					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8] == 0) {
@@ -92,16 +109,16 @@ struct PPU {
 			const finalY = useWindow ? (registers.ly - registers.wy) : baseY;
 			const windowTilemapBase = (finalY / 8) * 32;
 			const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
-			const windowTilemapRowAttributes = cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth] : dmgExt[0 .. fullTileWidth]);
+			const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
 			const attributes = (useWindow ? windowTilemapRowAttributes : tilemapRowAttributes)[(finalX / 8) % 32];
 			const tile = (useWindow ? windowTilemapRow : tilemapRow)[(finalX / 8) % 32];
 			ubyte subX = cast(ubyte)(finalX % 8);
 			ubyte subY = cast(ubyte)(finalY % 8);
 			if (attributes.xFlip) {
-				subX = cast(ubyte)(7 - subX);
+				subX = flip(subX);
 			}
 			if (attributes.yFlip) {
-				subY = cast(ubyte)(7 - subY);
+				subY = flip(subY);
 			}
 			auto prospectivePixel = getTile(tile, true, attributes.bank)[subX, subY];
 			auto prospectivePalette = attributes.palette;
@@ -112,10 +129,10 @@ struct PPU {
 				auto xpos = x - (sprite.x - 8);
 				auto ypos = (registers.ly - (sprite.y - 16));
 				if (sprite.flags.xFlip) {
-					xpos = 7 - xpos;
+					xpos = flip(xpos);
 				}
 				if (sprite.flags.yFlip) {
-					ypos = sprHeight - 1 - ypos;
+					ypos = flip(ypos, sprHeight);
 				}
 				static immutable bool[8] objPriority = [
 					0b000: true,
@@ -139,78 +156,25 @@ struct PPU {
 			pixelRow[x] = paletteRAM[prospectivePalette][prospectivePixel];
 		}
 	}
-	inout(ubyte)[] bank() inout @safe pure {
-		return (cgbMode && registers.vbk) ? vram[0x2000 .. 0x4000] : vram[0x0000 .. 0x2000];
-	}
-	inout(ubyte)[] bgScreen() inout @safe pure {
-		return registers.lcdc.bgTilemap ? screenB : screenA;
-	}
-	inout(ubyte)[] bgScreenCGB() inout @safe pure {
-		return registers.lcdc.bgTilemap ? screenBCGB : screenACGB;
-	}
-	Array2D!(const ubyte) bgScreen2D() const @safe pure {
-		return Array2D!(const ubyte)(32, 32, 32, bgScreen);
-	}
-	Array2D!(const CGBBGAttributeValue) bgScreenCGB2D() const @safe pure {
-		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? bgScreenCGB : dmgExt[0 .. 0x400]));
-	}
-	inout(ubyte)[] tileBlockA() inout @safe pure {
-		return vram[0x0000 .. 0x0800];
-	}
-	inout(ubyte)[] tileBlockB() inout @safe pure {
-		return vram[0x0800 .. 0x1000];
-	}
-	inout(ubyte)[] tileBlockC() inout @safe pure {
-		return vram[0x1000 .. 0x1800];
-	}
-	inout(ubyte)[] tileBlockACGB() inout @safe pure {
-		return vram[0x2000 .. 0x2800];
-	}
-	inout(ubyte)[] tileBlockBCGB() inout @safe pure {
-		return vram[0x2800 .. 0x3000];
-	}
-	inout(ubyte)[] tileBlockCCGB() inout @safe pure {
-		return vram[0x3000 .. 0x3800];
-	}
-	inout(ubyte)[] screenA() inout @safe pure {
-		return vram[0x1800 .. 0x1C00];
-	}
-	inout(ubyte)[] screenB() inout @safe pure {
-		return vram[0x1C00 .. 0x2000];
-	}
-	inout(ubyte)[] screenACGB() inout @safe pure {
-		return vram[0x3800 .. 0x3C00];
-	}
-	inout(ubyte)[] screenBCGB() inout @safe pure {
-		return vram[0x3C00 .. 0x4000];
-	}
-	inout(ubyte)[] oam() return inout @safe pure {
-		return cast(inout(ubyte)[])_oam[];
-	}
-	inout(ubyte)[] windowScreen() inout @safe pure {
-		return registers.lcdc.windowTilemap ? screenB : screenA;
-	}
-	inout(ubyte)[] windowScreenCGB() inout @safe pure {
-		return registers.lcdc.windowTilemap ? screenBCGB : screenACGB;
-	}
-	Array2D!(const ubyte) windowScreen2D() const @safe pure {
-		return Array2D!(const ubyte)(32, 32, 32, windowScreen);
-	}
-	Array2D!(const CGBBGAttributeValue) windowScreenCGB2D() const @safe pure {
-		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]));
-	}
+	auto bank() inout=> (cgbMode && registers.vbk) ? vram.raw[0x2000 .. 0x4000] : vram.raw[0x0000 .. 0x2000];
+	auto bgScreen() inout => registers.lcdc.bgTilemap ? vram.screenB[] : vram.screenA[];
+	auto bgScreenCGB() inout => registers.lcdc.bgTilemap ? vram.screenBCGB[] : vram.screenACGB[];
+	auto bgScreen2D() const => Array2D!(const ubyte)(32, 32, 32, bgScreen);
+	auto bgScreenCGB2D() const => Array2D!(const CGBBGAttributeValue)(32, 32, 32, bgScreenCGB);
+	auto oam() inout => cast(inout(ubyte)[])_oam[];
+	auto windowScreen() inout => registers.lcdc.windowTilemap ? vram.screenB[] : vram.screenA[];
+	auto windowScreenCGB() inout => registers.lcdc.windowTilemap ? vram.screenBCGB[] : vram.screenACGB[];
+	auto windowScreen2D() const => Array2D!(const ubyte)(32, 32, 32, windowScreen);
+	auto windowScreenCGB2D() const=> Array2D!(const CGBBGAttributeValue)(32, 32, 32, windowScreenCGB);
 	Intertwined2BPP getTile(short id, bool useLCDC, ubyte bank) const @safe pure {
-		auto blockA = (cgbMode && bank) ? tileBlockACGB : tileBlockA;
-		auto blockB = (cgbMode && bank) ? tileBlockBCGB : tileBlockB;
-		auto blockC = (cgbMode && bank) ? tileBlockCCGB : tileBlockC;
+		auto blockA = (cgbMode && bank) ? vram.tileBlockACGB[] : vram.tileBlockA[];
+		auto blockB = (cgbMode && bank) ? vram.tileBlockBCGB[] : vram.tileBlockB[];
+		auto blockC = (cgbMode && bank) ? vram.tileBlockCCGB[] : vram.tileBlockC[];
 		const tileBlock = (id > 127) ? blockB : ((useLCDC && !registers.lcdc.useAltBG ? blockC : blockA));
-		return (cast(const(Intertwined2BPP)[])(tileBlock[(id % 128) * 16 .. ((id % 128) * 16) + 16]))[0];
+		return tileBlock[id % 128];
 	}
 	Intertwined2BPP getTileUnmapped(short id, ubyte bank) const @safe pure {
-		return (cast(const(Intertwined2BPP)[])(vram[0x0000 + bank * 0x2000 .. 0x1800 + bank * 0x2000]))[id];
-	}
-	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
-		beginDrawing(Array2D!ColourFormat(width, height, cast(int)(stride / ColourFormat.sizeof), cast(ColourFormat[])pixels));
+		return (cast(const(Intertwined2BPP)[])(vram.raw[0x0000 + bank * 0x2000 .. 0x1800 + bank * 0x2000]))[id];
 	}
 	void beginDrawing(Array2D!ColourFormat pixels) @safe pure {
 		oamSorted = _oam;
@@ -270,7 +234,7 @@ struct PPU {
 	}
 	void drawSprite(Array2D!ColourFormat buffer, uint sprite) @safe pure {
 		const tiles = 1 + registers.lcdc.tallSprites;
-		const oamEntry = (cast(OAMEntry[])oam)[sprite];
+		const oamEntry = _oam[sprite];
 		foreach (tileID; 0 .. tiles) {
 			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, oamEntry.flags.bank);
 			foreach (x; 0 .. 8) {
@@ -488,7 +452,7 @@ struct PPU {
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				drawZoomableTiles(cast(Intertwined2BPP[])vram, cast(ColourFormat[4][])(paletteRAM[]), video, surface);
+				drawZoomableTiles(cast(Intertwined2BPP[])vram.raw, paletteRAM[], video, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
@@ -562,7 +526,6 @@ unittest {
 	}
 	static auto renderMesen2State(const ubyte[] file, FauxDMA[] dma = []) {
 		PPU ppu;
-		ppu.vram = new ubyte[](0x4000);
 		LCDCValue lcdc;
 		STATValue stat;
 		loadMesen2SaveState(file, 1, (key, data) @safe pure {
@@ -643,7 +606,7 @@ unittest {
 					stat.lycInterrupt = !!(byteData & 0b01000000);
 					break;
 				case "videoRam":
-					ppu.vram[0x0000 .. data.length] = data;
+					ppu.vram.raw[0x0000 .. data.length] = data;
 					break;
 				case "spriteRam":
 					ppu.oam[] = data;

@@ -85,13 +85,12 @@ struct GameBoySimple {
 			case GBPalette.pocket: renderer.ppu.gbPalette = pocketPaletteCGB; break;
 		}
 		renderer.ppu.paletteRAM[] = renderer.ppu.gbPalette[0 .. 16];
-		renderer.ppu.vram = new ubyte[](renderer.ppu.cgbMode ? 0x4000 : 0x2000);
 
 		apu.initialize(platform.settings.audio.sampleRate);
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
 		renderer.initialize(title, platform.backend.video);
-		platform.registerMemoryRange("VRAM", renderer.ppu.vram);
+		platform.registerMemoryRange("VRAM", renderer.ppu.vram.raw);
 		platform.registerMemoryRange("OAM", renderer.ppu.oam);
 		platform.registerMemoryRange("Palette RAM", cast(ubyte[])renderer.ppu.paletteRAM);
 	}
@@ -135,7 +134,7 @@ struct GameBoySimple {
 	}
 	ubyte[] vram() {
 		const offset = renderer.ppu.cgbMode * renderer.ppu.registers.vbk;
-		return renderer.ppu.vram[0x2000 * offset .. 0x2000 * (offset + 1)];
+		return renderer.ppu.vram.raw[0x2000 * offset .. 0x2000 * (offset + 1)];
 	}
 
 	void writeJoy(ubyte v) {
@@ -186,7 +185,7 @@ struct GameBoySimple {
 			ImGui.EndMainMenuBar();
 		}
 		if (dumpVRAM) {
-			File("vram.bin", "w").rawWrite(renderer.ppu.vram);
+			File("vram.bin", "w").rawWrite(renderer.ppu.vram.raw);
 			dumpVRAM = false;
 		}
 	}
@@ -297,30 +296,14 @@ struct GameBoySimple {
 			assert(0, "Not yet implemented");
 		}
 	}
-	ubyte[] tileBlockA() @safe pure {
-		return renderer.ppu.tileBlockA;
-	}
-	ubyte[] tileBlockB() @safe pure {
-		return renderer.ppu.tileBlockB;
-	}
-	ubyte[] tileBlockC() @safe pure {
-		return renderer.ppu.tileBlockC;
-	}
-	ubyte[] screenA() @safe pure {
-		return renderer.ppu.screenA;
-	}
-	ubyte[] screenB() @safe pure {
-		return renderer.ppu.screenB;
-	}
-	ubyte[] oam() return @safe pure {
-		return renderer.ppu.oam;
-	}
-	ubyte[] bgScreen() @safe pure {
-		return renderer.ppu.bgScreen;
-	}
-	ubyte[] windowScreen() @safe pure {
-		return renderer.ppu.windowScreen;
-	}
+	ubyte[] tileBlockA() return @safe pure => cast(ubyte[])renderer.ppu.vram.tileBlockA;
+	ubyte[] tileBlockB() return @safe pure => cast(ubyte[])renderer.ppu.vram.tileBlockB;
+	ubyte[] tileBlockC() return @safe pure => cast(ubyte[])renderer.ppu.vram.tileBlockC;
+	ubyte[] screenA() return @safe pure => renderer.ppu.vram.screenA;
+	ubyte[] screenB() return @safe pure => renderer.ppu.vram.screenB;
+	ubyte[] oam() return @safe pure => renderer.ppu.oam;
+	ubyte[] bgScreen() return @safe pure => renderer.ppu.bgScreen;
+	ubyte[] windowScreen() return @safe pure => renderer.ppu.windowScreen;
 }
 
 //unittest {
