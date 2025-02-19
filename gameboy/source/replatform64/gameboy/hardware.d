@@ -175,11 +175,11 @@ union STATValue {
 	struct {
 		mixin(bitfields!(
 			uint, "mode", 2,
-			bool, "coincidence", 1,
-			bool, "mode0HBlankIRQ", 1,
-			bool, "mode1VBlankIRQ", 1,
-			bool, "mode2OAMIRQ", 1,
-			bool, "lycEqualsLYFlag", 1,
+			bool, "lycEqualLY", 1,
+			bool, "mode0Interrupt", 1,
+			bool, "mode1Interrupt", 1,
+			bool, "mode2Interrupt", 1,
+			bool, "lycInterrupt", 1,
 			bool, "", 1,
 		));
 	}

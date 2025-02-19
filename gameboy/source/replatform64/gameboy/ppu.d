@@ -19,7 +19,7 @@ private immutable ubyte[0x2000] dmgExt;
 struct PPU {
 	alias ColourFormat = BGR555;
 	static struct Registers {
-		ubyte stat;
+		STATValue stat;
 		LCDCValue lcdc;
 		ubyte scy;
 		ubyte scx;
@@ -138,7 +138,6 @@ struct PPU {
 			}
 			pixelRow[x] = paletteRAM[prospectivePalette][prospectivePixel];
 		}
-		registers.ly++;
 	}
 	inout(ubyte)[] bank() inout @safe pure {
 		return (cgbMode && registers.vbk) ? vram[0x2000 .. 0x4000] : vram[0x0000 .. 0x2000];
@@ -329,7 +328,7 @@ struct PPU {
 				registers.lcdc.raw = val;
 				break;
 			case GameBoyRegister.STAT:
-				registers.stat = val;
+				registers.stat.raw = val;
 				break;
 			case GameBoyRegister.BGP:
 				registers.bgp = val;
@@ -381,7 +380,7 @@ struct PPU {
 			case GameBoyRegister.LCDC:
 				return registers.lcdc.raw;
 			case GameBoyRegister.STAT:
-				return registers.stat;
+				return registers.stat.raw;
 			case GameBoyRegister.BGP:
 				return registers.bgp;
 			case GameBoyRegister.OBP0:
@@ -414,18 +413,18 @@ struct PPU {
 		static Array2D!ColourFormat buffer = Array2D!ColourFormat(width, height);
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("State")) {
-				if (ImGui.TreeNode("STAT", "STAT: %02X", registers.stat)) {
-					registerBitSel!2("PPU mode", registers.stat, 0, ["HBlank", "VBlank", "OAM scan", "Drawing"]);
+				if (ImGui.TreeNode("STAT", "STAT: %02X", registers.stat.raw)) {
+					registerBitSel!2("PPU mode", registers.stat.raw, 0, ["HBlank", "VBlank", "OAM scan", "Drawing"]);
 					ImGui.SetItemTooltip("Current PPU rendering mode. (not currently emulated)");
-					registerBit("LY = LYC", registers.stat, 2);
+					registerBit("LY = LYC", registers.stat.raw, 2);
 					ImGui.SetItemTooltip("Flag set if LY == LYC. (not currently emulated)");
-					registerBit("Mode 0 interrupt enabled", registers.stat, 3);
+					registerBit("Mode 0 interrupt enabled", registers.stat.raw, 3);
 					ImGui.SetItemTooltip("HBlank interrupt is enabled.");
-					registerBit("Mode 1 interrupt enabled", registers.stat, 4);
+					registerBit("Mode 1 interrupt enabled", registers.stat.raw, 4);
 					ImGui.SetItemTooltip("VBlank interrupt is enabled.");
-					registerBit("Mode 2 interrupt enabled", registers.stat, 5);
+					registerBit("Mode 2 interrupt enabled", registers.stat.raw, 5);
 					ImGui.SetItemTooltip("OAM scan interrupt is enabled.");
-					registerBit("LY == LYC interrupt enabled", registers.stat, 6);
+					registerBit("LY == LYC interrupt enabled", registers.stat.raw, 6);
 					ImGui.SetItemTooltip("Interrupt is enabled for when LY == LYC.");
 					ImGui.TreePop();
 				}
@@ -563,6 +562,7 @@ unittest {
 				}
 			}
 			ppu.runLine();
+			ppu.registers.ly++;
 		}
 		return buffer;
 	}
@@ -637,16 +637,16 @@ unittest {
 					stat.mode = intData & 3;
 					break;
 				case "ppu.lyCoincidenceFlag":
-					stat.coincidence = byteData & 1;
+					stat.lycEqualLY = byteData & 1;
 					break;
 				case "ppu.cgbEnabled":
 					ppu.cgbMode = byteData & 1;
 					break;
 				case "ppu.status":
-					stat.mode0HBlankIRQ = !!(byteData & 0b00001000);
-					stat.mode1VBlankIRQ = !!(byteData & 0b00010000);
-					stat.mode2OAMIRQ = !!(byteData & 0b00100000);
-					stat.lycEqualsLYFlag = !!(byteData & 0b01000000);
+					stat.mode0Interrupt = !!(byteData & 0b00001000);
+					stat.mode1Interrupt = !!(byteData & 0b00010000);
+					stat.mode2Interrupt = !!(byteData & 0b00100000);
+					stat.lycInterrupt = !!(byteData & 0b01000000);
 					break;
 				case "videoRam":
 					ppu.vram[0x0000 .. data.length] = data;
@@ -665,7 +665,7 @@ unittest {
 			}
 		});
 		ppu.registers.lcdc = lcdc;
-		ppu.registers.stat = stat.raw;
+		ppu.registers.stat = stat;
 		return draw(ppu, dma);
 	}
 	static void runTest(string name) {
