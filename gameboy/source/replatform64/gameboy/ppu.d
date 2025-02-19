@@ -213,7 +213,7 @@ struct PPU {
 		beginDrawing(Array2D!ColourFormat(width, height, cast(int)(stride / ColourFormat.sizeof), cast(ColourFormat[])pixels));
 	}
 	void beginDrawing(Array2D!ColourFormat pixels) @safe pure {
-		oamSorted = cast(OAMEntry[])oam;
+		oamSorted = _oam;
 		if (!cgbMode) {
 			// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
 			// allows priority to be determined just by picking the first matching entry instead of iterating the entire array
