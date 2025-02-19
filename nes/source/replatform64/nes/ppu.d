@@ -566,27 +566,8 @@ struct PPU {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Tiles")) {
-				static size_t zoom = 1;
-				if (ImGui.BeginCombo("Zoom", "1x")) {
-					foreach (i, label; ["1x", "2x", "3x", "4x"]) {
-						if (ImGui.Selectable(label, (i + 1) == zoom)) {
-							zoom = i + 1;
-						}
-					}
-					ImGui.EndCombo();
-				}
-				static int paletteID = 0;
-				if (ImGui.InputInt("Palette", &paletteID)) {
-					paletteID = clamp(paletteID, 0, 7);
-				}
-				static void* windowSurface;
-				static allTilesBuffer = Array2D!ARGB8888(16 * 8, 32 * 8);
-				if (windowSurface is null) {
-					windowSurface = video.createSurface(allTilesBuffer.dimensions[0], allTilesBuffer.dimensions[1], ushort.sizeof * allTilesBuffer.dimensions[0], PixelFormat.abgr8888);
-				}
-				drawFullTileData(allTilesBuffer, paletteID);
-				video.setSurfacePixels(windowSurface, cast(ubyte[])allTilesBuffer[]);
-				ImGui.Image(windowSurface, ImVec2(allTilesBuffer.dimensions[0] * zoom, allTilesBuffer.dimensions[1] * zoom));
+				static void* surface;
+				drawZoomableTiles(cast(Linear2BPP[])chr, cast(ColourFormat[4][])(palette[].map!(x => paletteRGB[x]).array), video, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
