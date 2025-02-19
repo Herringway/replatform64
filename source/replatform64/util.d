@@ -15,12 +15,26 @@ template typeMatches(T) {
 	enum typeMatches(alias t) = is(typeof(t) == T);
 }
 
-PixelFormat pixelFormat(T)(const Array2D!T) {
-	import tilemagic.colours : BGR555;
+template PixelFormatOf(T) {
+	import tilemagic.colours : ABGR8888, ARGB8888, BGR555, RGB555, RGBA8888;
 	static if (is(T == BGR555)) {
-		return PixelFormat.bgr555;
+		alias PixelFormatOf = PixelFormat.bgr555;
+	} else static if (is(T == RGB555)) {
+		alias PixelFormatOf = PixelFormat.rgb555;
+	} else static if (is(T == ARGB8888)) {
+		alias PixelFormatOf = PixelFormat.argb8888;
+	} else static if (is(T == ABGR8888)) {
+		alias PixelFormatOf = PixelFormat.abgr8888;
+	} else static if (is(T == RGBA8888)) {
+		alias PixelFormatOf = PixelFormat.rgba8888;
+	} else {
+		static assert(0, "No support");
 	}
 }
+PixelFormat pixelFormat(T)(const Array2D!T) {
+	return PixelFormatOf!T;
+}
+
 
 private struct _NoDump {}
 enum NoDump = _NoDump();

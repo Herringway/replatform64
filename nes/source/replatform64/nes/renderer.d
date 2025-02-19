@@ -2,10 +2,12 @@ module replatform64.nes.renderer;
 
 import replatform64.backend.common;
 import replatform64.nes.ppu;
+import replatform64.util;
 
 import tilemagic.colours;
 
 struct Renderer {
+	alias PixelFormat = PixelFormatOf!(PPU.ColourFormat);
 	PPU ppu;
 	enum width = PPU.width;
 	enum height = PPU.height;
@@ -16,14 +18,14 @@ struct Renderer {
 		window.baseHeight = height;
 		backend = newBackend;
 		backend.createWindow(title, window);
-		backend.createTexture(width, height, PixelFormat.bgra8888);
+		backend.createTexture(width, height, PixelFormat);
 		ppu.chr = new ubyte[](0x2000);
 		ppu.nametable = new ubyte[](0x1000);
 	}
 	void draw() {
 		Texture texture;
 		backend.getDrawingTexture(texture);
-		ppu.render(texture.asArray2D!ARGB8888);
+		ppu.render(texture.asArray2D!(PPU.ColourFormat));
 	}
 	void waitNextFrame() {
 		backend.waitNextFrame();

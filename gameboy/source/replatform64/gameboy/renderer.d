@@ -13,6 +13,7 @@ import replatform64.util;
 import tilemagic.colours;
 
 struct Renderer {
+	alias PixelFormat = PixelFormatOf!(PPU.ColourFormat);
 	PPU ppu;
 	enum width = PPU.width;
 	enum height = PPU.height;
@@ -26,14 +27,14 @@ struct Renderer {
 		window.baseHeight = height;
 		backend = newBackend;
 		backend.createWindow(title, window);
-		backend.createTexture(width, height, PixelFormat.bgr555);
+		backend.createTexture(width, height, PixelFormat);
 	}
 	void draw() {
 		Texture texture;
 		backend.getDrawingTexture(texture);
-		draw(texture.asArray2D!BGR555);
+		draw(texture.asArray2D!(PPU.ColourFormat));
 	}
-	void draw(scope Array2D!BGR555 texture) {
+	void draw(scope Array2D!(PPU.ColourFormat) texture) {
 		ppu.beginDrawing(texture);
 		foreach (i; 0 .. height) {
 			if (ppu.registers.ly == ppu.registers.lyc) {

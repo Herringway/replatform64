@@ -21,6 +21,7 @@ public enum ImgW = 512;
 public enum ImgH = 448;
 
 public struct SnesDrawFrameData {
+	alias ColourFormat = RGB555;
 align:
 	ubyte INIDISP;
 	ubyte OBSEL;
@@ -228,8 +229,8 @@ align:
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Sprites")) {
-				drawSprites!BGR555(oam1.length, video, 64, 64, (canvas, index) {
-					canvas[] = BGR555(31, 0, 31); // placeholder until we have some real drawing code
+				drawSprites!ColourFormat(oam1.length, video, 64, 64, (canvas, index) {
+					canvas[] = ColourFormat(31, 0, 31); // placeholder until we have some real drawing code
 				}, (index) {
 					const entry = oam1[index];
 					const uint upperX = !!(oam2[index / 4] & (1 << ((index % 4) * 2)));
@@ -250,7 +251,7 @@ align:
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Palettes")) {
-				showPalette(cast(BGR555[])(cgram[]), 16);
+				showPalette(cast(ColourFormat[])(cgram[]), 16);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Layers")) {
@@ -276,18 +277,18 @@ align:
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(BGR555[16][])cgram, video, surface);
+				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(ColourFormat[16][])cgram, video, surface);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();
 		}
 	}
-	public void drawFrame(Array2D!BGR555 texture) const {
+	public void drawFrame(Array2D!ColourFormat texture) const {
 		assert(texture.stride == 512);
 		texture[] = getFrameData();
 	}
-	BGR555[] getFrameData() const {
-		BGR555* rawdata = cast(BGR555*)libsfcppu_drawFrame(&this);
+	ColourFormat[] getFrameData() const {
+		ColourFormat* rawdata = cast(ColourFormat*)libsfcppu_drawFrame(&this);
 		return rawdata[ImgW * 16 .. ImgW * (ImgH + 16)];
 	}
 }

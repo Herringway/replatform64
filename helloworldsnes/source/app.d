@@ -7,29 +7,30 @@ import std.logger;
 struct GameSettings {}
 SNES snes;
 
+enum black = BGR555(red: 0, green: 0, blue: 0);
 BGR555[16][16] palettes = [
 	// bg palettes
 	// bg
-	[ BGR555(31, 31, 31), BGR555(0, 16, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
+	[ BGR555(red: 31, green: 31, blue: 31), BGR555(red: 0, green: 16, blue: 0), black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
 	// unused
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
 	// sprite palettes
 	// lil character
-	[ BGR555(31, 31, 31), BGR555(0, 0, 0), BGR555(2, 17, 8), BGR555(4, 2, 17), BGR555(31, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
+	[ BGR555(red: 31, green: 31, blue: 31), black, BGR555(red: 2, green: 17, blue: 8), BGR555(red: 4, green: 2, blue: 17), BGR555(red: 31, green: 0, blue: 0), black, black, black, black, black, black, black, black, black, black, black ],
 	// unused
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
-	[ BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0), BGR555(0, 0, 0) ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
+	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
 ];
 
 OAMEntry[128] oam = OAMEntry.offscreen; // all unused sprites should render offscreen

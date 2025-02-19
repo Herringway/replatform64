@@ -18,6 +18,7 @@ import tilemagic.tiles.bpp2;
 
 private immutable ubyte[0x2000] dmgExt;
 struct PPU {
+	alias ColourFormat = BGR555;
 	static struct Registers {
 		ubyte stat;
 		ubyte lcdc;
@@ -42,10 +43,10 @@ struct PPU {
 	Registers registers;
 	ubyte[] vram;
 	OAMEntry[40] _oam;
-	BGR555[64] paletteRAM = pocketPaletteCGB;
-	const(BGR555)[] gbPalette = pocketPaletteCGB;
+	ColourFormat[64] paletteRAM = pocketPaletteCGB;
+	const(ColourFormat)[] gbPalette = pocketPaletteCGB;
 
-	private Array2D!BGR555 pixels;
+	private Array2D!ColourFormat pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
 		const sprHeight = 8 * (1 + !!(registers.lcdc & LCDCFlags.tallSprites));
@@ -220,7 +221,7 @@ struct PPU {
 	Array2D!(const CGBBGAttributeValue) windowScreenCGB2D() const @safe pure {
 		return Array2D!(const CGBBGAttributeValue)(32, 32, 32, cast(const(CGBBGAttributeValue)[])(cgbMode ? windowScreenCGB : dmgExt[0 .. 0x400]));
 	}
-	BGR555 getColour(int b, int palette) const @safe pure {
+	ColourFormat getColour(int b, int palette) const @safe pure {
 		return paletteRAM[palette * 4 + b];
 	}
 	Intertwined2BPP getTile(short id, bool useLCDC, ubyte bank) const @safe pure {
@@ -234,9 +235,9 @@ struct PPU {
 		return (cast(const(Intertwined2BPP)[])(vram[0x0000 + bank * 0x2000 .. 0x1800 + bank * 0x2000]))[id];
 	}
 	void beginDrawing(ubyte[] pixels, size_t stride) @safe pure {
-		beginDrawing(Array2D!BGR555(width, height, cast(int)(stride / BGR555.sizeof), cast(BGR555[])pixels));
+		beginDrawing(Array2D!ColourFormat(width, height, cast(int)(stride / ColourFormat.sizeof), cast(ColourFormat[])pixels));
 	}
-	void beginDrawing(Array2D!BGR555 pixels) @safe pure {
+	void beginDrawing(Array2D!ColourFormat pixels) @safe pure {
 		oamSorted = cast(OAMEntry[])oam;
 		if (!cgbMode) {
 			// optimization that can be enabled when the OAM is not modified mid-frame and is discarded at the end
@@ -255,13 +256,13 @@ struct PPU {
 			runLine();
 		}
 	}
-	void drawFullBackground(Array2D!BGR555 buffer) const @safe pure {
+	void drawFullBackground(Array2D!ColourFormat buffer) const @safe pure {
 		drawDebugCommon(buffer, bgScreen2D, bgScreenCGB2D);
 	}
-	void drawFullWindow(Array2D!BGR555 buffer) const @safe pure {
+	void drawFullWindow(Array2D!ColourFormat buffer) const @safe pure {
 		drawDebugCommon(buffer, windowScreen2D, windowScreenCGB2D);
 	}
-	void drawDebugCommon(Array2D!BGR555 buffer, const Array2D!(const ubyte) tiles, const Array2D!(const CGBBGAttributeValue) attributes) const @safe pure {
+	void drawDebugCommon(Array2D!ColourFormat buffer, const Array2D!(const ubyte) tiles, const Array2D!(const CGBBGAttributeValue) attributes) const @safe pure {
 		foreach (size_t tileX, size_t tileY, const ubyte tileID; tiles) {
 			const tile = getTile(tileID, true, attributes[tileX, tileY].bank);
 			foreach (subPixelX; 0 .. 8) {
@@ -279,7 +280,7 @@ struct PPU {
 			}
 		}
 	}
-	void drawFullTileData(Array2D!BGR555 buffer) @safe pure
+	void drawFullTileData(Array2D!ColourFormat buffer) @safe pure
 		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
 		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
 		in (buffer.dimensions[0] * buffer.dimensions[1] <= 768 * 8 * 8, "Buffer too small")
@@ -296,9 +297,9 @@ struct PPU {
 		}
 	}
 	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
-		drawSprite(Array2D!BGR555(8, 16, cast(int)(stride / ushort.sizeof), cast(BGR555[])pixels), sprite);
+		drawSprite(Array2D!ColourFormat(8, 16, cast(int)(stride / ushort.sizeof), cast(ColourFormat[])pixels), sprite);
 	}
-	void drawSprite(Array2D!BGR555 buffer, uint sprite) @safe pure {
+	void drawSprite(Array2D!ColourFormat buffer, uint sprite) @safe pure {
 		const tiles = 1 + !!(registers.lcdc & LCDCFlags.tallSprites);
 		const oamEntry = (cast(OAMEntry[])oam)[sprite];
 		foreach (tileID; 0 .. tiles) {
@@ -322,7 +323,7 @@ struct PPU {
 		}
 		void writePaletteDMG(ubyte value, size_t paletteIndex) {
 			if (!cgbMode) {
-				BGR555[] palette = paletteRAM[paletteIndex * 4 .. (paletteIndex + 1) * 4];
+				ColourFormat[] palette = paletteRAM[paletteIndex * 4 .. (paletteIndex + 1) * 4];
 				palette[0] = gbPalette[paletteIndex * 4 + (value & 3)];
 				palette[1] = gbPalette[paletteIndex * 4 + ((value >> 2) & 3)];
 				palette[2] = gbPalette[paletteIndex * 4 + ((value >> 4) & 3)];
@@ -434,7 +435,7 @@ struct PPU {
 		}
 		enum height = 256;
 		enum width = 256;
-		static Array2D!BGR555 buffer = Array2D!BGR555(width, height);
+		static Array2D!ColourFormat buffer = Array2D!ColourFormat(width, height);
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("State")) {
 				if (ImGui.TreeNode("STAT", "STAT: %02X", registers.stat)) {
@@ -518,11 +519,11 @@ struct PPU {
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				drawZoomableTiles(cast(Intertwined2BPP[])vram, cast(BGR555[4][])(paletteRAM[]), video, surface);
+				drawZoomableTiles(cast(Intertwined2BPP[])vram, cast(ColourFormat[4][])(paletteRAM[]), video, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
-				drawSprites!BGR555(_oam.length, video, 8, 16, (canvas, index) {
+				drawSprites!ColourFormat(_oam.length, video, 8, 16, (canvas, index) {
 					drawSprite(canvas, cast(uint)index);
 				}, (index) {
 					const sprite = _oam[index];
@@ -577,7 +578,7 @@ unittest {
 		ubyte value;
 	}
 	static auto draw(ref PPU ppu, FauxDMA[] dma = []) {
-		auto buffer = Array2D!BGR555(width, height);
+		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
 		ppu.beginDrawing(buffer);
 		foreach (i; 0 .. height) {
 			foreach (entry; dma) {
@@ -678,10 +679,10 @@ unittest {
 					ppu.oam[] = data;
 					break;
 				case "ppu.cgbBgPalettes":
-					ppu.paletteRAM[0 .. 32] = cast(const(BGR555)[])data;
+					ppu.paletteRAM[0 .. 32] = cast(const(PPU.ColourFormat)[])data;
 					break;
 				case "ppu.cgbObjPalettes":
-					ppu.paletteRAM[32 .. 64] = cast(const(BGR555)[])data;
+					ppu.paletteRAM[32 .. 64] = cast(const(PPU.ColourFormat)[])data;
 					break;
 				default:
 					break;
@@ -731,17 +732,17 @@ immutable ushort[] pixelBitmasks = [
 	0b0100000001000000,
 	0b1000000010000000,
 ];
-immutable BGR555[] pocketPalette = [
-	BGR555(31, 31, 31),
-	BGR555(22, 22, 22),
-	BGR555(13, 13, 13),
-	BGR555(0, 0, 0)
+immutable PPU.ColourFormat[] pocketPalette = [
+	PPU.ColourFormat(31, 31, 31),
+	PPU.ColourFormat(22, 22, 22),
+	PPU.ColourFormat(13, 13, 13),
+	PPU.ColourFormat(0, 0, 0)
 ];
 enum pocketPaletteCGB = pocketPalette.repeat(16).joiner.array;
-immutable BGR555[] dmgPalette = [
-	BGR555(red: 19, green: 23, blue: 1),
-	BGR555(red: 17, green: 21, blue: 1),
-	BGR555(red: 6, green: 12, blue: 6),
-	BGR555(red: 1, green: 7, blue: 1)
+immutable PPU.ColourFormat[] dmgPalette = [
+	PPU.ColourFormat(red: 19, green: 23, blue: 1),
+	PPU.ColourFormat(red: 17, green: 21, blue: 1),
+	PPU.ColourFormat(red: 6, green: 12, blue: 6),
+	PPU.ColourFormat(red: 1, green: 7, blue: 1)
 ];
 enum dmgPaletteCGB = dmgPalette.repeat(16).joiner.array;

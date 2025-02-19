@@ -8,11 +8,13 @@ import replatform64.util;
 
 import core.stdc.stdint;
 import std.algorithm.comparison;
+import std.algorithm.iteration;
 import std.bitmanip;
 import std.format;
 import std.range;
 
 import tilemagic.colours;
+import tilemagic.tiles;
 
 immutable ubyte[4][2] nametableMirrorLookup = [
 	[0, 0, 1, 1], // Vertical
@@ -22,74 +24,74 @@ immutable ubyte[4][2] nametableMirrorLookup = [
 /**
  * Default hardcoded palette.
  */
-__gshared const ARGB8888[64] defaultPaletteRGB = [
-	ARGB8888(blue: 102, green: 102, red: 102),
-	ARGB8888(blue: 136, green: 42, red: 0),
-	ARGB8888(blue: 167, green: 18, red: 20),
-	ARGB8888(blue: 164, green: 0, red: 59),
-	ARGB8888(blue: 126, green: 0, red: 92),
-	ARGB8888(blue: 64, green: 0, red: 110),
-	ARGB8888(blue: 0, green: 6, red: 108),
-	ARGB8888(blue: 0, green: 29, red: 86),
-	ARGB8888(blue: 0, green: 53, red: 51),
-	ARGB8888(blue: 0, green: 72, red: 11),
-	ARGB8888(blue: 0, green: 82, red: 0),
-	ARGB8888(blue: 8, green: 79, red: 0),
-	ARGB8888(blue: 77, green: 64, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
+__gshared const PPU.ColourFormat[64] defaultPaletteRGB = [
+	PPU.ColourFormat(blue: 102, green: 102, red: 102),
+	PPU.ColourFormat(blue: 136, green: 42, red: 0),
+	PPU.ColourFormat(blue: 167, green: 18, red: 20),
+	PPU.ColourFormat(blue: 164, green: 0, red: 59),
+	PPU.ColourFormat(blue: 126, green: 0, red: 92),
+	PPU.ColourFormat(blue: 64, green: 0, red: 110),
+	PPU.ColourFormat(blue: 0, green: 6, red: 108),
+	PPU.ColourFormat(blue: 0, green: 29, red: 86),
+	PPU.ColourFormat(blue: 0, green: 53, red: 51),
+	PPU.ColourFormat(blue: 0, green: 72, red: 11),
+	PPU.ColourFormat(blue: 0, green: 82, red: 0),
+	PPU.ColourFormat(blue: 8, green: 79, red: 0),
+	PPU.ColourFormat(blue: 77, green: 64, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
 
-	ARGB8888(blue: 173, green: 173, red: 173),
-	ARGB8888(blue: 217, green: 95, red: 21),
-	ARGB8888(blue: 255, green: 64, red: 66),
-	ARGB8888(blue: 254, green: 39, red: 117),
-	ARGB8888(blue: 204, green: 26, red: 160),
-	ARGB8888(blue: 123, green: 30, red: 183),
-	ARGB8888(blue: 32, green: 49, red: 181),
-	ARGB8888(blue: 0, green: 78, red: 153),
-	ARGB8888(blue: 0, green: 109, red: 107),
-	ARGB8888(blue: 0, green: 135, red: 56),
-	ARGB8888(blue: 0, green: 147, red: 12),
-	ARGB8888(blue: 50, green: 143, red: 0),
-	ARGB8888(blue: 141, green: 124, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 173, green: 173, red: 173),
+	PPU.ColourFormat(blue: 217, green: 95, red: 21),
+	PPU.ColourFormat(blue: 255, green: 64, red: 66),
+	PPU.ColourFormat(blue: 254, green: 39, red: 117),
+	PPU.ColourFormat(blue: 204, green: 26, red: 160),
+	PPU.ColourFormat(blue: 123, green: 30, red: 183),
+	PPU.ColourFormat(blue: 32, green: 49, red: 181),
+	PPU.ColourFormat(blue: 0, green: 78, red: 153),
+	PPU.ColourFormat(blue: 0, green: 109, red: 107),
+	PPU.ColourFormat(blue: 0, green: 135, red: 56),
+	PPU.ColourFormat(blue: 0, green: 147, red: 12),
+	PPU.ColourFormat(blue: 50, green: 143, red: 0),
+	PPU.ColourFormat(blue: 141, green: 124, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
 
-	ARGB8888(blue: 255, green: 254, red: 255),
-	ARGB8888(blue: 255, green: 176, red: 100),
-	ARGB8888(blue: 255, green: 144, red: 146),
-	ARGB8888(blue: 255, green: 118, red: 198),
-	ARGB8888(blue: 255, green: 106, red: 243),
-	ARGB8888(blue: 204, green: 110, red: 254),
-	ARGB8888(blue: 112, green: 129, red: 254),
-	ARGB8888(blue: 34, green: 158, red: 234),
-	ARGB8888(blue: 0, green: 190, red: 188),
-	ARGB8888(blue: 0, green: 216, red: 136),
-	ARGB8888(blue: 48, green: 228, red: 92),
-	ARGB8888(blue: 130, green: 224, red: 69),
-	ARGB8888(blue: 222, green: 205, red: 72),
-	ARGB8888(blue: 79, green: 79, red: 79),
-	ARGB8888(blue: 0, green: 0, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 255, green: 254, red: 255),
+	PPU.ColourFormat(blue: 255, green: 176, red: 100),
+	PPU.ColourFormat(blue: 255, green: 144, red: 146),
+	PPU.ColourFormat(blue: 255, green: 118, red: 198),
+	PPU.ColourFormat(blue: 255, green: 106, red: 243),
+	PPU.ColourFormat(blue: 204, green: 110, red: 254),
+	PPU.ColourFormat(blue: 112, green: 129, red: 254),
+	PPU.ColourFormat(blue: 34, green: 158, red: 234),
+	PPU.ColourFormat(blue: 0, green: 190, red: 188),
+	PPU.ColourFormat(blue: 0, green: 216, red: 136),
+	PPU.ColourFormat(blue: 48, green: 228, red: 92),
+	PPU.ColourFormat(blue: 130, green: 224, red: 69),
+	PPU.ColourFormat(blue: 222, green: 205, red: 72),
+	PPU.ColourFormat(blue: 79, green: 79, red: 79),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
 
-	ARGB8888(blue: 255, green: 254, red: 255),
-	ARGB8888(blue: 255, green: 223, red: 192),
-	ARGB8888(blue: 255, green: 210, red: 211),
-	ARGB8888(blue: 255, green: 200, red: 232),
-	ARGB8888(blue: 255, green: 194, red: 251),
-	ARGB8888(blue: 234, green: 196, red: 254),
-	ARGB8888(blue: 197, green: 204, red: 254),
-	ARGB8888(blue: 165, green: 216, red: 247),
-	ARGB8888(blue: 148, green: 229, red: 228),
-	ARGB8888(blue: 150, green: 239, red: 207),
-	ARGB8888(blue: 171, green: 244, red: 189),
-	ARGB8888(blue: 204, green: 243, red: 179),
-	ARGB8888(blue: 242, green: 235, red: 181),
-	ARGB8888(blue: 184, green: 184, red: 184),
-	ARGB8888(blue: 0, green: 0, red: 0),
-	ARGB8888(blue: 0, green: 0, red: 0)
+	PPU.ColourFormat(blue: 255, green: 254, red: 255),
+	PPU.ColourFormat(blue: 255, green: 223, red: 192),
+	PPU.ColourFormat(blue: 255, green: 210, red: 211),
+	PPU.ColourFormat(blue: 255, green: 200, red: 232),
+	PPU.ColourFormat(blue: 255, green: 194, red: 251),
+	PPU.ColourFormat(blue: 234, green: 196, red: 254),
+	PPU.ColourFormat(blue: 197, green: 204, red: 254),
+	PPU.ColourFormat(blue: 165, green: 216, red: 247),
+	PPU.ColourFormat(blue: 148, green: 229, red: 228),
+	PPU.ColourFormat(blue: 150, green: 239, red: 207),
+	PPU.ColourFormat(blue: 171, green: 244, red: 189),
+	PPU.ColourFormat(blue: 204, green: 243, red: 179),
+	PPU.ColourFormat(blue: 242, green: 235, red: 181),
+	PPU.ColourFormat(blue: 184, green: 184, red: 184),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0),
+	PPU.ColourFormat(blue: 0, green: 0, red: 0)
 ];
 
 struct OAMEntry {
@@ -168,10 +170,11 @@ uint getTilemapOffset(uint x, uint y, MirrorType mirrorMode) @safe pure {
  * Emulates the NES Picture Processing Unit.
  */
 struct PPU {
+	alias ColourFormat = ARGB8888;
 	enum width = 256;
 	enum height = 240;
 	/// RGB representation of the NES palette.
-	const(ARGB8888)[] paletteRGB = defaultPaletteRGB;
+	const(ColourFormat)[] paletteRGB = defaultPaletteRGB;
 	ubyte[] chr;
 	ubyte[] nametable;
 	ubyte[32] palette;
@@ -200,7 +203,7 @@ struct PPU {
 			return index + (ppuCtrl & (1 << 3) ? 256 : 0);
 		}
 	}
-	void drawFullTileData(Array2D!ARGB8888 buffer, size_t paletteIndex) @safe pure
+	void drawFullTileData(Array2D!ColourFormat buffer, size_t paletteIndex) @safe pure
 		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
 		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
 		in (buffer.dimensions[0] * buffer.dimensions[1] <= 512 * 8 * 8, "Buffer too small")
@@ -218,7 +221,7 @@ struct PPU {
 			}
 		}
 	}
-	void drawSprite(scope Array2D!ARGB8888 buffer, uint i, bool background, bool ignoreOAMCoords = false) @safe pure {
+	void drawSprite(scope Array2D!ColourFormat buffer, uint i, bool background, bool ignoreOAMCoords = false) @safe pure {
 		// Read OAM for the sprite
 		ubyte y = ignoreOAMCoords ? 0xFF : oam[i].y;
 		ubyte index = oam[i].index;
@@ -291,7 +294,7 @@ struct PPU {
 	/**
 	 * Render to a frame buffer.
 	 */
-	void render(Array2D!ARGB8888 buffer) @safe pure {
+	void render(Array2D!ColourFormat buffer) @safe pure {
 		// Clear the buffer with the background color
 		buffer[0 .. $, 0 .. $] = paletteRGB[palette[0]];
 
@@ -435,7 +438,7 @@ struct PPU {
 
 		return value;
 	}
-	private void renderTile(scope Array2D!ARGB8888 buffer, int index, int xOffset, int yOffset) @safe pure {
+	private void renderTile(scope Array2D!ColourFormat buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
 		ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
@@ -502,7 +505,7 @@ struct PPU {
 		}
 	}
 	void debugUI(const UIState state, VideoBackend video) {
-		static ARGB8888[width * height] buffer;
+		static ColourFormat[width * height] buffer;
 		if (ImGui.BeginTabBar("renderer")) {
 			if (ImGui.BeginTabItem("Registers")) {
 				if (ImGui.TreeNode("PPUCTRL", "PPUCTRL: %02X", ppuCtrl)) {
@@ -594,9 +597,9 @@ struct PPU {
 					foreach (idx, sprite; cast(OAMEntry[])oam) {
 						ImGui.TableNextColumn();
 						if (spriteSurfaces[idx] is null) {
-							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormat.abgr8888);
+							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormatOf!ColourFormat);
 						}
-						auto sprBuffer = Array2D!ARGB8888(sprWidth, sprHeight, buffer[0 .. sprWidth * sprHeight]);
+						auto sprBuffer = Array2D!ColourFormat(sprWidth, sprHeight, buffer[0 .. sprWidth * sprHeight]);
 						drawSprite(sprBuffer, cast(uint)idx, false, true);
 						video.setSurfacePixels(spriteSurfaces[idx], cast(ubyte[])sprBuffer[]);
 						ImGui.Image(spriteSurfaces[idx], ImVec2(sprWidth * 4.0, sprHeight * 4.0));
@@ -631,12 +634,12 @@ unittest {
 	import std.string : lineSplitter;
 	enum width = 256;
 	enum height = 240;
-	static Array2D!ARGB8888 draw(ref PPU ppu) {
-		auto buffer = Array2D!ARGB8888(width, height);
+	static Array2D!(PPU.ColourFormat) draw(ref PPU ppu) {
+		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
 		ppu.render(buffer);
 		return buffer;
 	}
-	static Array2D!ARGB8888 renderMesen2State(string filename) {
+	static Array2D!(PPU.ColourFormat) renderMesen2State(string filename) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
 		ppu.chr = new ubyte[](0x2000);

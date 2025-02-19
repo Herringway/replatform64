@@ -51,14 +51,14 @@ struct SNESRenderer {
 		final switch (rendererSettings.engine) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
-				textureType = PixelFormat.rgb555;
+				textureType = PixelFormatOf!(SnesDrawFrameData.ColourFormat);
 				width = defaultWidth * 2;
 				height = defaultHeight * 2;
 				enforce(loadLibSFCPPU() == LoadMsg.success, "Could not load SnesDrawFrame");
 				enforce(libsfcppu_init(), "Could not initialize SnesDrawFrame");
 				break;
 			case Renderer.neo:
-				textureType = PixelFormat.rgba8888;
+				textureType = PixelFormatOf!(PPU.ColourFormat);
 				neoRenderer.extraLeftRight = (defaultWidth - 256) / 2;
 				neoRenderer.setExtraSideSpace((defaultWidth - 256) / 2, (defaultWidth - 256) / 2, (defaultHeight - 224) / 2);
 				break;
@@ -84,10 +84,12 @@ struct SNESRenderer {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
-				bsnesFrame.drawFrame(Array2D!BGR555(width, height, pitch / BGR555.sizeof, cast(BGR555[])(texture[])));
+				alias Fmt = SnesDrawFrameData.ColourFormat;
+				bsnesFrame.drawFrame(Array2D!Fmt(width, height, pitch / Fmt.sizeof, cast(Fmt[])(texture[])));
 				break;
 			case Renderer.neo:
-				auto buffer = Array2D!ABGR8888(width, height, pitch / ABGR8888.sizeof, cast(ABGR8888[])texture);
+				alias Fmt = PPU.ColourFormat;
+				auto buffer = Array2D!Fmt(width, height, pitch / Fmt.sizeof, cast(Fmt[])texture);
 				neoRenderer.beginDrawing(KPPURenderFlags.newRenderer);
 				HDMAWrite[] hdmaTemp = neoHDMAData[0 .. neoNumHDMA];
 				foreach (i; 0 .. height) {

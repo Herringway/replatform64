@@ -138,6 +138,7 @@ struct Texture {
 	void* surface;
 	PixelFormat format;
 	Array2D!T asArray2D(T)() @safe pure {
+		assert(format == PixelFormatOf!T, "Requested texture format mismatch!");
 		return Array2D!T(width, height, pitch / T.sizeof, cast(T[])buffer);
 	}
 	void delegate() @safe nothrow @nogc cleanup;
