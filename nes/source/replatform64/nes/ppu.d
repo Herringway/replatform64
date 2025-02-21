@@ -196,7 +196,7 @@ struct PPU {
 		return 0;
 	}
 
-	ushort getSpriteBase(ubyte index) @safe pure {
+	ushort getSpriteBase(ubyte index) const @safe pure {
 		if (ppuCtrl & (1 << 5)) { //8x16 mode
 			return (index & 0xFE) + (index & 1 ? 256 : 0);
 		} else {
@@ -221,7 +221,7 @@ struct PPU {
 			}
 		}
 	}
-	void drawSprite(scope Array2D!ColourFormat buffer, uint i, bool background, bool ignoreOAMCoords = false) @safe pure {
+	void drawSprite(scope Array2D!ColourFormat buffer, uint i, bool background, bool ignoreOAMCoords) const @safe pure {
 		// Read OAM for the sprite
 		ubyte y = ignoreOAMCoords ? 0xFF : oam[i].y;
 		ubyte index = oam[i].index;
@@ -419,7 +419,7 @@ struct PPU {
 
 		return 0;
 	}
-	private ubyte readCHR(int index) @safe pure {
+	private ubyte readCHR(int index) const @safe pure {
 		if (index < 0x2000) {
 			return chr[index];
 		} else {
