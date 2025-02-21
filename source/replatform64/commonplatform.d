@@ -389,17 +389,17 @@ struct PlatformCommon {
 			}
 		}
 	}
-	private void loadAsset(alias Symbol)(const(ubyte)[] data, string label, string source) {
+	private void loadAsset(bool structured, T)(ref T dest, const(ubyte)[] data, const SymbolMetadata metadata, string label, string source) {
 		tracef("Loading %s from %s", label, source);
-		static if (Symbol.metadata.type == DataType.structured) {
-			auto symbolData = (cast(const(char)[])data).fromString!(typeof(Symbol.data), YAML)(label);
+		static if (structured) {
+			auto symbolData = (cast(const(char)[])data).fromString!(T, YAML)(label);
 		} else {
-			auto symbolData = cast(Symbol.ReadableElementType!())data;
+			auto symbolData = cast(ReadableElementType!(T))data;
 		}
-		static if (is(typeof(Symbol.data) : T[], T)) {
-			Symbol.data ~= symbolData;
+		static if (is(T : E[], E)) {
+			dest ~= symbolData;
 		} else {
-			Symbol.data = symbolData;
+			dest = symbolData;
 		}
 	}
 	void loadAssets(Modules...)(LoadFunction func) {
@@ -422,7 +422,7 @@ struct PlatformCommon {
 						Symbol.data = [];
 					} else {
 						nonArrayAlreadyLoaded[asset.name] = true;
-						loadAsset!Symbol(data, asset.name, "planet");
+						loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, data, Symbol.metadata, asset.name, "planet");
 					}
 				}}();
 			}
@@ -436,7 +436,7 @@ struct PlatformCommon {
 					() {
 					if (file.matches(Symbol.metadata)) {
 						foreach (arrayAsset; arrayAssets[file]) {
-							loadAsset!Symbol(arrayAsset, file, "planet");
+							loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, arrayAsset, Symbol.metadata, file, "planet");
 						}
 					}}();
 				}
@@ -449,7 +449,7 @@ struct PlatformCommon {
 				const path = buildPath("data", assetPath(Symbol.metadata, 0));
 				if (path.exists) {
 					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
-					loadAsset!Symbol(fileData, assetPath(Symbol.metadata, 0), "filesystem");
+					loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, fileData, Symbol.metadata, assetPath(Symbol.metadata, 0), "filesystem");
 				}
 			}}();
 		}

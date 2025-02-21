@@ -46,22 +46,21 @@ struct Asset {
 private enum isROMLoadable(alias sym) = (Filter!(typeMatches!ROMSource, __traits(getAttributes, sym)).length == 1) || (Filter!(typeMatches!(ROMSource[]), __traits(getAttributes, sym)).length == 1);
 private enum isAsset(alias sym) = Filter!(typeMatches!Asset, __traits(getAttributes, sym)).length == 1;
 
+template ReadableElementType(Sym) {
+	static if (is(Sym == S[], S)) {
+		static if (is(S == T[], T)) {
+			alias ReadableElementType = T[];
+		} else {
+			alias ReadableElementType = S[];
+		}
+	} else {
+		alias ReadableElementType = ubyte[];
+	}
+	static assert(is(ReadableElementType == X[], X));
+}
 struct SymbolDataItem(alias Sym) {
 	alias data = Sym;
 	SymbolMetadata metadata;
-	template ReadableElementType() {
-		//pragma(msg, __traits(identifier, Sym), ", ", typeof(Sym));
-		static if (is(typeof(Sym) == S[], S)) {
-			static if (is(S == T[], T)) {
-				alias ReadableElementType = T[];
-			} else {
-				alias ReadableElementType = S[];
-			}
-		} else {
-			alias ReadableElementType = ubyte[];
-		}
-		static assert(is(ReadableElementType == X[], X));
-	}
 }
 
 string defaultExtension(DataType type) {
