@@ -571,34 +571,21 @@ struct PPU {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
-				static void*[64] spriteSurfaces;
-				const sprHeight = 8 * (1 + !!(ppuCtrl & (1 << 5)));
-				enum sprWidth = 8;
-				if (ImGui.BeginTable("oamTable", 8)) {
-					foreach (idx, sprite; cast(OAMEntry[])oam) {
-						ImGui.TableNextColumn();
-						if (spriteSurfaces[idx] is null) {
-							spriteSurfaces[idx] = video.createSurface(sprWidth, sprHeight, ushort.sizeof * sprWidth, PixelFormatOf!ColourFormat);
-						}
-						auto sprBuffer = Array2D!ColourFormat(sprWidth, sprHeight, buffer[0 .. sprWidth * sprHeight]);
-						drawSprite(sprBuffer, cast(uint)idx, false, true);
-						video.setSurfacePixels(spriteSurfaces[idx], cast(ubyte[])sprBuffer[]);
-						ImGui.Image(spriteSurfaces[idx], ImVec2(sprWidth * 4.0, sprHeight * 4.0));
-						if (ImGui.BeginItemTooltip()) {
-							ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
-							ImGui.Text("Tile: %d", sprite.index);
-							ImGui.Text("Orientation: ");
-							ImGui.SameLine();
-							ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flipVertical << 1) + sprite.flipHorizontal]);
-							ImGui.Text("Priority: ");
-							ImGui.SameLine();
-							ImGui.Text(["Normal", "High"][sprite.priority]);
-							ImGui.Text("Palette: %d", sprite.palette);
-							ImGui.EndTooltip();
-						}
-					}
-					ImGui.EndTable();
-				}
+				drawSprites!ColourFormat(oam.length, video, 8, 16, (canvas, index) {
+					drawSprite(canvas, cast(uint)index, false, true);
+				}, (index) {
+					const sprite = oam[index];
+					ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
+					ImGui.Text("Tile: %d", sprite.index);
+					ImGui.Text("Orientation: ");
+					ImGui.SameLine();
+					ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flipVertical << 1) + sprite.flipHorizontal]);
+					ImGui.Text("Priority: ");
+					ImGui.SameLine();
+					ImGui.Text(["Normal", "High"][sprite.priority]);
+					ImGui.Text("Palette: %d", sprite.palette);
+
+				});
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();
