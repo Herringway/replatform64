@@ -16,7 +16,7 @@ template typeMatches(T) {
 }
 
 template PixelFormatOf(T) {
-	import tilemagic.colours : ABGR8888, ARGB8888, BGR555, RGB555, RGBA8888;
+	import tilemagic.colours : ABGR8888, ARGB8888, BGR555, BGRA8888, RGB555, RGBA8888;
 	static if (is(T == BGR555)) {
 		alias PixelFormatOf = PixelFormat.bgr555;
 	} else static if (is(T == RGB555)) {
@@ -27,6 +27,8 @@ template PixelFormatOf(T) {
 		alias PixelFormatOf = PixelFormat.abgr8888;
 	} else static if (is(T == RGBA8888)) {
 		alias PixelFormatOf = PixelFormat.rgba8888;
+	} else static if (is(T == BGRA8888)) {
+		alias PixelFormatOf = PixelFormat.bgra8888;
 	} else {
 		static assert(0, "No support");
 	}

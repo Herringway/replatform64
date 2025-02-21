@@ -360,7 +360,7 @@ private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) {
 	const colours = 1 << T.bpp;
 	foreach (i; 0 .. colours) {
 		ubyte g = cast(ubyte)((255 / colours) * (colours - i));
-		img.addColor(RGBA8888(g, g, g, i == 0 ? 0 : 255));
+		img.addColor(RGBA32(red: g, green: g, blue: g, alpha: i == 0 ? 0 : 255));
 	}
 	foreach (tileID, tile; tiles) {
 		foreach (colIdx; 0 .. 8) {

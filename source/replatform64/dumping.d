@@ -8,7 +8,7 @@ import std.path;
 import std.stdio;
 
 import justimages.png;
-import tilemagic.colours : RGBA8888;
+import tilemagic.colours : RGBA32;
 
 import replatform64.backend.common.interfaces;
 import replatform64.util;
@@ -70,5 +70,5 @@ Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
 }
 
 static void dumpPNG(T)(const Array2D!T frame, string file) {
-	writePng(file, convert!RGBA8888(frame), PngType.truecolor_with_alpha);
+	writePng(file, convert!RGBA32(frame), PngType.truecolor_with_alpha);
 }
