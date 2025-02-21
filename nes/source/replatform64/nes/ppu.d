@@ -303,7 +303,7 @@ struct PPU {
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
 			for (int i = 63; i >= 0; i--) {
-				drawSprite(buffer, i, true);
+				drawSprite(buffer, i, true, false);
 			}
 		}
 
@@ -328,7 +328,7 @@ struct PPU {
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
 			for (int i = 63; i >= 0; i--) {
-				drawSprite(buffer, i, false);
+				drawSprite(buffer, i, false, false);
 			}
 		}
 	}
