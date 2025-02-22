@@ -205,19 +205,17 @@ struct PPU {
 		}
 	}
 	void drawFullTileData(Array2D!ColourFormat buffer, size_t paletteIndex) @safe pure
-		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
-		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
-		in (buffer.dimensions[0] * buffer.dimensions[1] <= 512 * 8 * 8, "Buffer too small")
+		in (buffer.width % 8 == 0, "Buffer width must be a multiple of 8")
+		in (buffer.height % 8 == 0, "Buffer height must be a multiple of 8")
+		in (buffer.width * buffer.height <= 512 * 8 * 8, "Buffer too small")
 	{
 		foreach (tileID; 0 .. 512) {
-			const tileX = (tileID % (buffer.dimensions[0] / 8));
-			const tileY = (tileID / (buffer.dimensions[0] / 8));
+			const tileX = (tileID % (buffer.width / 8));
+			const tileY = (tileID / (buffer.width / 8));
+			const tile = (cast(Linear2BPP[])this.chr[])[tileID];
 			foreach (subPixelY; 0 .. 8) {
-				const plane1 = readCHR(tileID * 16 + subPixelY);
-				const plane2 = readCHR(tileID * 16 + subPixelY + 8);
 				foreach (subPixelX; 0 .. 8) {
-					const colourIndex = (((plane1 & (1 << (7 - subPixelX))) ? 1 : 0) + ((plane2 & (1 << (7 - subPixelX))) ? 2 : 0));
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRGB[palette[paletteIndex * 4 + colourIndex]];
+					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRGB[palette[paletteIndex * 4 + tile[subPixelX, subPixelY]]];
 				}
 			}
 		}
