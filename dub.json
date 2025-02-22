@@ -23,6 +23,5 @@
 		"helloworldgb"
 	],
 	"stringImportPaths": ["testdata"],
-	"versions": ["SDL_2018", "SDL_Mixer_200"],
 	"name": "replatform64"
 }
