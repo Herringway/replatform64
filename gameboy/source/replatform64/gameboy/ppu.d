@@ -70,12 +70,14 @@ struct PPU {
 		const baseY = registers.scy + registers.ly;
 		const baseWindowY = registers.ly - registers.wy;
 		auto pixelRow = pixels[0 .. $, registers.ly];
+		// get this row of tiles for the background and window
 		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
 		const tilemapRowAttributes = bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth];
 		const windowTilemapBase = (max(0, baseWindowY) / 8) * 32;
 		const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
 		const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
+		// draw pixels from left to right
 		foreach (x; 0 .. width) {
 			size_t highestMatchingSprite = size_t.max;
 			int highestX = int.max;
