@@ -270,14 +270,14 @@ struct PPU {
 
 		// Draw the background (nametable)
 		if (ppuMask.enableBG) { // Is the background enabled?
-			int scrollX = cast(int)ppuScrollX + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
-			int scrollY = cast(int)ppuScrollY + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
-			int xMin = scrollX / 8;
-			int xMax = (cast(int)scrollX + 256) / 8;
-			int yMin = scrollY / 8;
-			int yMax = (cast(int)scrollY + 240) / 8;
-			for (int x = xMin; x <= xMax; x++) {
-				for (int y = yMin; y < yMax; y++) {
+			const scrollX = cast(int)ppuScrollX + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
+			const scrollY = cast(int)ppuScrollY + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
+			const xMin = scrollX / 8;
+			const xMax = (cast(int)scrollX + 256) / 8;
+			const yMin = scrollY / 8;
+			const yMax = (cast(int)scrollY + 240) / 8;
+			foreach (x; xMin .. xMax) {
+				foreach (y; yMin .. yMax) {
 					// Render the tile
 					renderTile(buffer, getTilemapOffset(x, y), (x * 8) - scrollX, (y * 8) - scrollY);
 				}
@@ -288,7 +288,7 @@ struct PPU {
 		if (ppuMask.enableSprites) {
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
-			for (int i = 63; i >= 0; i--) {
+			foreach_reverse (i; 0 .. 63) {
 				drawSprite(buffer, i, false, false);
 			}
 		}
