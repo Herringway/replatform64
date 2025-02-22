@@ -364,14 +364,8 @@ struct PPU {
 			void renderTile(Tile tile, const uint start, uint end) {
 				const z = cast(ushort)(priorities[tile.priority] + (tile.palette << bpp));
 				foreach (i; 8 - start .. end) {
-					ubyte tileX = cast(ubyte)i;
-					ubyte tileY = y % 8;
-					if (tile.hFlip) {
-						tileX = cast(ubyte)(7 - tileX);
-					}
-					if (tile.vFlip) {
-						tileY = cast(ubyte)(7 - tileY);
-					}
+					const tileX = autoFlip(cast(ubyte)i, tile.hFlip);
+					const tileY = autoFlip(y % 8, tile.vFlip);
 					const pixel = tiles[tile.chr][tileX, tileY];
 					if (pixel && (z > dstz[i - (8 - start)])) {
 						dstz[i - (8 - start)] = cast(ushort)(z + pixel);
@@ -1176,7 +1170,7 @@ struct PPU {
 						return true;
 					}
 					// figure out which tile this uses, looping within 16x16 pages, and get it's data
-					int usedCol = lowOBJ.flipHorizontal ? spriteSize - 1 - col : col;
+					int usedCol = autoFlip(col, lowOBJ.flipHorizontal, spriteSize);
 					int usedTile = (((lowOBJ.startingTile >> 4) + (row >> 3)) << 4) | (((lowOBJ.startingTile & 0xf) + (usedCol >> 3)) & 0xf);
 					auto addr = vram[(objAdr + usedTile * 16 + (row & 0x7)) & 0x7fff .. $];
 					uint plane = addr[0] | addr[8] << 16;
@@ -1186,7 +1180,7 @@ struct PPU {
 					PpuZbufType[] dst = objBuffer.data[col + x + px_left + kPpuExtraLeftRight .. $];
 
 					for (int px = px_left; px < px_right; px++) {
-						int shift = lowOBJ.flipHorizontal ? px : 7 - px;
+						int shift = autoFlip(px, !lowOBJ.flipHorizontal);
 						uint bits = plane >> shift;
 						int pixel = (bits >> 0) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
 						// draw it in the buffer if there is a pixel here, and the buffer there is still empty
