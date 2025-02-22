@@ -337,3 +337,5 @@ struct FixedPoint2(size_t size, size_t scaling, bool unsigned = false) {
 
 	assert(FP16.fromRaw(0x240).value == 0x240);
 }
+
+ubyte autoFlip(int old, bool flip, ubyte dimension = 8) @safe pure => flip ? cast(ubyte)(dimension - 1 - old) : cast(ubyte)old;

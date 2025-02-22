@@ -221,63 +221,41 @@ struct PPU {
 			}
 		}
 	}
-	void drawSprite(scope Array2D!ColourFormat buffer, uint i, bool background, bool ignoreOAMCoords) const @safe pure {
+	void drawSprite(scope Array2D!ColourFormat buffer, uint i, bool background, bool ignoreOAM) const @safe pure {
 		// Read OAM for the sprite
-		ubyte y = ignoreOAMCoords ? 0xFF : oam[i].y;
-		ubyte index = oam[i].index;
-		ubyte attributes = oam[i].attributes;
-		ubyte x = ignoreOAMCoords ? 0 : oam[i].x;
-
-		// Check if the sprite has the correct priority
-		//
-		if (background != (attributes & (1 << 5))) {
-			return;
-		}
-
-		// Check if the sprite is visible
-		if( y >= 0xef || x >= 0xf9 ) {
-			return;
-		}
-
+		const oamEntry = oam[i];
 		// Increment y by one since sprite data is delayed by one scanline
-		//
-		y++;
+		const baseY = ignoreOAM ? 0 : (oamEntry.y + 1);
+		const baseX = ignoreOAM ? 0 : oamEntry.x;
+		// Check if the sprite has the correct priority
+		if (!ignoreOAM && (background != oamEntry.priority)) {
+			return;
+		}
+		// Check if the sprite is visible
+		if(!ignoreOAM && ((baseY >= 239) || (baseX >= 249))) {
+			return;
+		}
 
 		// Determine the tile to use
-		ushort tile = getSpriteBase(index);
-		bool flipX = (attributes & (1 << 6)) != 0;
-		bool flipY = (attributes & (1 << 7)) != 0;
+		const tile = getSpriteBase(oamEntry.index);
+		const chr = cast(const(Linear2BPP)[])this.chr[];
 		foreach (tileOffset; 0 .. 1 + !!(ppuCtrl & (1 << 5))) {
 			// Copy pixels to the framebuffer
-			for( int row = 0; row < 8; row++ ) {
-				ubyte plane1 = readCHR((tile + tileOffset) * 16 + row);
-				ubyte plane2 = readCHR((tile + tileOffset) * 16 + row + 8);
-
-				for( int column = 0; column < 8; column++ ) {
-					ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
-					ubyte colorIndex = palette[0x10 + (attributes & 0x03) * 4 + paletteIndex];
-					if( paletteIndex == 0 ) {
+			const thisTile = chr[tile + tileOffset];
+			foreach (row; 0 .. 8) {
+				foreach (column; 0 .. 8) {
+					const tileX = autoFlip(column, !oamEntry.flipHorizontal);
+					const tileY = autoFlip(row, oamEntry.flipVertical);
+					const paletteIndex = thisTile[7 - column, row];
+					if (paletteIndex == 0) {
 						// Skip transparent pixels
 						continue;
 					}
-					auto pixel = paletteRGB[colorIndex];
+					auto pixel = paletteRGB[palette[0x10 + oamEntry.palette * 4 + paletteIndex]];
 
-					int xOffset = 7 - column;
-					if( flipX ) {
-						xOffset = column;
-					}
-					int yOffset = row;
-					if( flipY ) {
-						yOffset = 7 - row;
-					}
-
-					int xPixel = cast(int)x + xOffset;
-					int yPixel = cast(int)y + yOffset + (8 * tileOffset);
+					const xPixel = baseX + tileX;
+					const yPixel = baseY + tileY + (8 * tileOffset);
 					if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240) {
-						continue;
-					}
-
-					if (i == 0 && index == 0xff && row == 5 && column > 3 && column < 6) {
 						continue;
 					}
 
