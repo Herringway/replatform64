@@ -13,8 +13,7 @@ import std.logger;
 import std.range;
 import std.stdio;
 
-import tilemagic.colours;
-import justimages.png;
+import pixelmancy.colours;
 import bindbc.loader;
 
 enum Renderer {

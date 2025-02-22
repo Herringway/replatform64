@@ -10,7 +10,7 @@ import replatform64.gameboy.hardware;
 import replatform64.gameboy.ppu;
 import replatform64.util;
 
-import tilemagic.colours;
+import pixelmancy.colours;
 
 struct Renderer {
 	alias PixelFormat = PixelFormatOf!(PPU.ColourFormat);

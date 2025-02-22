@@ -14,8 +14,7 @@ import replatform64.backend.common.interfaces;
 import replatform64.ui;
 import replatform64.util;
 
-import justimages.png;
-import tilemagic;
+import pixelmancy;
 import squiz_box;
 
 alias ProgressUpdateFunction = void delegate(scope const Progress);

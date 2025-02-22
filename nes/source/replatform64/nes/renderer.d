@@ -4,7 +4,7 @@ import replatform64.backend.common;
 import replatform64.nes.ppu;
 import replatform64.util;
 
-import tilemagic.colours;
+import pixelmancy.colours;
 
 struct Renderer {
 	alias PixelFormat = PixelFormatOf!(PPU.ColourFormat);

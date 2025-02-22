@@ -6,7 +6,7 @@ import std.range;
 
 import replatform64.backend.common.interfaces;
 
-public import tilemagic.util : Array2D;
+public import pixelmancy.util : Array2D;
 
 /// Dumps the game state to a human-readable file
 void function(string path) dumpStateToFile = (str) {};
@@ -16,7 +16,7 @@ template typeMatches(T) {
 }
 
 template PixelFormatOf(T) {
-	import tilemagic.colours : ABGR8888, ARGB8888, BGR555, BGRA8888, RGB555, RGBA8888;
+	import pixelmancy.colours : ABGR8888, ARGB8888, BGR555, BGRA8888, RGB555, RGBA8888;
 	static if (is(T == BGR555)) {
 		alias PixelFormatOf = PixelFormat.bgr555;
 	} else static if (is(T == RGB555)) {

@@ -2,7 +2,7 @@ module replatform64.gameboy.hardware;
 
 import std.bitmanip;
 
-public import tilemagic.colours : BGR555;
+public import pixelmancy.colours : BGR555;
 
 alias P1Value = JOYPValue;
 ///

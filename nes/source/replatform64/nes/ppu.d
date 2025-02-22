@@ -14,8 +14,8 @@ import std.bitmanip;
 import std.format;
 import std.range;
 
-import tilemagic.colours;
-import tilemagic.tiles;
+import pixelmancy.colours;
+import pixelmancy.tiles;
 
 immutable ubyte[4][2] nametableMirrorLookup = [
 	[0, 0, 1, 1], // Vertical

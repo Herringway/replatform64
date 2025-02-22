@@ -7,9 +7,8 @@
 	"license": "BSL-1.0",
 	"dependencies": {
 		"bindbc-sdl": "~>2.0.0",
-		"justimages": "*",
 		"siryul": "~>0.6",
-		"tilemagic": "*",
+		"pixelmancy": "~>0.0",
 		"squiz-box": "~>0.3",
 		"d_imgui": { "repository": "git+https://github.com/Herringway/imgui.git", "version": "d88d230e58c85866a1225f53256f2bbdc5d1f8d3" },
 		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "b46aa1abba39b63243965a6c6db506de5fc7c7a2" }

@@ -32,8 +32,8 @@ import replatform64.snes.hardware;
 import replatform64.ui;
 import replatform64.util;
 
-import tilemagic.colours;
-import tilemagic.tiles;
+import pixelmancy.colours;
+import pixelmancy.tiles;
 
 import std.algorithm.comparison;
 import std.algorithm.iteration;

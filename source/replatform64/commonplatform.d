@@ -10,7 +10,7 @@ import replatform64.watchdog;
 
 import imgui.flamegraph;
 
-import tilemagic.colours;
+import pixelmancy.colours;
 
 import core.stdc.stdlib;
 import core.thread;

@@ -4,14 +4,14 @@ import replatform64.backend.common.interfaces;
 import replatform64.dumping;
 import replatform64.util;
 
-import tilemagic.colours;
+import pixelmancy.colours;
 
 package:
 
 auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath) {
 	import std.format : format;
 	import std.path : buildPath;
-	import justimages.png : readPng;
+	import pixelmancy.fileformats.png : readPng;
 	static struct Result {
 		size_t x = size_t.max;
 		size_t y = size_t.max;

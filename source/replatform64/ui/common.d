@@ -187,8 +187,8 @@ void registerBitSel(size_t bits = 1, size_t opts = 1 << bits)(string label, ref 
 void showPalette(T)(T[] palettes, uint entries) {
 	import std.format : format;
 	import std.range : chunks, enumerate;
-	import tilemagic.colours.raw : colourToInteger;
-	import tilemagic.colours.utils : blueFP, greenFP, redFP;
+	import pixelmancy.colours.raw : colourToInteger;
+	import pixelmancy.colours.utils : blueFP, greenFP, redFP;
 	foreach (idx, ref palette; palettes[].chunks(entries).enumerate) {
 		ImGui.SeparatorText(format!"Palette %d"(idx));
 		foreach (i, ref colour; palette) {

@@ -14,8 +14,8 @@ import std.range;
 import bindbc.common;
 import bindbc.loader;
 
-import tilemagic.colours;
-import tilemagic.tiles;
+import pixelmancy.colours;
+import pixelmancy.tiles;
 
 public enum ImgW = 512;
 public enum ImgH = 448;

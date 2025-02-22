@@ -7,8 +7,8 @@ import std.logger;
 import std.path;
 import std.stdio;
 
-import justimages.png;
-import tilemagic.colours : RGBA32;
+import pixelmancy.fileformats.png;
+import pixelmancy.colours : RGBA32;
 
 import replatform64.backend.common.interfaces;
 import replatform64.util;
@@ -61,7 +61,7 @@ void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
 }
 
 Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
-	import tilemagic.colours.formats : convert;
+	import pixelmancy.colours.formats : convert;
 	auto result = Array2D!Target(frame.dimensions[0], frame.dimensions[1]);
 	foreach (x, y, pixel; frame) {
 		result[x, y] = pixel.convert!Target();

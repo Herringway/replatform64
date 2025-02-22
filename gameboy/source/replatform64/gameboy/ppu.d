@@ -13,8 +13,8 @@ import std.bitmanip : bitfields;
 import std.format;
 import std.range;
 
-import tilemagic.colours;
-import tilemagic.tiles.bpp2;
+import pixelmancy.colours;
+import pixelmancy.tiles.bpp2;
 
 union VRAM {
 	ubyte[0x4000] raw;
