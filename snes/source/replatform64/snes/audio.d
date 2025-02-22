@@ -76,7 +76,7 @@ struct SPC700Emulated {
 		// Filter samples
 		filter.run(buffer);
 	}
-	ubyte[] aram() => snes_spc.m.ram.ram[];
+	ubyte[] aram() => snes_spc.m.ram[];
 	void debugging(const UIState uiState) {
 		if (ImGui.BeginTable("Voices", 8)) {
 			foreach (header; ["VOLL", "VOLR", "PITCH", "SRCN", "ADSR", "GAIN", "ENVX", "OUTX"]) {
