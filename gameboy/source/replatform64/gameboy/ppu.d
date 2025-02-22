@@ -200,25 +200,6 @@ struct PPU {
 			}
 		}
 	}
-	void drawFullTileData(Array2D!ColourFormat buffer) @safe pure
-		in (buffer.dimensions[0] % 8 == 0, "Buffer width must be a multiple of 8")
-		in (buffer.dimensions[1] % 8 == 0, "Buffer height must be a multiple of 8")
-		in (buffer.dimensions[0] * buffer.dimensions[1] <= 768 * 8 * 8, "Buffer too small")
-	{
-		foreach (tileID; 0 .. cgbMode ? 768 : 384) {
-			const tileX = (tileID % (buffer.dimensions[0] / 8));
-			const tileY = (tileID / (buffer.dimensions[0] / 8));
-			const tile = getTileUnmapped(cast(short)tileID % 384, cast(ubyte)(tileID / 384));
-			foreach (subPixelX; 0 .. 8) {
-				foreach (subPixelY; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRAM[0][tile[subPixelX, subPixelY]];
-				}
-			}
-		}
-	}
-	void drawSprite(ubyte[] pixels, size_t stride, uint sprite) @safe pure {
-		drawSprite(Array2D!ColourFormat(8, 16, cast(int)(stride / ushort.sizeof), cast(ColourFormat[])pixels), sprite);
-	}
 	void drawSprite(Array2D!ColourFormat buffer, uint sprite) @safe pure {
 		const tiles = 1 + registers.lcdc.tallSprites;
 		const oamEntry = _oam[sprite];

@@ -204,22 +204,6 @@ struct PPU {
 			return index + (ppuCtrl.spritePatternTable ? 256 : 0);
 		}
 	}
-	void drawFullTileData(Array2D!ColourFormat buffer, size_t paletteIndex) @safe pure
-		in (buffer.width % 8 == 0, "Buffer width must be a multiple of 8")
-		in (buffer.height % 8 == 0, "Buffer height must be a multiple of 8")
-		in (buffer.width * buffer.height <= 512 * 8 * 8, "Buffer too small")
-	{
-		foreach (tileID; 0 .. 512) {
-			const tileX = (tileID % (buffer.width / 8));
-			const tileY = (tileID / (buffer.width / 8));
-			const tile = (cast(Linear2BPP[])this.chr[])[tileID];
-			foreach (subPixelY; 0 .. 8) {
-				foreach (subPixelX; 0 .. 8) {
-					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRGB[palette[paletteIndex * 4 + tile[subPixelX, subPixelY]]];
-				}
-			}
-		}
-	}
 	void drawSprite(scope Array2D!ColourFormat buffer, uint i, bool background, bool ignoreOAM) const @safe pure {
 		// Read OAM for the sprite
 		const oamEntry = oam[i];
