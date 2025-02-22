@@ -1125,7 +1125,7 @@ struct PPU {
 
 	private bool evaluateSprites(int line, scope ref PpuPixelPrioBufs objBuffer) const @safe pure {
 		int spritesLeft = 32 + 1, tilesLeft = 34 + 1;
-		ubyte[2] spriteSizes = [ kSpriteSizes[objSize][0], kSpriteSizes[objSize][1] ];
+		const spriteSizes = kSpriteSizes[objSize];
 		if (renderFlags & KPPURenderFlags.noSpriteLimits) {
 			spritesLeft = tilesLeft = 1024;
 		}
