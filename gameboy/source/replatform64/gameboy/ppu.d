@@ -65,7 +65,6 @@ struct PPU {
 	private Array2D!ColourFormat pixels;
 	private OAMEntry[] oamSorted;
 	void runLine() @safe pure {
-		static ubyte flip(int old, ubyte dimension = 8) => cast(ubyte)(dimension - 1 - old);
 		const sprHeight = 8 * (1 + registers.lcdc.tallSprites);
 		const baseX = registers.scx;
 		const baseY = registers.scy + registers.ly;
@@ -83,14 +82,8 @@ struct PPU {
 			// first, find a sprite at these coords with a non-transparent pixel
 			foreach (idx, sprite; oamSorted) {
 				if (registers.ly.inRange(sprite.y - 16, sprite.y - (registers.lcdc.tallSprites ? 0 : 8)) && x.inRange(sprite.x - 8, sprite.x)) {
-					auto xpos = x - (sprite.x - 8);
-					auto ypos = (registers.ly - (sprite.y - 16));
-					if (sprite.flags.xFlip) {
-						xpos = flip(xpos);
-					}
-					if (sprite.flags.yFlip) {
-						ypos = flip(ypos, sprHeight);
-					}
+					const xpos = autoFlip(x - (sprite.x - 8), sprite.flags.xFlip);
+					const ypos = autoFlip((registers.ly - (sprite.y - 16)), sprite.flags.yFlip, sprHeight);
 					// ignore transparent pixels
 					if (getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8] == 0) {
 						continue;
@@ -116,28 +109,16 @@ struct PPU {
 			const finalY = useWindow ? baseWindowY : baseY;
 			const attributes = (useWindow ? windowTilemapRowAttributes : tilemapRowAttributes)[(finalX / 8) % 32];
 			const tile = (useWindow ? windowTilemapRow : tilemapRow)[(finalX / 8) % 32];
-			ubyte subX = cast(ubyte)(finalX % 8);
-			ubyte subY = cast(ubyte)(finalY % 8);
-			if (attributes.xFlip) {
-				subX = flip(subX);
-			}
-			if (attributes.yFlip) {
-				subY = flip(subY);
-			}
+			const subX = autoFlip(cast(ubyte)(finalX % 8), attributes.xFlip);
+			const subY = autoFlip(cast(ubyte)(finalY % 8), attributes.yFlip);
 			auto prospectivePixel = getTile(tile, true, attributes.bank)[subX, subY];
 			auto prospectivePalette = attributes.palette;
 			auto prospectivePriority = attributes.priority;
 			// decide between sprite pixel and background pixel using priority settings
 			if (highestMatchingSprite != size_t.max) {
 				const sprite = oamSorted[highestMatchingSprite];
-				auto xpos = x - (sprite.x - 8);
-				auto ypos = (registers.ly - (sprite.y - 16));
-				if (sprite.flags.xFlip) {
-					xpos = flip(xpos);
-				}
-				if (sprite.flags.yFlip) {
-					ypos = flip(ypos, sprHeight);
-				}
+				const xpos = autoFlip(x - (sprite.x - 8), sprite.flags.xFlip);
+				const ypos = autoFlip((registers.ly - (sprite.y - 16)), sprite.flags.yFlip, sprHeight);
 				static immutable bool[8] objPriority = [
 					0b000: true,
 					0b001: true,
