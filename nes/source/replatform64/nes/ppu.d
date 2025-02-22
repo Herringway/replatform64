@@ -2,6 +2,7 @@ module replatform64.nes.ppu;
 
 import replatform64.backend.common.interfaces;
 import replatform64.dumping;
+import replatform64.nes.hardware;
 import replatform64.testhelpers;
 import replatform64.ui;
 import replatform64.util;
@@ -197,10 +198,10 @@ struct PPU {
 	}
 
 	ushort getSpriteBase(ubyte index) const @safe pure {
-		if (ppuCtrl & (1 << 5)) { //8x16 mode
+		if (ppuCtrl.tallSprites) { //8x16 mode
 			return (index & 0xFE) + (index & 1 ? 256 : 0);
 		} else {
-			return index + (ppuCtrl & (1 << 3) ? 256 : 0);
+			return index + (ppuCtrl.spritePatternTable ? 256 : 0);
 		}
 	}
 	void drawFullTileData(Array2D!ColourFormat buffer, size_t paletteIndex) @safe pure
@@ -239,7 +240,7 @@ struct PPU {
 		// Determine the tile to use
 		const tile = getSpriteBase(oamEntry.index);
 		const chr = cast(const(Linear2BPP)[])this.chr[];
-		foreach (tileOffset; 0 .. 1 + !!(ppuCtrl & (1 << 5))) {
+		foreach (tileOffset; 0 .. 1 + ppuCtrl.tallSprites) {
 			// Copy pixels to the framebuffer
 			const thisTile = chr[tile + tileOffset];
 			foreach (row; 0 .. 8) {
@@ -277,7 +278,7 @@ struct PPU {
 		buffer[0 .. $, 0 .. $] = paletteRGB[palette[0]];
 
 		// Draw sprites behind the backround
-		if (ppuMask & (1 << 4)) { // Are sprites enabled?
+		if (ppuMask.enableSprites) { // Are sprites enabled?
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
 			for (int i = 63; i >= 0; i--) {
@@ -286,9 +287,9 @@ struct PPU {
 		}
 
 		// Draw the background (nametable)
-		if (ppuMask & (1 << 3)) { // Is the background enabled?
-			int scrollX = cast(int)ppuScrollX + ((ppuCtrl & (1 << 0)) ? 256 : 0);
-			int scrollY = cast(int)ppuScrollY + ((ppuCtrl & (1 << 0)) ? 256 : 0);
+		if (ppuMask.enableBG) { // Is the background enabled?
+			int scrollX = cast(int)ppuScrollX + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
+			int scrollY = cast(int)ppuScrollY + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
 			int xMin = scrollX / 8;
 			int xMax = (cast(int)scrollX + 256) / 8;
 			int yMin = scrollY / 8;
@@ -302,7 +303,7 @@ struct PPU {
 		}
 
 		// Draw sprites in front of the background
-		if (ppuMask & (1 << 4)) {
+		if (ppuMask.enableSprites) {
 			// Sprites with the lowest index in OAM take priority.
 			// Therefore, render the array of sprites in reverse order.
 			for (int i = 63; i >= 0; i--) {
@@ -314,10 +315,10 @@ struct PPU {
 	void writeRegister(ushort address, ubyte value) @safe pure {
 		switch(address) {
 			case 0x2000: // PPUCTRL
-				ppuCtrl = value;
+				ppuCtrl.raw = value;
 				break;
 			case 0x2001: // PPUMASK
-				ppuMask = value;
+				ppuMask.raw = value;
 				break;
 			case 0x2003: // OAMADDR
 				oamAddress = value;
@@ -345,8 +346,8 @@ struct PPU {
 		}
 	}
 
-	private ubyte ppuCtrl; /**< $2000 */
-	private ubyte ppuMask; /**< $2001 */
+	private PPUCTRLValue ppuCtrl; /**< $2000 */
+	private PPUMASKValue ppuMask; /**< $2001 */
 	private ubyte ppuStatus; /**< 2002 */
 	private ubyte oamAddress; /**< $2003 */
 	private ubyte ppuScrollX; /**< $2005 */
@@ -408,17 +409,17 @@ struct PPU {
 		ubyte value = vramBuffer;
 		vramBuffer = readByte(currentAddress);
 
-		if (!(ppuCtrl & (1 << 2))) {
-			currentAddress++;
-		} else {
+		if (ppuCtrl.ppuDataIncreaseByRow) {
 			currentAddress += 32;
+		} else {
+			currentAddress++;
 		}
 
 		return value;
 	}
 	private void renderTile(scope Array2D!ColourFormat buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
-		ushort tile = readByte(cast(ushort)index) + (ppuCtrl & (1 << 4) ? 256 : 0);
+		ushort tile = readByte(cast(ushort)index) + (ppuCtrl.bgPatternTable ? 256 : 0);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
 
 		// Read the pixels of the tile
@@ -476,49 +477,49 @@ struct PPU {
 	}
 	private void writeDataRegister(ubyte value) @safe pure {
 		writeByte(currentAddress, value);
-		if (!(ppuCtrl & (1 << 2))) {
-			currentAddress++;
-		} else {
+		if (ppuCtrl.ppuDataIncreaseByRow) {
 			currentAddress += 32;
+		} else {
+			currentAddress++;
 		}
 	}
 	void debugUI(const UIState state, VideoBackend video) {
 		static ColourFormat[width * height] buffer;
 		if (ImGui.BeginTabBar("renderer")) {
 			if (ImGui.BeginTabItem("Registers")) {
-				if (ImGui.TreeNode("PPUCTRL", "PPUCTRL: %02X", ppuCtrl)) {
-					registerBitSel!2("Base nametable address", ppuCtrl, 0, ["$2000", "$2400", "$2800", "$2C00"]);
+				if (ImGui.TreeNode("PPUCTRL", "PPUCTRL: %02X", ppuCtrl.raw)) {
+					registerBitSel!2("Base nametable address", ppuCtrl.raw, 0, ["$2000", "$2400", "$2800", "$2C00"]);
 					ImGui.SetItemTooltip("Base address of the nametable currently rendered");
-					registerBitSel!1("PPUDATA auto-increment", ppuCtrl, 2, ["1", "32"]);
+					registerBitSel!1("PPUDATA auto-increment", ppuCtrl.raw, 2, ["1", "32"]);
 					ImGui.SetItemTooltip("Add 32 to the address with every PPUDATA read/write. 1 otherwise.");
-					registerBitSel!1("Sprite pattern table", ppuCtrl, 3, ["$0000", "$1000"]);
+					registerBitSel!1("Sprite pattern table", ppuCtrl.raw, 3, ["$0000", "$1000"]);
 					ImGui.SetItemTooltip("Which bank of tile data to use for sprites");
-					registerBitSel!1("BG pattern table", ppuCtrl, 4, ["$0000", "$1000"]);
+					registerBitSel!1("BG pattern table", ppuCtrl.raw, 4, ["$0000", "$1000"]);
 					ImGui.SetItemTooltip("Which bank of tile data to use for the background");
-					registerBit("Tall sprites", ppuCtrl, 5);
+					registerBit("Tall sprites", ppuCtrl.raw, 5);
 					ImGui.SetItemTooltip("If enabled, uses 8x16 sprites instead of 8x8.");
-					registerBitSel!1("Primary/Secondary select", ppuCtrl, 6, ["Primary", "Secondary"]);
+					registerBitSel!1("Primary/Secondary select", ppuCtrl.raw, 6, ["Primary", "Secondary"]);
 					ImGui.SetItemTooltip("Selects whether the NES's internal PPU renders the backdrop.");
-					registerBit("VBlank enabled", ppuCtrl, 7);
+					registerBit("VBlank enabled", ppuCtrl.raw, 7);
 					ImGui.SetItemTooltip("Controls whether or not VBlank interrupts are generated.");
 					ImGui.TreePop();
 				}
-				if (ImGui.TreeNode("PPUMASK", "PPUMASK: %02X", ppuMask)) {
-					registerBit("Grayscale", ppuMask, 0);
+				if (ImGui.TreeNode("PPUMASK", "PPUMASK: %02X", ppuMask.raw)) {
+					registerBit("Grayscale", ppuMask.raw, 0);
 					ImGui.SetItemTooltip("Render in grayscale instead of colour.");
-					registerBit("Render leftmost BG", ppuMask, 1);
+					registerBit("Render leftmost BG", ppuMask.raw, 1);
 					ImGui.SetItemTooltip("Whether or not to render the leftmost 8 pixels of the BG layer.");
-					registerBit("Render leftmost sprites", ppuMask, 2);
+					registerBit("Render leftmost sprites", ppuMask.raw, 2);
 					ImGui.SetItemTooltip("Whether or not to render the leftmost 8 pixels of the sprite layer.");
-					registerBit("Show BG", ppuMask, 3);
+					registerBit("Show BG", ppuMask.raw, 3);
 					ImGui.SetItemTooltip("Whether or not to render the BG layer.");
-					registerBit("Show sprites", ppuMask, 4);
+					registerBit("Show sprites", ppuMask.raw, 4);
 					ImGui.SetItemTooltip("Whether or not to render the sprite layer.");
-					registerBit("Emphasize red", ppuMask, 5);
+					registerBit("Emphasize red", ppuMask.raw, 5);
 					ImGui.SetItemTooltip("Darkens green and blue colour channels.");
-					registerBit("Emphasize green", ppuMask, 6);
+					registerBit("Emphasize green", ppuMask.raw, 6);
 					ImGui.SetItemTooltip("Darkens red and blue colour channels.");
-					registerBit("Emphasize blue", ppuMask, 7);
+					registerBit("Emphasize blue", ppuMask.raw, 7);
 					ImGui.SetItemTooltip("Darkens red and green colour channels.");
 					ImGui.TreePop();
 				}
@@ -590,8 +591,6 @@ unittest {
 		auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
 		ppu.chr = new ubyte[](0x2000);
 		ppu.nametable = new ubyte[](0x1000);
-		ubyte PPUCTRL;
-		ubyte PPUMASK;
 		ubyte PPUSCROLL;
 		ubyte PPUSCROLL2;
 		loadMesen2SaveState(file, 2, (key, data) @safe pure {
@@ -621,43 +620,43 @@ unittest {
 					ppu.oam[] = cast(const(OAMEntry[]))data;
 					break;
 				case "ppu.control.verticalWrite":
-					PPUCTRL |= !!byteData << 2;
+					ppu.ppuCtrl.ppuDataIncreaseByRow = !!byteData;
 					break;
 				case "ppu.control.spritePatternAddr":
-					PPUCTRL |= (shortData == 0) << 3;
+					ppu.ppuCtrl.spritePatternTable = !shortData;
 					break;
 				case "ppu.control.backgroundPatternAddr":
-					PPUCTRL |= (shortData != 0) << 4;
+					ppu.ppuCtrl.bgPatternTable = !!shortData;
 					break;
 				case "ppu.control.largeSprites":
-					PPUCTRL |= (byteData != 0) << 5;
+					ppu.ppuCtrl.tallSprites = !!byteData;
 					break;
 				case "ppu.control.nmiOnVerticalBlank":
-					PPUCTRL |= (byteData != 0) << 7;
+					ppu.ppuCtrl.vblankNMI = !!byteData;
 					break;
 				case "ppu.mask.grayscale":
-					PPUMASK |= byteData & 1;
+					ppu.ppuMask.grayscale = !!byteData;
 					break;
 				case "ppu.mask.backgroundMask":
-					PPUMASK |= (byteData & 1) << 1;
+					ppu.ppuMask.showBGLeft8 = !!byteData;
 					break;
 				case "ppu.mask.spriteMask":
-					PPUMASK |= (byteData & 1) << 2;
+					ppu.ppuMask.showSpritesLeft8 = !!byteData;
 					break;
 				case "ppu.mask.backgroundEnabled":
-					PPUMASK |= (byteData & 1) << 3;
+					ppu.ppuMask.enableBG = !!byteData;
 					break;
 				case "ppu.mask.spritesEnabled":
-					PPUMASK |= (byteData & 1) << 4;
+					ppu.ppuMask.enableSprites = !!byteData;
 					break;
 				case "ppu.mask.intensifyRed":
-					PPUMASK |= (byteData & 1) << 5;
+					ppu.ppuMask.emphasizeRed = !!byteData;
 					break;
 				case "ppu.mask.intensifyGreen":
-					PPUMASK |= (byteData & 1) << 6;
+					ppu.ppuMask.emphasizeGreen = !!byteData;
 					break;
 				case "ppu.mask.intensifyBlue":
-					PPUMASK |= (byteData & 1) << 7;
+					ppu.ppuMask.emphasizeBlue = !!byteData;
 					break;
 				case "ppu.xScroll":
 					PPUSCROLL = byteData;
@@ -690,8 +689,6 @@ unittest {
 					break;
 			}
 		});
-		ppu.writeRegister(0x2000, PPUCTRL);
-		ppu.writeRegister(0x2001, PPUMASK);
 		ppu.writeRegister(0x2005, PPUSCROLL);
 		ppu.writeRegister(0x2005, PPUSCROLL2);
 		return draw(ppu);
