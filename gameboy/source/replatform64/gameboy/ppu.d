@@ -232,86 +232,86 @@ struct PPU {
 			}
 		}
 		switch (addr) {
-			case GameBoyRegister.SCX:
+			case Register.SCX:
 				registers.scx = val;
 				break;
-			case GameBoyRegister.SCY:
+			case Register.SCY:
 				registers.scy = val;
 				break;
-			case GameBoyRegister.WX:
+			case Register.WX:
 				registers.wx = val;
 				break;
-			case GameBoyRegister.WY:
+			case Register.WY:
 				registers.wy = val;
 				break;
-			case GameBoyRegister.LY:
+			case Register.LY:
 				// read-only
 				break;
-			case GameBoyRegister.LYC:
+			case Register.LYC:
 				registers.lyc = val;
 				break;
-			case GameBoyRegister.LCDC:
+			case Register.LCDC:
 				registers.lcdc.raw = val;
 				break;
-			case GameBoyRegister.STAT:
+			case Register.STAT:
 				registers.stat.raw = val;
 				break;
-			case GameBoyRegister.BGP:
+			case Register.BGP:
 				registers.bgp = val;
 				writePaletteDMG(val, 0);
 				break;
-			case GameBoyRegister.OBP0:
+			case Register.OBP0:
 				registers.obp0 = val;
 				writePaletteDMG(val, 8);
 				break;
-			case GameBoyRegister.OBP1:
+			case Register.OBP1:
 				registers.obp1 = val;
 				writePaletteDMG(val, 9);
 				break;
-			case GameBoyRegister.BCPS:
+			case Register.BCPS:
 				registers.bcps = val & 0b10111111;
 				break;
-			case GameBoyRegister.BCPD:
+			case Register.BCPD:
 				(cast(ubyte[])paletteRAM)[registers.bcps & 0b00111111] = val;
 				autoIncrementCPD(registers.bcps);
 				break;
-			case GameBoyRegister.OCPS:
+			case Register.OCPS:
 				registers.ocps = val;
 				break;
-			case GameBoyRegister.OCPD:
+			case Register.OCPD:
 				(cast(ubyte[])paletteRAM)[64 + (registers.ocps & 0b00111111)] = val;
 				autoIncrementCPD(registers.ocps);
 				break;
-			case GameBoyRegister.VBK:
+			case Register.VBK:
 				registers.vbk = val & 1;
 				break;
 			default:
 				break;
 		}
 	}
-	ubyte readRegister(ushort addr) @safe pure {
+	ubyte readRegister(ushort addr) const @safe pure {
 		switch (addr) {
-			case GameBoyRegister.SCX:
+			case Register.SCX:
 				return registers.scx;
-			case GameBoyRegister.SCY:
+			case Register.SCY:
 				return registers.scy;
-			case GameBoyRegister.WX:
+			case Register.WX:
 				return registers.wx;
-			case GameBoyRegister.WY:
+			case Register.WY:
 				return registers.wy;
-			case GameBoyRegister.LY:
+			case Register.LY:
 				return registers.ly;
-			case GameBoyRegister.LYC:
+			case Register.LYC:
 				return registers.lyc;
-			case GameBoyRegister.LCDC:
+			case Register.LCDC:
 				return registers.lcdc.raw;
-			case GameBoyRegister.STAT:
+			case Register.STAT:
 				return registers.stat.raw;
-			case GameBoyRegister.BGP:
+			case Register.BGP:
 				return registers.bgp;
-			case GameBoyRegister.OBP0:
+			case Register.OBP0:
 				return registers.obp0;
-			case GameBoyRegister.OBP1:
+			case Register.OBP1:
 				return registers.obp1;
 			default:
 				return 0; // open bus, but we're not doing anything with that yet
@@ -475,7 +475,7 @@ unittest {
 	enum height = 144;
 	static struct FauxDMA {
 		ubyte scanline;
-		GameBoyRegister register;
+		Register register;
 		ubyte value;
 	}
 	static auto draw(ref PPU ppu, FauxDMA[] dma = []) {
@@ -523,13 +523,13 @@ unittest {
 					ppu.registers.wx = byteData;
 					break;
 				case "ppu.objPalette0":
-					ppu.writeRegister(GameBoyRegister.OBP0, byteData);
+					ppu.writeRegister(Register.OBP0, byteData);
 					break;
 				case "ppu.objPalette1":
-					ppu.writeRegister(GameBoyRegister.OBP1, byteData);
+					ppu.writeRegister(Register.OBP1, byteData);
 					break;
 				case "ppu.bgPalette":
-					ppu.writeRegister(GameBoyRegister.BGP, byteData);
+					ppu.writeRegister(Register.BGP, byteData);
 					break;
 				case "ppu.ly":
 					ppu.registers.ly = byteData;
@@ -599,7 +599,7 @@ unittest {
 		if (dmaPath.exists) {
 			foreach (line; File(dmaPath, "r").byLine) {
 				auto split = line.split(" ");
-				dma ~= FauxDMA(split[0].to!ubyte, cast(GameBoyRegister)split[1].to!ushort(16), split[2].to!ubyte(16));
+				dma ~= FauxDMA(split[0].to!ubyte, cast(Register)split[1].to!ushort(16), split[2].to!ubyte(16));
 			}
 		}
 		const frame = renderMesen2State(cast(ubyte[])read(buildPath("testdata/gameboy", name~".mss")), dma);

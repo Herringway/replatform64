@@ -644,6 +644,7 @@ struct PlatformCommon {
 
 mixin template PlatformCommonForwarders() {
 	import replatform64.dumping : crashHandler, dumpPNG;
+	import std.traits : EnumMembers, Parameters;
 	DebugFunction debugMenuRenderer;
 	DebugFunction gameStateMenu;
 	void commonInitialization(Resolution resolution, PlatformCommon.EntryPoint entry, Backend backendType) {
@@ -716,6 +717,10 @@ mixin template PlatformCommonForwarders() {
 	void loadWAV(const(ubyte)[] data) {
 		platform.backend.audio.loadWAV(data);
 	}
+	void writeRegister(Parameters!writeRegisterPlatform params) {
+		printRegisterAccess(params[0], params[1]);
+		writeRegisterPlatform(params);
+	}
 	ref T sram(T)(uint slot) {
 		return platform.sram!T(slot);
 	}
@@ -735,6 +740,22 @@ mixin template PlatformCommonForwarders() {
 		platform.dumpScreen(dumpDir);
 		static if (__traits(hasMember, this, "dumpExtraDebugData")) {
 			dumpExtraDebugData(dumpDir);
+		}
+	}
+	static if (is(Register)) {
+		import std.traits : hasUDA;
+		alias Type = typeof(readRegister(0));
+		static foreach (register; EnumMembers!Register) {
+			static if (__traits(compiles, mixin("cast(const)this.", register.stringof, "();"))) {
+				mixin("Type ", register.stringof, "() const { return readRegister(", register, "); }");
+			} else {
+				mixin("Type ", register.stringof, "() { return readRegister(", register, "); }");
+			}
+			static if (hasUDA!(register, DoubleWrite)) {
+				mixin("void ", register.stringof, "(doubleSized!Type value) { writeRegister(", register, ", value & cast(Type)~Type.init); writeRegister(", register, ", value >> (Type.sizeof * 8)); }");
+			} else {
+				mixin("void ", register.stringof, "(Type value) { writeRegister(", register, ", value); }");
+			}
 		}
 	}
 }

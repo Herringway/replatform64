@@ -106,44 +106,6 @@ struct SNES {
 	void handleVRAMDMA(ubyte dmap, ubyte bbad, const(ubyte)[] a1t, ushort das, ushort vmaddr, ubyte vmain) @safe pure {
 		.handleVRAMDMA(renderer.vram, dmap, bbad, a1t, das, vmaddr, vmain);
 	}
-	void setFixedColourData(ubyte val) {
-		COLDATA = val;
-	}
-
-	void setBGOffsetX(ubyte layer, ushort x) {
-		switch (layer) {
-			case 1:
-				BG1HOFS = x;
-				break;
-			case 2:
-				BG2HOFS = x;
-				break;
-			case 3:
-				BG3HOFS = x;
-				break;
-			case 4:
-				BG4HOFS = x;
-				break;
-			default: assert(0);
-		}
-	}
-	void setBGOffsetY(ubyte layer, ushort y) {
-		switch (layer) {
-			case 1:
-				BG1VOFS = y;
-				break;
-			case 2:
-				BG2VOFS = y;
-				break;
-			case 3:
-				BG3VOFS = y;
-				break;
-			case 4:
-				BG4VOFS = y;
-				break;
-			default: assert(0);
-		}
-	}
 	private void copyInputState(InputState state) @safe pure {
 		pads = 0;
 		foreach (idx, ref pad; pads) {
@@ -168,40 +130,20 @@ struct SNES {
 	ushort getControllerState(ubyte playerID) const @safe pure {
 		return pads[playerID];
 	}
-	mixin DoubleWriteRegisterRedirect!("BG1HOFS", "renderer", Register.BG1HOFS);
-	mixin DoubleWriteRegisterRedirect!("BG2HOFS", "renderer", Register.BG2HOFS);
-	mixin DoubleWriteRegisterRedirect!("BG3HOFS", "renderer", Register.BG3HOFS);
-	mixin DoubleWriteRegisterRedirect!("BG4HOFS", "renderer", Register.BG4HOFS);
-	mixin DoubleWriteRegisterRedirect!("BG1VOFS", "renderer", Register.BG1VOFS);
-	mixin DoubleWriteRegisterRedirect!("BG2VOFS", "renderer", Register.BG2VOFS);
-	mixin DoubleWriteRegisterRedirect!("BG3VOFS", "renderer", Register.BG3VOFS);
-	mixin DoubleWriteRegisterRedirect!("BG4VOFS", "renderer", Register.BG4VOFS);
-	mixin RegisterRedirect!("BG1SC", "renderer", Register.BG1SC);
-	mixin RegisterRedirect!("BG2SC", "renderer", Register.BG2SC);
-	mixin RegisterRedirect!("BG3SC", "renderer", Register.BG3SC);
-	mixin RegisterRedirect!("BG4SC", "renderer", Register.BG4SC);
-	mixin RegisterRedirect!("BG12NBA", "renderer", Register.BG12NBA);
-	mixin RegisterRedirect!("BG34NBA", "renderer", Register.BG34NBA);
-	mixin RegisterRedirect!("INIDISP", "renderer", Register.INIDISP);
-	mixin RegisterRedirect!("OBSEL", "renderer", Register.OBSEL);
-	mixin RegisterRedirect!("BGMODE", "renderer", Register.BGMODE);
-	mixin RegisterRedirect!("MOSAIC", "renderer", Register.MOSAIC);
-	mixin RegisterRedirect!("W12SEL", "renderer", Register.W12SEL);
-	mixin RegisterRedirect!("W34SEL", "renderer", Register.W34SEL);
-	mixin RegisterRedirect!("WOBJSEL", "renderer", Register.WOBJSEL);
-	mixin RegisterRedirect!("WH0", "renderer", Register.WH0);
-	mixin RegisterRedirect!("WH1", "renderer", Register.WH1);
-	mixin RegisterRedirect!("WH2", "renderer", Register.WH2);
-	mixin RegisterRedirect!("WH3", "renderer", Register.WH3);
-	mixin RegisterRedirect!("WBGLOG", "renderer", Register.WBGLOG);
-	mixin RegisterRedirect!("WOBJLOG", "renderer", Register.WOBJLOG);
-	mixin RegisterRedirect!("TM", "renderer", Register.TM);
-	mixin RegisterRedirect!("TD", "renderer", Register.TD);
-	mixin RegisterRedirect!("TMW", "renderer", Register.TMW);
-	mixin RegisterRedirect!("TSW", "renderer", Register.TSW);
-	mixin RegisterRedirect!("CGWSEL", "renderer", Register.CGWSEL);
-	mixin RegisterRedirect!("CGADSUB", "renderer", Register.CGADSUB);
-	mixin RegisterRedirect!("COLDATA", "renderer", Register.COLDATA);
+	ubyte readRegister(ushort addr) {
+		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
+			return renderer.readRegister(addr);
+		} else {
+			assert(0, "Unsupported read");
+		}
+	}
+	void writeRegisterPlatform(ushort addr, ubyte value) {
+		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
+			renderer.writeRegister(addr, value);
+		} else {
+			assert(0, "Unsupported write");
+		}
+	}
 	void dumpExtraDebugData(string crashDir) {
 		dumpVRAMToDir(crashDir);
 	}

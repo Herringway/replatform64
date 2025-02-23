@@ -74,7 +74,7 @@ struct Renderer {
 	void waitNextFrame() {
 		backend.waitNextFrame();
 	}
-	ubyte readRegister(ushort addr) @safe pure {
+	ubyte readRegister(ushort addr) const @safe pure {
 		if (holdWritesUntilHBlank) {
 			if (auto val = addr in cachedWrites) {
 				return *val;
@@ -92,7 +92,7 @@ struct Renderer {
 }
 
 unittest {
-	import replatform64.gameboy.hardware : GameBoyRegister;
+	import replatform64.gameboy.hardware : Register;
 	import std.range : iota;
 	import std.algorithm.comparison : equal;
 	static Renderer currentRenderer;
@@ -107,41 +107,41 @@ unittest {
 	with (newRenderer()) {
 		static ubyte[] scanLines;
 		statInterrupt = () {
-			assert((currentRenderer.readRegister(GameBoyRegister.STAT) & STATValues.ppuMode) == 0);
-			scanLines ~= currentRenderer.readRegister(GameBoyRegister.LY);
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 0);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
 		};
-		writeRegister(GameBoyRegister.STAT, STATValues.mode0Interrupt);
+		writeRegister(Register.STAT, STATValues.mode0Interrupt);
 		draw(buffer);
 		assert(scanLines.equal(iota(0, 144)));
 	}
 	with (newRenderer()) {
 		static ubyte[] scanLines;
 		statInterrupt = () {
-			assert((currentRenderer.readRegister(GameBoyRegister.STAT) & STATValues.ppuMode) == 1);
-			scanLines ~= currentRenderer.readRegister(GameBoyRegister.LY);
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 1);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
 		};
-		writeRegister(GameBoyRegister.STAT, STATValues.mode1Interrupt);
+		writeRegister(Register.STAT, STATValues.mode1Interrupt);
 		draw(buffer);
 		assert(scanLines.equal(iota(144, 154)));
 	}
 	with (newRenderer()) {
 		static ubyte[] scanLines;
 		statInterrupt = () {
-			assert((currentRenderer.readRegister(GameBoyRegister.STAT) & STATValues.ppuMode) == 2);
-			scanLines ~= currentRenderer.readRegister(GameBoyRegister.LY);
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 2);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
 		};
-		writeRegister(GameBoyRegister.STAT, STATValues.mode2Interrupt);
+		writeRegister(Register.STAT, STATValues.mode2Interrupt);
 		draw(buffer);
 		assert(scanLines.equal(iota(0, 144)));
 	}
 	with (newRenderer()) {
 		static ubyte[] scanLines;
 		statInterrupt = () {
-			assert((currentRenderer.readRegister(GameBoyRegister.STAT) & STATValues.ppuMode) == 2);
-			scanLines ~= currentRenderer.readRegister(GameBoyRegister.LY);
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 2);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
 		};
-		writeRegister(GameBoyRegister.STAT, STATValues.lycInterrupt);
-		writeRegister(GameBoyRegister.LYC, 42);
+		writeRegister(Register.STAT, STATValues.lycInterrupt);
+		writeRegister(Register.LYC, 42);
 		draw(buffer);
 		assert(scanLines == [42]);
 	}

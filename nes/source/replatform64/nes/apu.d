@@ -429,7 +429,7 @@ struct APU {
 		}
 	}
 
-	ubyte readRegister(ushort address) @safe pure {
+	ubyte readRegister(ushort address) const @safe pure {
 		return 0;
 	}
 	void writeRegister(ushort address, ubyte value) @safe pure {

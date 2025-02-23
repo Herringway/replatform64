@@ -1,6 +1,7 @@
 module replatform64.snes.hardware;
 
 import std.bitmanip;
+import replatform64.registers;
 
 enum Register {
 	INIDISP = 0x2100,
@@ -16,14 +17,14 @@ enum Register {
 	BG4SC = 0x210A,
 	BG12NBA = 0x210B,
 	BG34NBA = 0x210C,
-	BG1HOFS = 0x210D,
-	BG1VOFS = 0x210E,
-	BG2HOFS = 0x210F,
-	BG2VOFS = 0x2110,
-	BG3HOFS = 0x2111,
-	BG3VOFS = 0x2112,
-	BG4HOFS = 0x2113,
-	BG4VOFS = 0x2114,
+	@DoubleWrite BG1HOFS = 0x210D,
+	@DoubleWrite BG1VOFS = 0x210E,
+	@DoubleWrite BG2HOFS = 0x210F,
+	@DoubleWrite BG2VOFS = 0x2110,
+	@DoubleWrite BG3HOFS = 0x2111,
+	@DoubleWrite BG3VOFS = 0x2112,
+	@DoubleWrite BG4HOFS = 0x2113,
+	@DoubleWrite BG4VOFS = 0x2114,
 	VMAIN = 0x2115,
 	VMADDL = 0x2116,
 	VMADDH = 0x2117,

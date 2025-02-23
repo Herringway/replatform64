@@ -515,7 +515,7 @@ struct APU {
 	 *  addr = Address of audio register. Must be 0xFF10 <= addr <= 0xFF3F. This is not checked in this function.
 	 * Returns: Byte at address.
 	 */
-	ubyte readRegister(const ushort addr) nothrow @safe pure {
+	ubyte readRegister(const ushort addr) const nothrow @safe pure {
 		static immutable ubyte[] ortab = [
 			0x80, 0x3f, 0x00, 0xff, 0xbf,
 			0xff, 0x3f, 0x00, 0xff, 0xbf,

@@ -15,8 +15,11 @@ enum JOYPValue : ubyte {
 	up = 1 << 2, ///
 	start = 1 << 3, ///
 	down = 1 << 3, ///
-	dpadSelect = 1 << 4, ///
-	buttonSelect = 1 << 5, ///
+	noDpadSelect = 1 << 4, ///
+	dpadSelect = noButtonSelect, ///
+	noButtonSelect = 1 << 5, ///
+	buttonSelect = noDpadSelect, ///
+	noneSelect = noDpadSelect | noButtonSelect, ///
 }
 
 ///
@@ -185,8 +188,10 @@ union STATValue {
 	}
 }
 
-enum GameBoyRegister : ushort {
+deprecated("Use Register instead") alias GameBoyRegister = Register;
+enum Register : ushort {
 	JOYP = 0xFF00,
+	P1 = JOYP,
 	SB = 0xFF01,
 	SC = 0xFF02,
 	DIV = 0xFF04,
@@ -195,26 +200,49 @@ enum GameBoyRegister : ushort {
 	TAC = 0xFF07,
 	IF = 0xFF0F,
 	NR10 = 0xFF10,
+	AUD1SWEEP = NR10,
 	NR11 = 0xFF11,
+	AUD1LEN = NR11,
 	NR12 = 0xFF12,
+	AUD1ENV = NR12,
 	NR13 = 0xFF13,
+	AUD1LOW = NR13,
 	NR14 = 0xFF14,
+	AUD1HIGH = NR14,
 	NR21 = 0xFF16,
+	AUD2LEN = NR21,
 	NR22 = 0xFF17,
+	AUD2ENV = NR22,
 	NR23 = 0xFF18,
+	AUD2LOW = NR23,
 	NR24 = 0xFF19,
+	AUD2HIGH = NR24,
 	NR30 = 0xFF1A,
+	AUD3ENA = NR30,
 	NR31 = 0xFF1B,
+	AUD3LEN = NR31,
 	NR32 = 0xFF1C,
+	AUD3LEVEL = NR32,
 	NR33 = 0xFF1D,
+	AUD3LOW = NR33,
 	NR34 = 0xFF1E,
+	AUD3HIGH = NR34,
 	NR41 = 0xFF20,
+	AUD4LEN = NR41,
 	NR42 = 0xFF21,
+	AUD4ENV = NR42,
 	NR43 = 0xFF22,
+	AUD4POLY = NR43,
 	NR44 = 0xFF23,
+	AUD4GO = NR44,
 	NR50 = 0xFF24,
+	AUDVOL = NR50,
 	NR51 = 0xFF25,
+	AUDTERM = NR51,
 	NR52 = 0xFF26,
+	AUDENA = NR52,
+	WAVESTART = 0xFF30,
+	WAVEEND = 0xFF3F,
 	LCDC = 0xFF40,
 	STAT = 0xFF41,
 	SCY = 0xFF42,

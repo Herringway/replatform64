@@ -117,38 +117,24 @@ struct NES {
 			ImGui.EndTabBar();
 		}
 	}
-	mixin RegisterRedirect!("PPUCTRL", "renderer", Register.PPUCTRL);
-	mixin RegisterRedirect!("PPUMASK", "renderer", Register.PPUMASK);
-	mixin RegisterRedirect!("PPUSTATUS", "renderer", Register.PPUSTATUS);
-	mixin RegisterRedirect!("OAMADDR", "renderer", Register.OAMADDR);
-	mixin RegisterRedirect!("OAMDATA", "renderer", Register.OAMDATA);
-	mixin RegisterRedirect!("PPUSCROLL", "renderer", Register.PPUSCROLL);
-	mixin RegisterRedirect!("PPUADDR", "renderer", Register.PPUADDR);
-	mixin RegisterRedirect!("PPUDATA", "renderer", Register.PPUDATA);
-	mixin RegisterRedirect!("SQ1", "apu", Register.SQ1);
-	mixin RegisterRedirect!("SQ1_VOL", "apu", Register.SQ1_VOL);
-	mixin RegisterRedirect!("SQ1_SWEEP", "apu", Register.SQ1_SWEEP);
-	mixin RegisterRedirect!("SQ1_LO", "apu", Register.SQ1_LO);
-	mixin RegisterRedirect!("SQ1_HI", "apu", Register.SQ1_HI);
-	mixin RegisterRedirect!("SQ2", "apu", Register.SQ2);
-	mixin RegisterRedirect!("SQ2_VOL", "apu", Register.SQ2_VOL);
-	mixin RegisterRedirect!("SQ2_SWEEP", "apu", Register.SQ2_SWEEP);
-	mixin RegisterRedirect!("SQ2_LO", "apu", Register.SQ2_LO);
-	mixin RegisterRedirect!("SQ2_HI", "apu", Register.SQ2_HI);
-	mixin RegisterRedirect!("TRI", "apu", Register.TRI);
-	mixin RegisterRedirect!("TRI_LINEAR", "apu", Register.TRI_LINEAR);
-	mixin RegisterRedirect!("TRI_LO", "apu", Register.TRI_LO);
-	mixin RegisterRedirect!("TRI_HI", "apu", Register.TRI_HI);
-	mixin RegisterRedirect!("NOISE", "apu", Register.NOISE);
-	mixin RegisterRedirect!("NOISE_VOL", "apu", Register.NOISE_VOL);
-	mixin RegisterRedirect!("NOISE_LO", "apu", Register.NOISE_LO);
-	mixin RegisterRedirect!("NOISE_HI", "apu", Register.NOISE_HI);
-	mixin RegisterRedirect!("DMC", "apu", Register.DMC);
-	mixin RegisterRedirect!("DMC_FREQ", "apu", Register.DMC_FREQ);
-	mixin RegisterRedirect!("DMC_RAW", "apu", Register.DMC_RAW);
-	mixin RegisterRedirect!("DMC_START", "apu", Register.DMC_START);
-	mixin RegisterRedirect!("DMC_LEN", "apu", Register.DMC_LEN);
-	mixin RegisterRedirect!("SND_CHN", "apu", Register.SND_CHN);
+	void writeRegisterPlatform(ushort addr, ubyte value) {
+		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
+			renderer.writeRegister(addr, value);
+		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
+			apu.writeRegister(addr, value);
+		} else {
+			assert(0, "Unknown/unsupported write");
+		}
+	}
+	ubyte readRegister(ushort addr) {
+		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
+			return renderer.readRegister(addr);
+		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
+			return apu.readRegister(addr);
+		} else {
+			assert(0, "Unknown/unsupported write");
+		}
+	}
 	void JOY1(ubyte val) {
 	}
 	void JOY2(ubyte val) {
