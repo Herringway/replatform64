@@ -105,7 +105,10 @@ struct GameBoySimple {
 	void interruptHandlerSTAT(void function() fun) {
 		renderer.statInterrupt = fun;
 	}
-	void interruptHandlerTimer(void function() fun) {}
+	void interruptHandlerTimer(void function() fun) {
+		// having the renderer handle this lets us hijack the scanline handler for accurate-enough timing
+		renderer.timerInterrupt = fun;
+	}
 	void interruptHandlerSerial(void function() fun) {}
 	void interruptHandlerJoypad(void function() fun) {}
 	void updateReadableRegisters() {
@@ -201,6 +204,8 @@ struct GameBoySimple {
 	void writeRegisterPlatform(ushort addr, ubyte value) {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			apu.writeRegister(addr, value);
+		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
+			renderer.timer.writeRegister(addr, value);
 		} else if ((addr >= Register.LCDC) && (addr <= Register.WX) || ((addr >= Register.BCPS) && (addr <= Register.SVBK)) || (addr == Register.VBK)) {
 			renderer.writeRegister(addr, value);
 		} else if (addr == Register.KEY1) {
@@ -214,6 +219,8 @@ struct GameBoySimple {
 	ubyte readRegister(ushort addr) const {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			return apu.readRegister(addr);
+		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
+			return renderer.timer.readRegister(addr);
 		} else if ((addr >= Register.LCDC) && (addr <= Register.WX) || ((addr >= Register.BCPS) && (addr <= Register.SVBK)) || (addr == Register.VBK)) {
 			return renderer.readRegister(addr);
 		} else if (addr == Register.KEY1) {

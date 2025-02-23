@@ -8,6 +8,7 @@ import std.string;
 
 import replatform64.gameboy.hardware;
 import replatform64.gameboy.ppu;
+import replatform64.gameboy.timer;
 import replatform64.util;
 
 import pixelmancy.colours;
@@ -19,6 +20,8 @@ struct Renderer {
 	enum height = PPU.height;
 	private VideoBackend backend;
 	void function() statInterrupt;
+	void function() timerInterrupt;
+	Timer timer;
 	bool holdWritesUntilHBlank;
 	ubyte[ushort] cachedWrites;
 	void initialize(string title, VideoBackend newBackend) {
@@ -29,6 +32,13 @@ struct Renderer {
 		backend.createWindow(title, window);
 		backend.createTexture(width, height, PixelFormat);
 	}
+	void timerUpdate() {
+		timer.scanlineUpdate();
+		if (timer.interruptTriggered) {
+			timerInterrupt();
+			timer.interruptTriggered = false;
+		}
+	}
 	void draw() {
 		Texture texture;
 		backend.getDrawingTexture(texture);
@@ -37,6 +47,7 @@ struct Renderer {
 	void draw(scope Array2D!(PPU.ColourFormat) texture) {
 		ppu.beginDrawing(texture);
 		foreach (i; 0 .. height) {
+			timerUpdate();
 			ppu.registers.stat.mode = 2;
 			if (ppu.registers.ly == ppu.registers.lyc) {
 				ppu.registers.stat.lycEqualLY = true;
@@ -64,6 +75,7 @@ struct Renderer {
 		}
 		// PPU spends a few extra scanlines in vblank
 		foreach(i; height .. 154) {
+			timerUpdate();
 			ppu.registers.stat.mode = 1;
 			if (ppu.registers.stat.mode1Interrupt && (statInterrupt !is null)) {
 				statInterrupt();
