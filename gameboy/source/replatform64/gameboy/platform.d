@@ -111,19 +111,6 @@ struct GameBoySimple {
 	}
 	void interruptHandlerSerial(void function() fun) {}
 	void interruptHandlerJoypad(void function() fun) {}
-	void updateReadableRegisters() {
-		final switch (lcdYUpdateStrategy) {
-			case LCDYUpdateStrategy.constant:
-				//registers.LY = lcdYUpdateValue;
-				break;
-			case LCDYUpdateStrategy.increasing:
-				//registers.LY = ++lcdYUpdateValue;
-				break;
-			case LCDYUpdateStrategy.random:
-				//registers.LY = uniform!ubyte(rng);
-				break;
-		}
-	}
 	void waitHBlank() {
 		renderer.holdWritesUntilHBlank = true;
 	}
