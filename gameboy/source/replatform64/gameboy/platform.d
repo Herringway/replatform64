@@ -124,12 +124,6 @@ struct GameBoySimple {
 				break;
 		}
 	}
-	ref ubyte[0x400] getBGTilemap() @safe {
-		return renderer.ppu.bgScreen[0 .. 0x400];
-	}
-	ref ubyte[0x400] getWindowTilemap() @safe {
-		return renderer.ppu.windowScreen[0 .. 0x400];
-	}
 	void waitHBlank() {
 		renderer.holdWritesUntilHBlank = true;
 	}
