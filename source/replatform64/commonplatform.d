@@ -9,6 +9,7 @@ import replatform64.util;
 import replatform64.watchdog;
 
 import imgui.flamegraph;
+import imgui.logconsole;
 
 import pixelmancy.colours;
 
@@ -60,12 +61,14 @@ struct PlatformCommon {
 	private ubyte[][uint] sramSlotBuffer;
 	private bool metricsEnabled;
 	private bool uiMetricsEnabled;
+	private bool logEnabled;
 	private ImGui.ImGuiContext* imguiContext;
 	private bool renderUI = true;
 	private bool debuggingEnabled;
 	bool testing;
 	private ORect[] overlays = [];
 	private CommonSettings commonSettings;
+	LogConsole logger;
 	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
 		string name;
@@ -112,6 +115,11 @@ struct PlatformCommon {
 		return result;
 	}
 	void initialize(EntryPoint dg, Backend backendType = Backend.autoSelect) {
+		auto multiLogger = new MultiLogger(LogLevel.all);
+		logger = new LogConsole(LogLevel.all);
+		multiLogger.insertLogger("console/file", cast()sharedLog);
+		multiLogger.insertLogger("gui", logger);
+		sharedLog = cast(shared)multiLogger;
 		if (!testing) {
 			detachConsoleIfUnneeded();
 			this.game = new Fiber(dg);
@@ -173,6 +181,7 @@ struct PlatformCommon {
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("Debugging")) {
 				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
+				ImGui.MenuItem("Enable log window", null, &logEnabled);
 				ImGui.MenuItem("Enable UI metrics", null, &uiMetricsEnabled);
 				if (ImGui.BeginMenu("Memory")) {
 					foreach (ref memoryEditor; memoryEditors) {
@@ -193,6 +202,9 @@ struct PlatformCommon {
 			if (memoryEditor.active) {
 				memoryEditor.active = memoryEditor.editor.DrawWindow(memoryEditor.name, memoryEditor.range);
 			}
+		}
+		if (logEnabled) {
+			logger.Draw("Log", &logEnabled);
 		}
 		if (metricsEnabled) {
 			if (ImGui.Begin("Metrics")) {
