@@ -670,13 +670,18 @@ mixin template PlatformCommonForwarders() {
 		}
 		return result.helpWanted;
 	}
+	private auto runIfPresent(string func, P...)(P params) {
+		static if (__traits(hasMember, this, func)) {
+			return __traits(getMember, this, func)(params);
+		}
+	}
 	void run() {
 		if (settings.debugging) {
 			platform.enableDebuggingFeatures();
 		}
 		platform.showUI();
 		while (true) {
-			if (platform.runFrame({ static if (__traits(hasMember, this, "interruptHandlerVBlank")) { interruptHandlerVBlank(); } }, { renderer.draw(); })) {
+			if (platform.runFrame({ runIfPresent!"preDraw"(); }, { runIfPresent!"draw"(); })) {
 				break;
 			}
 			copyInputState(platform.inputState);
@@ -729,9 +734,7 @@ mixin template PlatformCommonForwarders() {
 	}
 	void debugDump(string dumpDir) {
 		platform.dumpScreen(dumpDir);
-		static if (__traits(hasMember, this, "dumpExtraDebugData")) {
-			dumpExtraDebugData(dumpDir);
-		}
+		runIfPresent!"dumpExtraDebugData"(dumpDir);
 	}
 	static if (is(Register)) {
 		import std.traits : hasUDA;

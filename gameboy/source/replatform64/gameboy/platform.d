@@ -1,7 +1,6 @@
 module replatform64.gameboy.platform;
 
 import replatform64.gameboy.hardware;
-import replatform64.gameboy.renderer;
 
 import replatform64.assets;
 import replatform64.backend.common;
@@ -51,8 +50,9 @@ enum GameBoyModel : ushort {
 }
 
 struct GameBoySimple {
+	enum width = PPU.width;
+	enum height = PPU.height;
 	void function(ushort) entryPoint;
-	void function() interruptHandlerVBlank = () {};
 	string title;
 	string sourceFile;
 	ubyte lcdYUpdateValue = 1;
@@ -61,11 +61,15 @@ struct GameBoySimple {
 	GameBoyModel model;
 	private Random rng;
 	private Settings settings;
-	private Renderer renderer;
 	private APU apu;
 	private immutable(ubyte)[] originalData;
 	private KEY key1;
 	private JOY joy;
+	private PPU ppu;
+	private Interrupts interrupts;
+	Timer timer;
+	bool holdWritesUntilHBlank;
+	ubyte[ushort] cachedWrites;
 
 	private PlatformCommon platform;
 
@@ -74,21 +78,27 @@ struct GameBoySimple {
 	void initialize(Backend backendType = Backend.autoSelect) {
 		rng = Random(seed);
 		if (model >= GameBoyModel.cgb) {
-			renderer.ppu.cgbMode = true;
+			ppu.cgbMode = true;
 		}
 		final switch (settings.gbPalette) {
-			case GBPalette.dmg: renderer.ppu.gbPalette = dmgPaletteCGB; break;
-			case GBPalette.pocket: renderer.ppu.gbPalette = pocketPaletteCGB; break;
+			case GBPalette.dmg: ppu.gbPalette = dmgPaletteCGB; break;
+			case GBPalette.pocket: ppu.gbPalette = pocketPaletteCGB; break;
 		}
-		renderer.ppu.paletteRAM[] = renderer.ppu.gbPalette[0 .. 16];
+		ppu.paletteRAM[] = ppu.gbPalette[0 .. 16];
 
 		apu.initialize(platform.settings.audio.sampleRate);
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
-		renderer.initialize(title, platform.backend.video);
-		platform.registerMemoryRange("VRAM", renderer.ppu.vram.raw);
-		platform.registerMemoryRange("OAM", renderer.ppu.oam);
-		platform.registerMemoryRange("Palette RAM", cast(ubyte[])renderer.ppu.paletteRAM);
+
+		WindowSettings window;
+		window.baseWidth = width;
+		window.baseHeight = height;
+		platform.backend.video.createWindow(title, window);
+		platform.backend.video.createTexture(width, height, PixelFormatOf!(PPU.ColourFormat));
+
+		platform.registerMemoryRange("VRAM", ppu.vram.raw);
+		platform.registerMemoryRange("OAM", ppu.oam);
+		platform.registerMemoryRange("Palette RAM", cast(ubyte[])ppu.paletteRAM);
 	}
 	immutable(ubyte)[] romData() {
 		if (!originalData && sourceFile.exists) {
@@ -100,21 +110,17 @@ struct GameBoySimple {
 		//enableSRAM(saveSize);
 	}
 	alias disableSRAM = commitSRAM;
-	void interruptHandlerSTAT(void function() fun) {
-		renderer.statInterrupt = fun;
-	}
-	void interruptHandlerTimer(void function() fun) {
-		// having the renderer handle this lets us hijack the scanline handler for accurate-enough timing
-		renderer.timerInterrupt = fun;
-	}
-	void interruptHandlerSerial(void function() fun) {}
-	void interruptHandlerJoypad(void function() fun) {}
+	auto ref interruptHandlerTimer() => interrupts.timer;
+	auto ref interruptHandlerSTAT() => interrupts.stat;
+	auto ref interruptHandlerVBlank() => interrupts.vblank;
+	auto ref interruptHandlerSerial() => interrupts.serial;
+	auto ref interruptHandlerJoypad() => interrupts.joypad;
 	void waitHBlank() {
-		renderer.holdWritesUntilHBlank = true;
+		holdWritesUntilHBlank = true;
 	}
 	ubyte[] vram() {
-		const offset = renderer.ppu.cgbMode * renderer.ppu.registers.vbk;
-		return renderer.ppu.vram.raw[0x2000 * offset .. 0x2000 * (offset + 1)];
+		const offset = ppu.cgbMode * ppu.registers.vbk;
+		return ppu.vram.raw[0x2000 * offset .. 0x2000 * (offset + 1)];
 	}
 	private void copyInputState(InputState state) @safe pure {
 		joy.pad = 0;
@@ -130,7 +136,11 @@ struct GameBoySimple {
 	private void commonDebugState(const UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
 			if (ImGui.BeginTabItem("PPU")) {
-				renderer.ppu.debugUI(state, platform.backend.video);
+				ppu.debugUI(state, platform.backend.video);
+				ImGui.EndTabItem();
+			}
+			if (ImGui.BeginTabItem("Interrupts")) {
+				interrupts.debugUI(state, platform.backend.video);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("APU")) {
@@ -150,7 +160,7 @@ struct GameBoySimple {
 			ImGui.EndMainMenuBar();
 		}
 		if (dumpVRAM) {
-			File("vram.bin", "w").rawWrite(renderer.ppu.vram.raw);
+			File("vram.bin", "w").rawWrite(ppu.vram.raw);
 			dumpVRAM = false;
 		}
 	}
@@ -166,8 +176,6 @@ struct GameBoySimple {
 		}
 		return WaveRAM(&this);
 	}
-	ubyte IF; /// NYI
-	ubyte IE; /// NYI
 	ubyte SB; /// NYI
 	ubyte SC; /// NYI
 	ubyte DIV; /// NYI
@@ -175,7 +183,7 @@ struct GameBoySimple {
 	void stop() {
 		key1.commitSpeedChange();
 		if (key1.pretendDoubleSpeed) {
-			renderer.timer.timerMultiplier = 2;
+			timer.timerMultiplier = 2;
 		} else {
 			assert(0, "STOP should not be used except to switch speeds!");
 		}
@@ -184,13 +192,19 @@ struct GameBoySimple {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			apu.writeRegister(addr, value);
 		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
-			renderer.timer.writeRegister(addr, value);
+			timer.writeRegister(addr, value);
 		} else if ((addr >= Register.LCDC) && (addr <= Register.WX) || ((addr >= Register.BCPS) && (addr <= Register.SVBK)) || (addr == Register.VBK)) {
-			renderer.writeRegister(addr, value);
+			if (holdWritesUntilHBlank) {
+				cachedWrites[addr] = value;
+				return;
+			}
+			ppu.writeRegister(addr, value);
 		} else if (addr == Register.KEY1) {
 			key1.writeRegister(addr, value);
 		} else if (addr == Register.JOYP) {
 			joy.writeRegister(addr, value);
+		} else if ((addr == Register.IE) || (addr == Register.IF)) {
+			interrupts.writeRegister(addr, value);
 		} else {
 			assert(0, format!"Not yet implemented: %04X"(addr));
 		}
@@ -199,23 +213,153 @@ struct GameBoySimple {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			return apu.readRegister(addr);
 		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
-			return renderer.timer.readRegister(addr);
+			return timer.readRegister(addr);
 		} else if ((addr >= Register.LCDC) && (addr <= Register.WX) || ((addr >= Register.BCPS) && (addr <= Register.SVBK)) || (addr == Register.VBK)) {
-			return renderer.readRegister(addr);
+			if (holdWritesUntilHBlank) {
+				if (auto val = addr in cachedWrites) {
+					return *val;
+				}
+			}
+			return ppu.readRegister(addr);
 		} else if (addr == Register.KEY1) {
 			return key1.readRegister(addr);
+		} else if ((addr == Register.IE) || (addr == Register.IF)) {
+			return interrupts.readRegister(addr);
 		} else if (addr == Register.JOYP) {
 			return joy.readRegister(addr);
 		} else {
 			assert(0, format!"Not yet implemented: %04X"(addr));
 		}
 	}
-	ubyte[] tileBlockA() return @safe pure => cast(ubyte[])renderer.ppu.vram.tileBlockA;
-	ubyte[] tileBlockB() return @safe pure => cast(ubyte[])renderer.ppu.vram.tileBlockB;
-	ubyte[] tileBlockC() return @safe pure => cast(ubyte[])renderer.ppu.vram.tileBlockC;
-	ubyte[] screenA() return @safe pure => renderer.ppu.vram.screenA;
-	ubyte[] screenB() return @safe pure => renderer.ppu.vram.screenB;
-	ubyte[] oam() return @safe pure => renderer.ppu.oam;
-	ubyte[] bgScreen() return @safe pure => renderer.ppu.bgScreen;
-	ubyte[] windowScreen() return @safe pure => renderer.ppu.windowScreen;
+	void enableInterrupts() => interrupts.setInterrupts(true);
+	void disableInterrupts() => interrupts.setInterrupts(false);
+	void draw() {
+		Texture texture;
+		platform.backend.video.getDrawingTexture(texture);
+		draw(texture.asArray2D!(PPU.ColourFormat));
+	}
+	void draw(scope Array2D!(PPU.ColourFormat) texture) {
+		ppu.beginDrawing(texture);
+		// draw each line, one at a time
+		foreach (i; 0 .. height) {
+			timerUpdate();
+			// each line starts in mode 2, scanning the OAM
+			ppu.registers.stat.mode = 2;
+			// trigger the interrupts. LY increments first, so the LYC=LY interrupt triggers first
+			if (ppu.registers.ly == ppu.registers.lyc) {
+				ppu.registers.stat.lycEqualLY = true;
+				if (ppu.registers.stat.lycInterrupt) {
+					writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.stat);
+				}
+			} else {
+				ppu.registers.stat.lycEqualLY = false;
+			}
+			// trigger mode 2 interrupt
+			if (ppu.registers.stat.mode2Interrupt) {
+				writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.stat);
+			}
+			// start actually drawing pixels, mode 3
+			// there's no mode 3 interrupt
+			ppu.registers.stat.mode = 3;
+			ppu.runLine();
+			// done drawing. now in hblank, mode 0
+			ppu.registers.stat.mode = 0;
+			// perform any writes that were held for hblank now
+			holdWritesUntilHBlank = false;
+			foreach (addr, value; cachedWrites) {
+				ppu.writeRegister(addr, value);
+			}
+			cachedWrites = null;
+			// now trigger the mode 0 interrupt
+			if (ppu.registers.stat.mode0Interrupt) {
+				writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.stat);
+			}
+			ppu.registers.ly++;
+		}
+		// vblank. rendering is finished, but there's still some other tasks to handle
+		ppu.registers.stat.mode = 1;
+		writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.vblank);
+		// mode 1 interrupt has lower priority than vblank interrupt
+		if (ppu.registers.stat.mode1Interrupt) {
+			writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.stat);
+		}
+		// PPU spends a few extra scanlines in vblank, use 'em for timing
+		foreach(i; height .. 154) {
+			timerUpdate();
+			ppu.registers.ly++;
+		}
+	}
+	private void timerUpdate() {
+		timer.scanlineUpdate();
+		if (timer.interruptTriggered) {
+			writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.timer);
+			timer.interruptTriggered = false;
+		}
+	}
+	ubyte[] tileBlockA() return @safe pure => cast(ubyte[])ppu.vram.tileBlockA;
+	ubyte[] tileBlockB() return @safe pure => cast(ubyte[])ppu.vram.tileBlockB;
+	ubyte[] tileBlockC() return @safe pure => cast(ubyte[])ppu.vram.tileBlockC;
+	ubyte[] screenA() return @safe pure => ppu.vram.screenA;
+	ubyte[] screenB() return @safe pure => ppu.vram.screenB;
+	ubyte[] oam() return @safe pure => ppu.oam;
+	ubyte[] bgScreen() return @safe pure => ppu.bgScreen;
+	ubyte[] windowScreen() return @safe pure => ppu.windowScreen;
+}
+
+unittest {
+	import std.range : iota;
+	import std.algorithm.comparison : equal;
+	static GameBoySimple currentRenderer;
+	static auto ref newRenderer() {
+		currentRenderer = GameBoySimple();
+		// make sure interrupts are enabled
+		currentRenderer.interrupts.setInterrupts(true);
+		currentRenderer.writeRegister(Register.IE, InterruptFlag.stat);
+		return currentRenderer;
+	}
+	auto buffer = Array2D!(PPU.ColourFormat)(GameBoySimple.width, GameBoySimple.height);
+	with (newRenderer()) {
+		draw(buffer);
+	}
+	with (newRenderer()) { // mode 0 fires every drawn scanline, after drawing is finished
+		static ubyte[] scanLines;
+		interrupts.stat = () {
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 0);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
+		};
+		writeRegister(Register.STAT, STATValues.mode0Interrupt);
+		draw(buffer);
+		assert(scanLines.equal(iota(0, 144)));
+	}
+	with (newRenderer()) { // mode 1 fires only once per frame
+		static ubyte[] scanLines;
+		interrupts.stat = () {
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 1);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
+		};
+		writeRegister(Register.STAT, STATValues.mode1Interrupt);
+		draw(buffer);
+		assert(scanLines.equal([144]));
+	}
+	with (newRenderer()) { // mode 2 fires every drawn scanline, before drawing starts
+		static ubyte[] scanLines;
+		interrupts.stat = () {
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 2);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
+		};
+		writeRegister(Register.STAT, STATValues.mode2Interrupt);
+		draw(buffer);
+		assert(scanLines.equal(iota(0, 144)));
+	}
+	with (newRenderer()) { // LYC=LY interrupts fire only once per frame, at the beginning of the configured scanline (mode 2)
+		static ubyte[] scanLines;
+		interrupts.stat = () {
+			assert((currentRenderer.readRegister(Register.STAT) & STATValues.ppuMode) == 2);
+			scanLines ~= currentRenderer.readRegister(Register.LY);
+		};
+		writeRegister(Register.STAT, STATValues.lycInterrupt);
+		writeRegister(Register.LYC, 42);
+		draw(buffer);
+		assert(scanLines == [42]);
+	}
 }
