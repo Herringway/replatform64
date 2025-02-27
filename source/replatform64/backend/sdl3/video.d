@@ -4,6 +4,7 @@ import replatform64.backend.common;
 import replatform64.backend.sdl3.common;
 
 import replatform64.ui;
+import replatform64.util;
 
 import imgui.sdl3;
 import imgui.sdl3renderer;

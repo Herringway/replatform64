@@ -130,32 +130,6 @@ struct InputSettings {
 	}
 }
 
-struct Texture {
-	ubyte[] buffer;
-	uint pitch;
-	uint width;
-	uint height;
-	void* surface;
-	PixelFormat format;
-	Array2D!T asArray2D(T)() @safe pure {
-		assert(format == PixelFormatOf!T, "Requested texture format mismatch!");
-		return Array2D!T(width, height, pitch / T.sizeof, cast(T[])buffer);
-	}
-	void delegate() @safe nothrow @nogc cleanup;
-	~this() {
-		cleanup();
-	}
-}
-
-enum PixelFormat {
-	bgr555,
-	rgb555,
-	abgr8888,
-	argb8888,
-	bgra8888,
-	rgba8888,
-}
-
 enum WindowMode {
 	windowed,
 	maximized,

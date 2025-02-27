@@ -1,6 +1,5 @@
 module replatform64.watchdog;
 
-import replatform64.backend.common;
 import replatform64.dumping;
 
 import core.stdc.stdlib;

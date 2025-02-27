@@ -11,7 +11,6 @@ import std.traits;
 import pixelmancy.fileformats.png;
 import pixelmancy.colours : RGBA32;
 
-import replatform64.backend.common.interfaces;
 import replatform64.util;
 
 alias CrashHandler = void delegate(string);
@@ -70,14 +69,15 @@ Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
 	return result;
 }
 
-static void dumpPNG(ref Texture texture, string file) {
-	Array2D!RGBA32 pixels;
+void dumpPNG(ref Texture texture, string file) {
 	sw: final switch (texture.format) {
 		static foreach (pixelFormat; EnumMembers!PixelFormat) {
 			case pixelFormat:
-				pixels = texture.asArray2D!(ColourFormatOf!pixelFormat).convert!RGBA32;
+				dumpPNG(texture.asArray2D!(ColourFormatOf!pixelFormat), file);
 				break sw;
 		}
 	}
-	writePng(file, pixels, PngType.truecolor_with_alpha);
+}
+void dumpPNG(T)(const Array2D!T pixels, string file) {
+	writePng(file, pixels.convert!RGBA32(), PngType.truecolor_with_alpha);
 }

@@ -5,8 +5,6 @@ import std.bitmanip;
 import std.range;
 import std.traits;
 
-import replatform64.backend.common.interfaces;
-
 public import pixelmancy.util : Array2D;
 
 /// Dumps the game state to a human-readable file
@@ -14,6 +12,32 @@ void function(string path) dumpStateToFile = (str) {};
 
 template typeMatches(T) {
 	enum typeMatches(alias t) = is(typeof(t) == T);
+}
+
+struct Texture {
+	ubyte[] buffer;
+	uint pitch;
+	uint width;
+	uint height;
+	void* surface;
+	PixelFormat format;
+	Array2D!T asArray2D(T)() @safe pure {
+		assert(format == PixelFormatOf!T, "Requested texture format mismatch!");
+		return Array2D!T(width, height, pitch / T.sizeof, cast(T[])buffer);
+	}
+	void delegate() @safe nothrow @nogc cleanup;
+	~this() {
+		cleanup();
+	}
+}
+
+enum PixelFormat {
+	bgr555,
+	rgb555,
+	abgr8888,
+	argb8888,
+	bgra8888,
+	rgba8888,
 }
 
 template PixelFormatOf(T) {
