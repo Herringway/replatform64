@@ -6,6 +6,7 @@ import std.format;
 import std.logger;
 import std.path;
 import std.stdio;
+import std.traits;
 
 import pixelmancy.fileformats.png;
 import pixelmancy.colours : RGBA32;
@@ -69,6 +70,14 @@ Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
 	return result;
 }
 
-static void dumpPNG(T)(const Array2D!T frame, string file) {
-	writePng(file, convert!RGBA32(frame), PngType.truecolor_with_alpha);
+static void dumpPNG(ref Texture texture, string file) {
+	Array2D!RGBA32 pixels;
+	sw: final switch (texture.format) {
+		static foreach (pixelFormat; EnumMembers!PixelFormat) {
+			case pixelFormat:
+				pixels = texture.asArray2D!(ColourFormatOf!pixelFormat).convert!RGBA32;
+				break sw;
+		}
+	}
+	writePng(file, pixels, PngType.truecolor_with_alpha);
 }

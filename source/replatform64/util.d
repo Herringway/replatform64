@@ -3,6 +3,7 @@ module replatform64.util;
 import std.algorithm.comparison;
 import std.bitmanip;
 import std.range;
+import std.traits;
 
 import replatform64.backend.common.interfaces;
 
@@ -33,8 +34,32 @@ template PixelFormatOf(T) {
 		static assert(0, "No support");
 	}
 }
+
 PixelFormat pixelFormat(T)(const Array2D!T) {
 	return PixelFormatOf!T;
+}
+
+template ColourFormatOf(PixelFormat p) {
+	import pixelmancy.colours : ABGR8888, ARGB8888, BGR555, BGRA8888, RGB555, RGBA8888;
+	static if (p == PixelFormat.bgr555) {
+		alias ColourFormatOf = BGR555;
+	} else static if (p == PixelFormat.rgb555) {
+		alias ColourFormatOf = RGB555;
+	} else static if (p == PixelFormat.argb8888) {
+		alias ColourFormatOf = ARGB8888;
+	} else static if (p == PixelFormat.abgr8888) {
+		alias ColourFormatOf = ABGR8888;
+	} else static if (p == PixelFormat.rgba8888) {
+		alias ColourFormatOf = RGBA8888;
+	} else static if (p == PixelFormat.bgra8888) {
+		alias ColourFormatOf = BGRA8888;
+	} else {
+		static assert(0, "No support");
+	}
+}
+
+static foreach (pixelFormat; EnumMembers!PixelFormat) {
+	static assert(PixelFormatOf!(ColourFormatOf!pixelFormat) == pixelFormat);
 }
 
 

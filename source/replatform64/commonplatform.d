@@ -511,26 +511,7 @@ struct PlatformCommon {
 	void dumpScreen(string dumpDir) {
 		Texture texture;
 		backend.video.getDrawingTexture(texture);
-		final switch (texture.format) {
-			case PixelFormat.rgb555:
-				dumpPNG(texture.asArray2D!RGB555, buildPath(dumpDir, "screen.png"));
-				break;
-			case PixelFormat.bgr555:
-				dumpPNG(texture.asArray2D!BGR555, buildPath(dumpDir, "screen.png"));
-				break;
-			case PixelFormat.abgr8888:
-				dumpPNG(texture.asArray2D!ABGR8888, buildPath(dumpDir, "screen.png"));
-				break;
-			case PixelFormat.argb8888:
-				dumpPNG(texture.asArray2D!ARGB8888, buildPath(dumpDir, "screen.png"));
-				break;
-			case PixelFormat.bgra8888:
-				dumpPNG(texture.asArray2D!BGRA8888, buildPath(dumpDir, "screen.png"));
-				break;
-			case PixelFormat.rgba8888:
-				dumpPNG(texture.asArray2D!RGBA8888, buildPath(dumpDir, "screen.png"));
-				break;
-		}
+		dumpPNG(texture, buildPath(dumpDir, "screen.png"));
 	}
 	private void renderUIElements() {
 		UIState state;
