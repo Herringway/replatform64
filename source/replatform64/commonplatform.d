@@ -99,7 +99,7 @@ struct PlatformCommon {
 		settings.video.window = backend.video.getWindowState();
 		Settings(commonSettings, systemSettings, gameSettings, settings).toFile!YAML(settingsFile);
 	}
-	auto parseArgs(string[] args) {
+	auto parseArgs(ref string[] args) {
 		bool verbose;
 		string logFile;
 		auto result = getopt(args, config.passThrough,
