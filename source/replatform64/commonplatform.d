@@ -308,7 +308,7 @@ struct PlatformCommon {
 		}
 		loadAssets!Modules(loader);
 	}
-	bool assetsExist() {
+	bool assetsExist() @safe {
 		return (gameID~".planet").exists;
 	}
 	PlanetArchive assets() {
@@ -525,12 +525,10 @@ struct PlatformCommon {
 				dumpPNG(texture.asArray2D!ARGB8888, buildPath(dumpDir, "screen.png"));
 				break;
 			case PixelFormat.bgra8888:
-				assert(0, "Not yet supported");
-				//dumpPNG(texture.asArray2D!BGRA8888, buildPath(dumpDir, "screen.png"));
+				dumpPNG(texture.asArray2D!BGRA8888, buildPath(dumpDir, "screen.png"));
 				break;
 			case PixelFormat.rgba8888:
-				assert(0, "Not yet supported");
-				//dumpPNG(texture.asArray2D!RGBA8888, buildPath(dumpDir, "screen.png"));
+				dumpPNG(texture.asArray2D!RGBA8888, buildPath(dumpDir, "screen.png"));
 				break;
 		}
 	}
