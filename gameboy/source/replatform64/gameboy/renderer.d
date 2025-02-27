@@ -7,8 +7,6 @@ import std.traits;
 import std.string;
 
 import replatform64.gameboy.hardware;
-import replatform64.gameboy.ppu;
-import replatform64.gameboy.timer;
 import replatform64.util;
 
 import pixelmancy.colours;

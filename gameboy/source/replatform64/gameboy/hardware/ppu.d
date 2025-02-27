@@ -1,7 +1,7 @@
-module replatform64.gameboy.ppu;
+module replatform64.gameboy.hardware.ppu;
 
 import replatform64.backend.common.interfaces;
-import replatform64.gameboy.hardware;
+import replatform64.gameboy.hardware.registers;
 
 import replatform64.testhelpers;
 import replatform64.ui;

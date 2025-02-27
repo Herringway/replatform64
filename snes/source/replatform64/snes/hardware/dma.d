@@ -1,7 +1,7 @@
-module replatform64.snes.dma;
+module replatform64.snes.hardware.dma;
 
-import replatform64.snes.hardware;
-import replatform64.snes.rendering;
+import replatform64.snes.hardware.registers;
+import replatform64.snes.renderer;
 
 import std.experimental.logger;
 

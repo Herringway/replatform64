@@ -1,4 +1,4 @@
-module replatform64.gameboy.apu;
+module replatform64.gameboy.hardware.apu;
 
 import std.algorithm.iteration;
 import std.conv;

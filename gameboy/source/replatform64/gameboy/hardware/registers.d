@@ -1,4 +1,4 @@
-module replatform64.gameboy.hardware;
+module replatform64.gameboy.hardware.registers;
 
 import std.bitmanip;
 
@@ -188,7 +188,6 @@ union STATValue {
 	}
 }
 
-deprecated("Use Register instead") alias GameBoyRegister = Register;
 enum Register : ushort {
 	JOYP = 0xFF00,
 	P1 = JOYP,

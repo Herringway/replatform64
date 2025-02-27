@@ -1,4 +1,4 @@
-module replatform64.nes.ppu;
+module replatform64.nes.hardware.ppu;
 
 import replatform64.backend.common.interfaces;
 import replatform64.dumping;

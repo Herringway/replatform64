@@ -1,4 +1,4 @@
-module replatform64.gameboy.cpu;
+module replatform64.gameboy.hardware.cpu;
 
 alias rrca = rrc;
 ubyte rrc(ubyte value, ref bool carry) @safe pure {

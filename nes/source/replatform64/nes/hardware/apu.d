@@ -1,4 +1,4 @@
-module replatform64.nes.apu;
+module replatform64.nes.hardware.apu;
 
 import core.stdc.stdint;
 import core.stdc.string;

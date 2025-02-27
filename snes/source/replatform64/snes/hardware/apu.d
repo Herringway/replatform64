@@ -1,4 +1,4 @@
-module replatform64.snes.audio;
+module replatform64.snes.hardware.apu;
 
 import replatform64.backend.common;
 import replatform64.snes.hardware;

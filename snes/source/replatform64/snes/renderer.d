@@ -1,9 +1,8 @@
-module replatform64.snes.rendering;
+module replatform64.snes.renderer;
 
 import replatform64.backend.common;
 import replatform64.snes.bsnes.renderer;
 import replatform64.snes.hardware;
-import replatform64.snes.ppu;
 import replatform64.ui;
 import replatform64.util;
 

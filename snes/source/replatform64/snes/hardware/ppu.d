@@ -1,4 +1,4 @@
-module replatform64.snes.ppu;
+module replatform64.snes.hardware.ppu;
 
 /**
  * MIT License

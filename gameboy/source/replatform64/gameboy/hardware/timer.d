@@ -1,6 +1,6 @@
-module replatform64.gameboy.timer;
+module replatform64.gameboy.hardware.timer;
 
-import replatform64.gameboy.hardware;
+import replatform64.gameboy.hardware.registers;
 
 struct Timer {
 	ubyte tac;

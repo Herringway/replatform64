@@ -1,7 +1,7 @@
 module replatform64.nes.renderer;
 
 import replatform64.backend.common;
-import replatform64.nes.ppu;
+import replatform64.nes.hardware;
 import replatform64.util;
 
 import pixelmancy.colours;

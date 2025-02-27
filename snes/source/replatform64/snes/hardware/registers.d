@@ -1,4 +1,4 @@
-module replatform64.snes.hardware;
+module replatform64.snes.hardware.registers;
 
 import std.bitmanip;
 import replatform64.registers;

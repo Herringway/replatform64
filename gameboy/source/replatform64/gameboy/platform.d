@@ -1,8 +1,6 @@
 module replatform64.gameboy.platform;
 
-import replatform64.gameboy.apu;
 import replatform64.gameboy.hardware;
-import replatform64.gameboy.ppu;
 import replatform64.gameboy.renderer;
 
 import replatform64.assets;

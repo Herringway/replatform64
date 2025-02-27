@@ -1,8 +1,6 @@
 module replatform64.nes.platform;
 
-import replatform64.nes.apu;
 import replatform64.nes.hardware;
-import replatform64.nes.ppu;
 import replatform64.nes.renderer;
 
 import replatform64.assets;
@@ -21,44 +19,6 @@ enum settingsFile = "settings.yaml";
 
 struct Settings {
 	bool debugging;
-}
-
-enum Register {
-	PPUCTRL = 0x2000,
-	PPUMASK = 0x2001,
-	PPUSTATUS = 0x2002,
-	OAMADDR = 0x2003,
-	OAMDATA = 0x2004,
-	PPUSCROLL = 0x2005,
-	PPUADDR = 0x2006,
-	PPUDATA = 0x2007,
-	SQ1 = 0x4000,
-	SQ1_VOL = 0x4000,
-	SQ1_SWEEP = 0x4001,
-	SQ1_LO = 0x4002,
-	SQ1_HI = 0x4003,
-	SQ2 = 0x4004,
-	SQ2_VOL = 0x4004,
-	SQ2_SWEEP = 0x4005,
-	SQ2_LO = 0x4006,
-	SQ2_HI = 0x4007,
-	TRI = 0x4008,
-	TRI_LINEAR = 0x4008,
-	TRI_LO = 0x400A,
-	TRI_HI = 0x400B,
-	NOISE = 0x400C,
-	NOISE_VOL = 0x400C,
-	NOISE_LO = 0x400E,
-	NOISE_HI = 0x400F,
-	DMC = 0x4010,
-	DMC_FREQ = 0x4010,
-	DMC_RAW = 0x4011,
-	DMC_START = 0x4012,
-	DMC_LEN = 0x4013,
-	OAMDMA = 0x4014,
-	SND_CHN = 0x4015,
-	JOY1 = 0x4016,
-	JOY2 = 0x4017,
 }
 
 struct NES {
