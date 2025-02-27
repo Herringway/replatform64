@@ -33,11 +33,9 @@ struct SNES {
 	string title;
 	SNESRenderer renderer;
 	string matchingInternalID;
-	HLEWriteCallback spc700HLEWrite;
-	HLEReadCallback spc700HLERead;
+	APU apu;
 	private Settings settings;
 	private immutable(ubyte)[] originalData;
-	private bool useHLEAudio;
 	private PlatformCommon platform;
 	private ushort[2] pads;
 	DMAChannel[8] dmaChannels; ///
@@ -59,20 +57,13 @@ struct SNES {
 		platform.registerMemoryRange("OAM1", cast(ubyte[])renderer.oam1);
 		platform.registerMemoryRange("OAM2", renderer.oam2);
 	}
-	void initializeAudio(T)(T* user, void function(T* user, ubyte[] buffer) callback, HLEWriteCallback writeCallback, HLEReadCallback readCallback) {
-		platform.installAudioCallback(user, cast(void function(void*, ubyte[]))callback);
-		spc700HLEWrite = writeCallback;
-		spc700HLERead = readCallback;
-		static if (__traits(compiles, user.backend = platform.backend.audio)) {
-			user.backend = platform.backend.audio;
+	void initializeAudio(APU apu) {
+		this.apu = apu;
+		apu.initialize(platform.backend.audio);
+		platform.installAudioCallback(cast(void*)apu, &APU.audioCallback);
+		if (apu.aram !is null) {
+			platform.registerMemoryRange("ARAM", apu.aram);
 		}
-		static if (__traits(compiles, audioDebug = &user.debugging)) {
-			audioDebug = &user.debugging;
-		}
-		if (user.aram !is null) {
-			platform.registerMemoryRange("ARAM", user.aram);
-		}
-		useHLEAudio = true;
 	}
 	immutable(ubyte)[] romData() {
 		if (!originalData && (gameID ~ ".sfc").exists) {
@@ -133,6 +124,8 @@ struct SNES {
 	ubyte readRegister(ushort addr) {
 		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
 			return renderer.readRegister(addr);
+		} else if ((addr >= Register.APUIO0) && (addr <= Register.APUIO3)) {
+			return apu.readRegister(addr);
 		} else {
 			assert(0, "Unsupported read");
 		}
@@ -140,6 +133,8 @@ struct SNES {
 	void writeRegisterPlatform(ushort addr, ubyte value) {
 		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
 			renderer.writeRegister(addr, value);
+		} else if ((addr >= Register.APUIO0) && (addr <= Register.APUIO3)) {
+			apu.writeRegister(addr, value);
 		} else {
 			assert(0, "Unsupported write");
 		}
@@ -177,7 +172,7 @@ struct SNES {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("APU")) {
-				audioDebug(state);
+				apu.debugUI(state, platform.backend.video);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();
@@ -191,30 +186,6 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.oam"), "wb").rawWrite(renderer.oam1);
 		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
-	}
-	void APUIO(ubyte port, ubyte val) {
-		if (spc700HLEWrite) {
-			spc700HLEWrite(port, val, platform.backend.audio);
-		}
-	}
-	ubyte APUIO(ubyte port) {
-		if (spc700HLERead) {
-			return spc700HLERead(port);
-		} else {
-			return 0;
-		}
-	}
-	void APUIO0(ubyte val) {
-		APUIO(0, val);
-	}
-	void APUIO1(ubyte val) {
-		APUIO(1, val);
-	}
-	void APUIO2(ubyte val) {
-		APUIO(2, val);
-	}
-	void APUIO3(ubyte val) {
-		APUIO(3, val);
 	}
 }
 

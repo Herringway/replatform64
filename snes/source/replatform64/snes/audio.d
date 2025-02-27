@@ -1,6 +1,7 @@
 module replatform64.snes.audio;
 
 import replatform64.backend.common;
+import replatform64.snes.hardware;
 import replatform64.ui;
 import replatform64.util;
 
@@ -12,72 +13,68 @@ import std.array;
 import std.conv;
 import std.range;
 
-alias HLEWriteCallback = void delegate(ubyte port, ubyte value, AudioBackend backend);
-alias HLEReadCallback = ubyte delegate(ubyte port);
+abstract class APU {
+	void initialize(AudioBackend) @safe;
+	void loadSong(scope const(ubyte)[] data) @safe;
+	void writeRegister(ushort addr, ubyte value) @safe;
+	ubyte readRegister(ushort addr) @safe;
+	void debugUI(const UIState state, VideoBackend backend) @safe;
+	void audioCallback(scope ubyte[] buffer) @safe;
+	ubyte[] aram() @safe;
+	static void audioCallback(scope void* apu, scope ubyte[] buffer) @trusted {
+		(cast(APU)apu).audioCallback(buffer);
+	}
+}
 
-struct SPC700Emulated {
+abstract class SPC700Emulated : APU {
 	SNES_SPC snes_spc;
 	SPC_Filter filter;
 	ubyte[65536][] songs;
 	bool initialized;
-	void delegate(scope ref SPC700Emulated spc, ubyte port, ubyte value) writePortCallback;
-	ubyte delegate(scope ref SPC700Emulated spc, ubyte port) readPortCallback;
-	void initialize() {
+	override void initialize(AudioBackend) @safe {
 		snes_spc.initialize();
 		filter = SPC_Filter();
 	}
-	void waitUntilReady() {
-		writePort(1, 0xFF);
+	override void loadSong(scope const(ubyte)[] data) @safe {
+		ubyte[65536] buffer;
+		loadAllSubpacks(buffer[], data[NSPCFileHeader.sizeof .. $]);
+		songs ~= buffer;
+	}
+	void waitUntilReady() @safe {
+		writeRegister(Register.APUIO1, 0xFF);
 		while (true) {
 			snes_spc.skip(2);
-			if (readPort(1) == 0) {
+			if (readRegister(Register.APUIO1) == 0) {
 				return;
 			}
 		}
 	}
-	void load(ubyte[] buffer, ushort start) {
+	void changeSong(size_t index, ushort start) @safe {
 		initialized = false;
-		snes_spc.load_buffer(buffer, start);
+		snes_spc.load_buffer(songs[index], start);
 		snes_spc.clear_echo();
 		filter.clear();
 		waitUntilReady();
 		initialized = true;
 	}
-	void writePort(ubyte id, ubyte value) {
-		snes_spc.write_port_now(id, value);
+	override void writeRegister(ushort address, ubyte value) {
+		snes_spc.write_port_now(cast(ubyte)(address - Register.APUIO0), value);
 	}
-	void writeCallback(ubyte id, ubyte value, AudioBackend) {
-		if (writePortCallback) {
-			writePortCallback(this, id, value);
-		} else {
-			writePort(id, value);
-		}
+	override ubyte readRegister(ushort address) {
+		return cast(ubyte)snes_spc.read_port_now(cast(ubyte)(address - Register.APUIO0));
 	}
-	ubyte readPort(ubyte id) {
-		return cast(ubyte)snes_spc.read_port_now(id);
-	}
-	ubyte readCallback(ubyte id) {
-		if (readPortCallback) {
-			return readPortCallback(this, id);
-		} else {
-			return readPort(id);
-		}
-	}
-	static void callback(SPC700Emulated* user, ubyte[] buffer) {
-		user.callback(cast(short[])buffer);
-	}
-	void callback(short[] buffer) {
+	override void audioCallback(scope ubyte[] buffer) @safe {
 		if (!initialized) {
 			return;
 		}
 		// Play into buffer
-		snes_spc.play(buffer);
+		snes_spc.play(cast(short[])buffer);
 
 		// Filter samples
-		filter.run(buffer);
+		filter.run(cast(short[])buffer);
 	}
-	ubyte[] aram() => snes_spc.m.ram[];
-	void debugging(const UIState uiState) {
+	override ubyte[] aram() => snes_spc.m.ram[];
+	override void debugUI(const UIState uiState, VideoBackend backend) @trusted {
 		if (ImGui.BeginTable("Voices", 8)) {
 			foreach (header; ["VOLL", "VOLR", "PITCH", "SRCN", "ADSR", "GAIN", "ENVX", "OUTX"]) {
 				ImGui.TableSetupColumn(header);
@@ -106,40 +103,34 @@ struct SPC700Emulated {
 	}
 }
 
-struct NSPC {
+abstract class NSPCBase : APU {
 	NSPCPlayer player;
 	bool initialized;
-	void delegate(scope ref NSPC nspc, ubyte port, ubyte value, AudioBackend backend) writePortCallback;
-	ubyte delegate(scope ref NSPC nspc, ubyte port) readPortCallback;
 	AudioBackend backend;
-	void changeSong(const Song track) {
+	Song[] loadedSongs;
+	override void initialize(AudioBackend backend) @safe {
+		this.backend = backend;
+	}
+	void changeSong(size_t track) @safe {
 		initialized = false;
-		player.loadSong(track);
+		player.loadSong(loadedSongs[track]);
 		player.initialize();
 		player.play();
 		initialized = true;
 	}
-	void stop() {
+	override void loadSong(scope const(ubyte)[] data) @safe {
+		loadedSongs ~= loadNSPCFile(data);
+	}
+	void stop() @safe {
 		player.stop();
 	}
-	static void callback(NSPC* user, ubyte[] stream) {
-		if (user.initialized) {
-			user.player.fillBuffer(cast(short[2][])stream);
+	override void audioCallback(scope ubyte[] stream) @safe {
+		if (initialized) {
+			player.fillBuffer(cast(short[2][])stream);
 		}
 	}
-	void writeCallback(ubyte port, ubyte value, AudioBackend backend) {
-		if (writePortCallback !is null) {
-			writePortCallback(this, port, value, backend);
-		}
-	}
-	ubyte readCallback(ubyte port) {
-		if (readPortCallback !is null) {
-			return readPortCallback(this, port);
-		}
-		return 0;
-	}
-	ubyte[] aram() => null;
-	void debugging(const UIState uiState) {
+	override ubyte[] aram() => null;
+	override void debugUI(const UIState uiState, VideoBackend backend) @trusted {
 		if ((player.currentSong !is null) && ImGui.BeginTabBar("SongStateTabs")) {
 			if (ImGui.BeginTabItem("Song")) {
 				InputEditable("Tempo", player.state.tempo.current);
@@ -205,11 +196,4 @@ struct NSPC {
 			ImGui.EndTabBar();
 		}
 	}
-}
-
-ubyte[65536] loadNSPCBuffer(scope const ubyte[] file) @safe {
-	import std.bitmanip : read;
-	ubyte[65536] buffer;
-	const remaining = loadAllSubpacks(buffer[], file[NSPCFileHeader.sizeof .. $]);
-	return buffer;
 }

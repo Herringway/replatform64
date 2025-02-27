@@ -69,6 +69,10 @@ enum Register {
 	OPVCT = 0x213D,
 	STAT77 = 0x213E,
 	STAT78 = 0x213F,
+	APUIO0 = 0x2140,
+	APUIO1 = 0x2141,
+	APUIO2 = 0x2142,
+	APUIO3 = 0x2143,
 }
 
 ///
