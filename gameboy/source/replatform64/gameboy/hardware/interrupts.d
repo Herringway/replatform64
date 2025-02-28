@@ -80,6 +80,7 @@ struct Interrupts {
 			ImGui.TreePop();
 		}
 		bool temp;
+		ImGui.BeginDisabled();
 		temp = ime;
 		ImGui.Checkbox("Interrupts enabled", &temp);
 		temp = vblank !is null;
@@ -92,6 +93,7 @@ struct Interrupts {
 		ImGui.Checkbox("Serial interrupt set up", &temp);
 		temp = joypad !is null;
 		ImGui.Checkbox("Joypad interrupt set up", &temp);
+		ImGui.EndDisabled();
 	}
 }
 
