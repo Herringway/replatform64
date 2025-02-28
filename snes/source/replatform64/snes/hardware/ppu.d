@@ -89,7 +89,7 @@ struct Tile {
 }
 
 struct PPU {
-	alias ColourFormat = ABGR8888;
+	alias ColourFormat = BGR555;
 	bool lineHasSprites;
 	ubyte lastBrightnessMult = 0xff;
 	ubyte lastMosaicModulo = 0xff;
@@ -191,7 +191,7 @@ struct PPU {
 			ubyte ppu_brightness = brightness;
 			lastBrightnessMult = ppu_brightness;
 			for (int i = 0; i < 32; i++) {
-				brightnessMultHalf[i * 2] = brightnessMultHalf[i * 2 + 1] = brightnessMult[i] = cast(ubyte)(((i << 3) | (i >> 2)) * ppu_brightness / 15);
+				brightnessMultHalf[i * 2] = brightnessMultHalf[i * 2 + 1] = brightnessMult[i] = cast(ubyte)((i * ppu_brightness) / 15);
 			}
 			// Store 31 extra entries to remove the need for clamping to 31.
 			brightnessMult[32 .. 63] = brightnessMult[31];
@@ -869,10 +869,7 @@ struct PPU {
 			}
 		}
 		int row = y - 1;
-		renderBuffer[x + extraLeftRight, row] = ColourFormat(
-			cast(ubyte)(((colour1.red << 3) | (colour1.red >> 2)) * brightness / 15),
-			cast(ubyte)(((colour1.green << 3) | (colour1.green >> 2)) * brightness / 15),
-			cast(ubyte)(((colour1.blue << 3) | (colour1.blue >> 2)) * brightness / 15));
+		renderBuffer[x + extraLeftRight, row] = ColourFormat(brightnessMult[colour1.red], brightnessMult[colour1.green], brightnessMult[colour1.blue]);
 	}
 
 	immutable int[4][10] bitDepthsPerMode = [
@@ -2002,6 +1999,7 @@ unittest {
 	runTest("mosaicm3", true, false);
 	runTest("mosaicm5", false, false);
 	runTest("ebswirl", false, false);
+	runTest("ebfadein", true, true);
 	runTest("ebnorm", true, true);
 	runTest("ebspriteprio", true, true);
 	runTest("ebspriteprio2", true, false);
