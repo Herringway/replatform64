@@ -68,6 +68,8 @@ struct GameBoySimple {
 	private PPU ppu;
 	private Interrupts interrupts;
 	Timer timer;
+	Serial serial;
+	Infrared infrared;
 	bool holdWritesUntilHBlank;
 	ubyte[ushort] cachedWrites;
 
@@ -176,10 +178,7 @@ struct GameBoySimple {
 		}
 		return WaveRAM(&this);
 	}
-	ubyte SB; /// NYI
-	ubyte SC; /// NYI
 	ubyte DIV; /// NYI
-	ubyte RP; /// NYI
 	void stop() {
 		key1.commitSpeedChange();
 		if (key1.pretendDoubleSpeed) {
@@ -193,6 +192,8 @@ struct GameBoySimple {
 			apu.writeRegister(addr, value);
 		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
 			timer.writeRegister(addr, value);
+		} else if ((addr >= Register.SB) && (addr <= Register.SC)) {
+			serial.writeRegister(addr, value);
 		} else if ((addr >= Register.LCDC) && (addr <= Register.WX) || ((addr >= Register.BCPS) && (addr <= Register.SVBK)) || (addr == Register.VBK)) {
 			if (holdWritesUntilHBlank) {
 				cachedWrites[addr] = value;
@@ -201,6 +202,8 @@ struct GameBoySimple {
 			ppu.writeRegister(addr, value);
 		} else if (addr == Register.KEY1) {
 			key1.writeRegister(addr, value);
+		} else if (addr == Register.RP) {
+			infrared.writeRegister(addr, value);
 		} else if (addr == Register.JOYP) {
 			joy.writeRegister(addr, value);
 		} else if ((addr == Register.IE) || (addr == Register.IF)) {
@@ -209,11 +212,13 @@ struct GameBoySimple {
 			assert(0, format!"Not yet implemented: %04X"(addr));
 		}
 	}
-	ubyte readRegister(ushort addr) const {
+	ubyte readRegister(ushort addr) {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			return apu.readRegister(addr);
 		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
 			return timer.readRegister(addr);
+		} else if ((addr >= Register.SB) && (addr <= Register.SC)) {
+			return serial.readRegister(addr);
 		} else if ((addr >= Register.LCDC) && (addr <= Register.WX) || ((addr >= Register.BCPS) && (addr <= Register.SVBK)) || (addr == Register.VBK)) {
 			if (holdWritesUntilHBlank) {
 				if (auto val = addr in cachedWrites) {
@@ -223,6 +228,8 @@ struct GameBoySimple {
 			return ppu.readRegister(addr);
 		} else if (addr == Register.KEY1) {
 			return key1.readRegister(addr);
+		} else if (addr == Register.RP) {
+			return infrared.readRegister(addr);
 		} else if ((addr == Register.IE) || (addr == Register.IF)) {
 			return interrupts.readRegister(addr);
 		} else if (addr == Register.JOYP) {
