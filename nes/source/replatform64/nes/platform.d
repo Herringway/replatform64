@@ -1,7 +1,6 @@
 module replatform64.nes.platform;
 
 import replatform64.nes.hardware;
-import replatform64.nes.renderer;
 
 import replatform64.assets;
 import replatform64.backend.common;
@@ -26,12 +25,12 @@ struct NES {
 	void function() interruptHandlerVBlank;
 	string title;
 	bool interruptsEnabled;
-	enum width = Renderer.width;
-	enum height = Renderer.height;
+	enum width = PPU.width;
+	enum height = PPU.height;
 
 	private Settings settings;
 	private APU apu;
-	private Renderer renderer;
+	private PPU ppu;
 	private immutable(ubyte)[] romData;
 	private ubyte[2] pads;
 
@@ -41,14 +40,26 @@ struct NES {
 
 	void initialize(Backend backendType = Backend.autoSelect) {
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(); }, backendType);
-		renderer.initialize(title, platform.backend.video);
+
+		WindowSettings window;
+		window.baseWidth = width;
+		window.baseHeight = height;
+		platform.backend.video.createWindow(title, window);
+		platform.backend.video.createTexture(width, height, PixelFormatOf!(PPU.ColourFormat));
+		ppu.chr = new ubyte[](0x2000);
+		ppu.nametable = new ubyte[](0x1000);
+
 		platform.installAudioCallback(&apu, &audioCallback);
-		platform.registerMemoryRange("CHR", renderer.ppu.chr[]);
-		platform.registerMemoryRange("Nametable", renderer.ppu.nametable[]);
-		platform.registerMemoryRange("Palette", renderer.ppu.palette[]);
+		platform.registerMemoryRange("CHR", ppu.chr[]);
+		platform.registerMemoryRange("Nametable", ppu.nametable[]);
+		platform.registerMemoryRange("Palette", ppu.palette[]);
 	}
 	auto preDraw() => interruptHandlerVBlank();
-	auto draw() => renderer.draw();
+	auto draw()  {
+		Texture texture;
+		platform.backend.video.getDrawingTexture(texture);
+		ppu.render(texture.asArray2D!(PPU.ColourFormat));
+	}
 	private void copyInputState(InputState state) @safe pure {
 		pads = 0;
 		foreach (idx, ref pad; pads) {
@@ -69,7 +80,7 @@ struct NES {
 	private void commonDebugState(const UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
 			if (ImGui.BeginTabItem("PPU")) {
-				renderer.ppu.debugUI(state, platform.backend.video);
+				ppu.debugUI(state, platform.backend.video);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("APU")) {
@@ -81,7 +92,7 @@ struct NES {
 	}
 	void writeRegisterPlatform(ushort addr, ubyte value) {
 		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
-			renderer.writeRegister(addr, value);
+			ppu.writeRegister(addr, value);
 		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
 			apu.writeRegister(addr, value);
 		} else {
@@ -90,7 +101,7 @@ struct NES {
 	}
 	ubyte readRegister(ushort addr) {
 		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
-			return renderer.readRegister(addr);
+			return ppu.readRegister(addr);
 		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
 			return apu.readRegister(addr);
 		} else {
@@ -102,13 +113,13 @@ struct NES {
 	void JOY2(ubyte val) {
 	}
 	void setNametableMirroring(MirrorType type) {
-		renderer.ppu.mirrorMode = type;
+		ppu.mirrorMode = type;
 	}
 	void handleOAMDMA(const(ubyte)[] src, ushort dest) {
 		const data = cast(OAMEntry[])src;
 		handleOAMDMA(data, dest);
 	}
 	void handleOAMDMA(const(OAMEntry)[] src, ushort dest) {
-		renderer.ppu.oam[0 .. src.length] = src;
+		ppu.oam[0 .. src.length] = src;
 	}
 }
