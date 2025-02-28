@@ -52,17 +52,18 @@ struct Config {
 
 ubyte inputPressed;
 void readInput() {
-	gb.writeJoy(0x20);
-	ubyte tmp = ((~gb.readJoy()) & 0xF) << 4;
-	gb.writeJoy(0x10);
-	tmp |= ~gb.readJoy() & 0xF;
+	gb.JOYP = 0x20;
+	ubyte tmp = (~gb.JOYP & 0xF) << 4;
+	gb.JOYP = 0x10;
+	tmp |= ~gb.JOYP & 0xF;
 	inputPressed = tmp;
-	gb.writeJoy(0x30);
+	gb.JOYP = 0x30;
 }
 void writeToVRAM(scope const ubyte[] data, ushort addr) {
 	gb.vram[addr - 0x8000 .. addr - 0x8000 + data.length] = data;
 }
 void init() {
+	gb.enableInterrupts();
 	gb.LCDC = 0;
 }
 void load() {
@@ -70,6 +71,7 @@ void load() {
 	assert(objData.length, "Could not load OBJ data");
 	writeToVRAM(fontData, 0x9000);
 	assert(fontData.length, "Could not load font data");
+	gb.IE = InterruptFlag.vblank;
 	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 }
 void startRendering() {
