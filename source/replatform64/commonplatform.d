@@ -634,6 +634,7 @@ struct PlatformCommon {
 }
 
 mixin template PlatformCommonForwarders() {
+	import replatform64.assets : ExtractFunction, LoadFunction;
 	import replatform64.dumping : crashHandler, dumpPNG;
 	import std.traits : EnumMembers, Parameters;
 	DebugFunction debugMenuRenderer;

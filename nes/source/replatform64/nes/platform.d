@@ -47,6 +47,8 @@ struct NES {
 		platform.registerMemoryRange("Nametable", renderer.ppu.nametable[]);
 		platform.registerMemoryRange("Palette", renderer.ppu.palette[]);
 	}
+	auto preDraw() => interruptHandlerVBlank();
+	auto draw() => renderer.draw();
 	private void copyInputState(InputState state) @safe pure {
 		pads = 0;
 		foreach (idx, ref pad; pads) {

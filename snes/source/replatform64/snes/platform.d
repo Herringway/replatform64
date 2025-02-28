@@ -54,6 +54,8 @@ struct SNES {
 		platform.registerMemoryRange("OAM1", cast(ubyte[])renderer.oam1);
 		platform.registerMemoryRange("OAM2", renderer.oam2);
 	}
+	auto preDraw() => interruptHandlerVBlank();
+	auto draw() => renderer.draw();
 	void initializeAudio(APU apu) {
 		this.apu = apu;
 		apu.initialize(platform.backend.audio);
