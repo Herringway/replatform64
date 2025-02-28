@@ -1,6 +1,5 @@
 module replatform64.snes.renderer;
 
-import replatform64.backend.common;
 import replatform64.snes.bsnes.renderer;
 import replatform64.snes.hardware;
 import replatform64.ui;
@@ -199,14 +198,14 @@ struct SNESRenderer {
 				break;
 		}
 	}
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
-				return bsnesFrame.debugUI(state, video);
+				return bsnesFrame.debugUI(state);
 				break;
 			case Renderer.neo:
-				return neoRenderer.debugUI(state, video);
+				return neoRenderer.debugUI(state);
 				break;
 		}
 	}

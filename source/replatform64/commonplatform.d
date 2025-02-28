@@ -177,7 +177,7 @@ struct PlatformCommon {
 			active: false,
 		);
 	}
-	void debuggingUI(const UIState) {
+	void debuggingUI(UIState) {
 		if (ImGui.BeginMainMenuBar()) {
 			if (ImGui.BeginMenu("Debugging")) {
 				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
@@ -516,6 +516,7 @@ struct PlatformCommon {
 	private void renderUIElements() {
 		UIState state;
 		state.window = backend.video.getWindowState();
+		state.backend = backend.video;
 		const gameWidth = nativeResolution.width * settings.video.zoom;
 		const gameHeight = nativeResolution.height * settings.video.zoom;
 		void renderGameWindow(bool fill) {

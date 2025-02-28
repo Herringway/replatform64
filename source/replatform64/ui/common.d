@@ -8,11 +8,12 @@ import replatform64.util;
 
 version(Windows) pragma(lib, "user32"); // for imgui's clipboard functions
 
-alias DebugFunction = void delegate(const UIState);
+alias DebugFunction = void delegate(UIState);
 
 struct UIState {
 	WindowState window;
 	float scaleFactor;
+	VideoBackend backend;
 }
 
 void InputEditable(alias var, ImGuiInputTextFlags flags = ImGuiInputTextFlags.None)() {
@@ -207,7 +208,7 @@ void showPalette(T)(T[] palettes, uint entries) {
 	}
 }
 
-void drawZoomableTiles(Tile, Colour, size_t paletteLength = 1 << Tile.bpp)(const scope Tile[] raw, scope const Colour[paletteLength][] palettes, VideoBackend video, ref void* surface, scope void delegate(int, int) onHover = null) {
+void drawZoomableTiles(Tile, Colour, size_t paletteLength = 1 << Tile.bpp)(const scope Tile[] raw, scope const Colour[paletteLength][] palettes, UIState state, ref void* surface, scope void delegate(int, int) onHover = null) {
 	import std.algorithm.comparison : clamp;
 	enum tileWidth = 8;
 	enum tileHeight = 8;
@@ -229,10 +230,10 @@ void drawZoomableTiles(Tile, Colour, size_t paletteLength = 1 << Tile.bpp)(const
 			allTilesBuffer[tileX + px, tileY + py] = palette[pixel];
 		}
 	}
-	drawZoomableImage(allTilesBuffer, video, surface);
+	drawZoomableImage(allTilesBuffer, state, surface);
 }
 
-void drawZoomableImage(T)(Array2D!T buffer, VideoBackend video, ref void* surface, scope void delegate(int, int) onHover = null) {
+void drawZoomableImage(T)(Array2D!T buffer, UIState state, ref void* surface, scope void delegate(int, int) onHover = null) {
 	static size_t zoom = 1;
 	if (ImGui.BeginCombo("Zoom", "1x")) {
 		foreach (i, label; ["1x", "2x", "3x", "4x"]) {
@@ -243,9 +244,9 @@ void drawZoomableImage(T)(Array2D!T buffer, VideoBackend video, ref void* surfac
 		ImGui.EndCombo();
 	}
 	if (surface is null) {
-		surface = video.createSurface(buffer);
+		surface = state.backend.createSurface(buffer);
 	}
-	video.setSurfacePixels(surface, cast(ubyte[])buffer[]);
+	state.backend.setSurfacePixels(surface, cast(ubyte[])buffer[]);
 	const imgCoords = ImGui.GetCursorScreenPos();
 	ImGui.Image(surface, ImVec2(buffer.dimensions[0] * zoom, buffer.dimensions[1] * zoom));
 	if (onHover) {
@@ -255,7 +256,7 @@ void drawZoomableImage(T)(Array2D!T buffer, VideoBackend video, ref void* surfac
 	}
 }
 
-void drawSprites(T)(size_t count, VideoBackend video, size_t maxWidth, size_t maxHeight, scope void delegate(Array2D!T canvas, size_t idx) drawSprite, scope void delegate(size_t offset) onHover = null) {
+void drawSprites(T)(size_t count, UIState state, size_t maxWidth, size_t maxHeight, scope void delegate(Array2D!T canvas, size_t idx) drawSprite, scope void delegate(size_t offset) onHover = null) {
 	static size_t zoom = 1;
 	if (ImGui.BeginCombo("Zoom", "1x")) {
 		foreach (i, label; ["1x", "2x", "3x", "4x"]) {
@@ -280,10 +281,10 @@ void drawSprites(T)(size_t count, VideoBackend video, size_t maxWidth, size_t ma
 			}
 			auto sprBuffer = sprBuffers[idx];
 			if (surfaces[idx] is null) {
-				surfaces[idx] = video.createSurface(sprBuffer);
+				surfaces[idx] = state.backend.createSurface(sprBuffer);
 			}
 			drawSprite(sprBuffer, idx);
-			video.setSurfacePixels(surfaces[idx], sprBuffer);
+			state.backend.setSurfacePixels(surfaces[idx], sprBuffer);
 			ImGui.Image(surfaces[idx], ImVec2(maxWidth * zoom, maxHeight * zoom));
 			if (onHover) {
 				if (ImGui.BeginItemTooltip()) {

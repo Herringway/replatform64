@@ -74,15 +74,15 @@ struct NES {
 	ubyte getControllerState(ubyte playerID) const @safe pure {
 		return pads[playerID];
 	}
-	private void commonDebugMenu(const UIState state) {}
-	private void commonDebugState(const UIState state) {
+	private void commonDebugMenu(UIState state) {}
+	private void commonDebugState(UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
 			if (ImGui.BeginTabItem("PPU")) {
-				ppu.debugUI(state, platform.backend.video);
+				ppu.debugUI(state);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("APU")) {
-				apu.debugUI(state, platform.backend.video);
+				apu.debugUI(state);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();

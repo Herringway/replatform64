@@ -1,7 +1,7 @@
 module replatform64.gameboy.hardware.interrupts;
 
 import replatform64.gameboy.hardware.registers;
-import replatform64.backend.common.interfaces;
+import replatform64.dumping;
 import replatform64.ui;
 
 alias InterruptFunction = void function();
@@ -52,7 +52,7 @@ struct Interrupts {
 			if_ &= ~flag;
 		}
 	}
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		if (ImGui.TreeNode("IE", "IE: %02X", ie)) {
 			registerBit("VBlank", ie, 0);
 			ImGui.SetItemTooltip("VBlank interrupts enabled");

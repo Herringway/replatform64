@@ -1,6 +1,5 @@
 module replatform64.gameboy.hardware.ppu;
 
-import replatform64.backend.common.interfaces;
 import replatform64.gameboy.hardware.registers;
 
 import replatform64.testhelpers;
@@ -317,7 +316,7 @@ struct PPU {
 				return 0; // open bus, but we're not doing anything with that yet
 		}
 	}
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		static void inputPaletteRegister(string label, ref ubyte palette) {
 			if (ImGui.TreeNode(label)) {
 				foreach (i; 0 .. 4) {
@@ -407,7 +406,7 @@ struct PPU {
 				drawFullBackground(buffer);
 				auto tiles = bgScreen2D();
 				auto attributes = bgScreenCGB2D();
-				drawZoomableImage(buffer, video, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
+				drawZoomableImage(buffer, state, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Window")) {
@@ -415,16 +414,16 @@ struct PPU {
 				drawFullWindow(buffer);
 				auto tiles = windowScreen2D();
 				auto attributes = windowScreenCGB2D();
-				drawZoomableImage(buffer, video, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
+				drawZoomableImage(buffer, state, surface, (x, y) { showTileInfo(x, y, tiles, attributes); });
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				drawZoomableTiles(cast(Intertwined2BPP[])vram.raw, paletteRAM[], video, surface);
+				drawZoomableTiles(cast(Intertwined2BPP[])vram.raw, paletteRAM[], state, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
-				drawSprites!ColourFormat(_oam.length, video, 8, 16, (canvas, index) {
+				drawSprites!ColourFormat(_oam.length, state, 8, 16, (canvas, index) {
 					drawSprite(canvas, cast(uint)index);
 				}, (index) {
 					const sprite = _oam[index];

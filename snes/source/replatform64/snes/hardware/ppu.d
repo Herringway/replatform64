@@ -26,7 +26,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 */
 
-import replatform64.backend.common.interfaces;
 import replatform64.testhelpers;
 import replatform64.snes.hardware;
 import replatform64.ui;
@@ -1430,7 +1429,7 @@ struct PPU {
 	bool IS_SCREEN_ENABLED(uint sub, uint layer) const @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
 	bool IS_SCREEN_WINDOWED(uint sub, uint layer) const @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
 	bool GET_WINDOW_FLAGS(uint layer) const @safe pure { return !!(windowsel >> (layer * 4)); }
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("State")) {
 				ImGui.Text("BG mode: %d", mode);
@@ -1438,7 +1437,7 @@ struct PPU {
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Sprites")) {
-				.drawSprites!BGR555(oam.length, video, 64, 64, (canvas, index) {
+				.drawSprites!BGR555(oam.length, state, 64, 64, (canvas, index) {
 					canvas[] = BGR555(31, 0, 31); // placeholder until we have some real drawing code
 				}, (index) {
 					const entry = oam[index];
@@ -1478,7 +1477,7 @@ struct PPU {
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(BGR555[16][])cgram, video, surface);
+				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(BGR555[16][])cgram, state, surface);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();

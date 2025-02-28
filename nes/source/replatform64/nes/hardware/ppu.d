@@ -1,6 +1,5 @@
 module replatform64.nes.hardware.ppu;
 
-import replatform64.backend.common.interfaces;
 import replatform64.dumping;
 import replatform64.nes.hardware;
 import replatform64.testhelpers;
@@ -465,7 +464,7 @@ struct PPU {
 			currentAddress++;
 		}
 	}
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		static ColourFormat[width * height] buffer;
 		if (ImGui.BeginTabBar("renderer")) {
 			if (ImGui.BeginTabItem("Registers")) {
@@ -528,11 +527,11 @@ struct PPU {
 			}
 			if (ImGui.BeginTabItem("Tiles")) {
 				static void* surface;
-				drawZoomableTiles(cast(Linear2BPP[])chr, cast(ColourFormat[4][])(palette[].map!(x => paletteRGB[x]).array), video, surface);
+				drawZoomableTiles(cast(Linear2BPP[])chr, cast(ColourFormat[4][])(palette[].map!(x => paletteRGB[x]).array), state, surface);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("OAM")) {
-				drawSprites!ColourFormat(oam.length, video, 8, 16, (canvas, index) {
+				drawSprites!ColourFormat(oam.length, state, 8, 16, (canvas, index) {
 					drawSprite(canvas, cast(uint)index, false, true);
 				}, (index) {
 					const sprite = oam[index];

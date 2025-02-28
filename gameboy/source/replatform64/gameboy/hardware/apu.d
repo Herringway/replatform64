@@ -5,7 +5,6 @@ import std.conv;
 import std.logger;
 import std.range;
 import std.string;
-import replatform64.backend.common;
 import replatform64.ui;
 
 /*
@@ -116,7 +115,7 @@ struct APU {
 	private int vol_l, vol_r;
 	uint sampleRate = 32000;
 
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		InputSlider("Volume (left)", vol_l, 0, 7);
 		InputSlider("Volume (right)", vol_r, 0, 7);
 		if (ImGui.BeginTable("Channels_", chans.length + 1)) {

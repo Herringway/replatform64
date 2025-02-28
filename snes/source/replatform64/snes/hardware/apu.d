@@ -18,7 +18,7 @@ abstract class APU {
 	void loadSong(scope const(ubyte)[] data) @safe;
 	void writeRegister(ushort addr, ubyte value) @safe;
 	ubyte readRegister(ushort addr) @safe;
-	void debugUI(const UIState state, VideoBackend backend) @safe;
+	void debugUI(UIState state) @safe;
 	void audioCallback(scope ubyte[] buffer) @safe;
 	ubyte[] aram() @safe;
 	static void audioCallback(scope void* apu, scope ubyte[] buffer) @trusted {
@@ -74,7 +74,7 @@ abstract class SPC700Emulated : APU {
 		filter.run(cast(short[])buffer);
 	}
 	override ubyte[] aram() => snes_spc.m.ram[];
-	override void debugUI(const UIState uiState, VideoBackend backend) @trusted {
+	override void debugUI(UIState uiState) @trusted {
 		if (ImGui.BeginTable("Voices", 8)) {
 			foreach (header; ["VOLL", "VOLR", "PITCH", "SRCN", "ADSR", "GAIN", "ENVX", "OUTX"]) {
 				ImGui.TableSetupColumn(header);
@@ -130,7 +130,7 @@ abstract class NSPCBase : APU {
 		}
 	}
 	override ubyte[] aram() => null;
-	override void debugUI(const UIState uiState, VideoBackend backend) @trusted {
+	override void debugUI(UIState uiState) @trusted {
 		if ((player.currentSong !is null) && ImGui.BeginTabBar("SongStateTabs")) {
 			if (ImGui.BeginTabItem("Song")) {
 				InputEditable("Tempo", player.state.tempo.current);

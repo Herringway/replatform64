@@ -156,7 +156,7 @@ struct SNES {
 		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
 		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
-	private void commonDebugMenu(const UIState state) {
+	private void commonDebugMenu(UIState state) {
 		static bool platformDebugWindowOpen;
 		bool doDumpPPU;
 		if (ImGui.BeginMainMenuBar()) {
@@ -171,14 +171,14 @@ struct SNES {
 			doDumpPPU = false;
 		}
 	}
-	private void commonDebugState(const UIState state) {
+	private void commonDebugState(UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
 			if (ImGui.BeginTabItem("PPU")) {
-				renderer.debugUI(state, platform.backend.video);
+				renderer.debugUI(state);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("APU")) {
-				apu.debugUI(state, platform.backend.video);
+				apu.debugUI(state);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();

@@ -221,7 +221,7 @@ align:
 	ubyte readRegister(ushort addr) @safe pure {
 		return 0;
 	}
-	void debugUI(const UIState state, VideoBackend video) {
+	void debugUI(UIState state) {
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("Global state")) {
 				ImGui.Text("BG mode: %d", BGMODE & 7);
@@ -229,7 +229,7 @@ align:
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Sprites")) {
-				drawSprites!ColourFormat(oam1.length, video, 64, 64, (canvas, index) {
+				drawSprites!ColourFormat(oam1.length, state, 64, 64, (canvas, index) {
 					canvas[] = ColourFormat(31, 0, 31); // placeholder until we have some real drawing code
 				}, (index) {
 					const entry = oam1[index];
@@ -277,7 +277,7 @@ align:
 			}
 			if (ImGui.BeginTabItem("VRAM")) {
 				static void* surface;
-				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(ColourFormat[16][])cgram, video, surface);
+				drawZoomableTiles(cast(Intertwined4BPP[])vram, cast(ColourFormat[16][])cgram, state, surface);
 				ImGui.EndTabItem();
 			}
 			ImGui.EndTabBar();

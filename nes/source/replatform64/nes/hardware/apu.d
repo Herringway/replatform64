@@ -5,7 +5,6 @@ import core.stdc.string;
 import core.stdc.stdlib;
 import core.stdc.math;
 
-import replatform64.backend.common;
 import replatform64.ui;
 
 enum defaultFrequency = 48000;
@@ -489,7 +488,7 @@ struct APU {
 			break;
 		}
 	}
-	void debugUI(const UIState state, VideoBackend video) {}
+	void debugUI(UIState state) {}
 
 private:
 	ubyte[AUDIO_BUFFER_LENGTH] audioBuffer;
