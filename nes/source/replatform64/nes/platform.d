@@ -27,6 +27,9 @@ struct NES {
 	bool interruptsEnabled;
 	enum width = PPU.width;
 	enum height = PPU.height;
+	enum renderWidth = width;
+	enum renderHeight = height;
+	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
 
 	private Settings settings;
 	private APU apu;
@@ -41,11 +44,6 @@ struct NES {
 	void initialize(Backend backendType = Backend.autoSelect) {
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(); }, backendType);
 
-		WindowSettings window;
-		window.baseWidth = width;
-		window.baseHeight = height;
-		platform.backend.video.createWindow(title, window);
-		platform.backend.video.createTexture(width, height, PixelFormatOf!(PPU.ColourFormat));
 		ppu.chr = new ubyte[](0x2000);
 		ppu.nametable = new ubyte[](0x1000);
 

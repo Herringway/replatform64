@@ -41,6 +41,9 @@ struct SNES {
 	ubyte NMITIMEN;
 	ubyte STAT78;
 	private DebugFunction audioDebug;
+	ushort renderWidth() const => renderer.width;
+	ushort renderHeight() const => renderer.height;
+	auto RenderPixelFormat() const => renderer.textureType;
 	enum screenHeight = 224;
 	enum screenWidth = 256;
 
@@ -49,13 +52,17 @@ struct SNES {
 	void initialize(Backend backendType = Backend.autoSelect) {
 		renderer.selectRenderer(backendType == Backend.none ? RendererSettings(engine: Renderer.neo) : settings.renderer);
 		commonInitialization(renderer.getResolution(), { entryPoint(); }, backendType);
-		renderer.initialize(title, platform.backend.video);
 		platform.registerMemoryRange("VRAM", renderer.vram);
 		platform.registerMemoryRange("OAM1", cast(ubyte[])renderer.oam1);
 		platform.registerMemoryRange("OAM2", renderer.oam2);
 	}
 	auto preDraw() => interruptHandlerVBlank();
-	auto draw() => renderer.draw();
+	void draw() {
+		Texture texture;
+		platform.backend.video.getDrawingTexture(texture);
+		assert(texture.buffer.length > 0, "No buffer");
+		renderer.draw(texture.buffer, texture.pitch);
+	}
 	void initializeAudio(APU apu) {
 		this.apu = apu;
 		apu.initialize(platform.backend.audio);

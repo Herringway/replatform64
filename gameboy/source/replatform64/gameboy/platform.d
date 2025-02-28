@@ -52,6 +52,9 @@ enum GameBoyModel : ushort {
 struct GameBoySimple {
 	enum width = PPU.width;
 	enum height = PPU.height;
+	enum renderWidth = width;
+	enum renderHeight = height;
+	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
 	void function(ushort) entryPoint;
 	string title;
 	string sourceFile;
@@ -91,12 +94,6 @@ struct GameBoySimple {
 		apu.initialize(platform.settings.audio.sampleRate);
 		commonInitialization(Resolution(PPU.width, PPU.height), { entryPoint(model); }, backendType);
 		platform.installAudioCallback(&apu, &audioCallback);
-
-		WindowSettings window;
-		window.baseWidth = width;
-		window.baseHeight = height;
-		platform.backend.video.createWindow(title, window);
-		platform.backend.video.createTexture(width, height, PixelFormatOf!(PPU.ColourFormat));
 
 		platform.registerMemoryRange("VRAM", ppu.vram.raw);
 		platform.registerMemoryRange("OAM", ppu.oam);

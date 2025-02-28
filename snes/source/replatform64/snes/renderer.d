@@ -37,8 +37,7 @@ struct SNESRenderer {
 	ushort width = defaultWidth;
 	ushort height = defaultHeight;
 	private Renderer renderer;
-	private VideoBackend backend;
-	private PixelFormat textureType;
+	PixelFormat textureType;
 
 	void selectRenderer(RendererSettings rendererSettings) {
 		if (rendererSettings.engine == Renderer.autoSelect) {
@@ -64,21 +63,7 @@ struct SNESRenderer {
 		infof("SNES PPU renderer initialized");
 	}
 
-	void initialize(string title, VideoBackend newBackend) {
-		WindowSettings window;
-		window.baseWidth = width;
-		window.baseHeight = height;
-		backend = newBackend;
-		backend.createWindow(title, window);
-		backend.createTexture(width, height, textureType);
-	}
-	void draw() {
-		Texture texture;
-		backend.getDrawingTexture(texture);
-		assert(texture.buffer.length > 0, "No buffer");
-		draw(texture.buffer, texture.pitch);
-	}
-	private void draw(ubyte[] texture, int pitch) {
+	void draw(ubyte[] texture, int pitch) {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:

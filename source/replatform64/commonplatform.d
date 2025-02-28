@@ -647,6 +647,12 @@ mixin template PlatformCommonForwarders() {
 		platform.debugState = gameStateMenu;
 		platform.platformDebugState = &commonDebugState;
 		crashHandler = &debugDump;
+
+		WindowSettings window;
+		window.baseWidth = renderWidth;
+		window.baseHeight = renderHeight;
+		platform.backend.video.createWindow(title, window);
+		platform.backend.video.createTexture(renderWidth, renderHeight, RenderPixelFormat);
 	}
 	void initializeForTesting() {
 		platform.testing = true;
