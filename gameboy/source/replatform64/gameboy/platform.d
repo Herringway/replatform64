@@ -132,20 +132,17 @@ struct GameBoySimple {
 		if (state.controllers[0] & ControllerMask.left) { joy.pad |= Pad.left; }
 		if (state.controllers[0] & ControllerMask.right) { joy.pad |= Pad.right; }
 	}
+	private void addTab(alias hw)(string label, UIState state) {
+		if (ImGui.BeginTabItem(label)) {
+			hw.debugUI(state);
+			ImGui.EndTabItem();
+		}
+	}
 	private void commonDebugState(UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
-			if (ImGui.BeginTabItem("PPU")) {
-				ppu.debugUI(state);
-				ImGui.EndTabItem();
-			}
-			if (ImGui.BeginTabItem("Interrupts")) {
-				interrupts.debugUI(state);
-				ImGui.EndTabItem();
-			}
-			if (ImGui.BeginTabItem("APU")) {
-				apu.debugUI(state);
-				ImGui.EndTabItem();
-			}
+			addTab!ppu("PPU", state);
+			addTab!interrupts("Interrupts", state);
+			addTab!apu("APU", state);
 			ImGui.EndTabBar();
 		}
 	}
