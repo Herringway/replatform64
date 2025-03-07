@@ -70,10 +70,10 @@ struct PPU {
 		const baseWindowY = registers.ly - registers.wy;
 		auto pixelRow = pixels[0 .. $, registers.ly];
 		// get this row of tiles for the background and window
-		const tilemapBase = ((baseY / 8) % fullTileWidth) * 32;
+		const tilemapBase = ((baseY / 8) % fullTileWidth) * fullTileWidth;
 		const tilemapRow = bgScreen[tilemapBase .. tilemapBase + fullTileWidth];
 		const tilemapRowAttributes = bgScreenCGB[tilemapBase .. tilemapBase + fullTileWidth];
-		const windowTilemapBase = (max(0, baseWindowY) / 8) * 32;
+		const windowTilemapBase = (max(0, baseWindowY) / 8) * fullTileWidth;
 		const windowTilemapRow = windowScreen[windowTilemapBase .. windowTilemapBase + fullTileWidth];
 		const windowTilemapRowAttributes = windowScreenCGB[windowTilemapBase .. windowTilemapBase + fullTileWidth];
 		// draw pixels from left to right
@@ -108,8 +108,8 @@ struct PPU {
 			const bool useWindow = registers.lcdc.windowDisplay && (x >= registers.wx - 7) && (registers.ly >= registers.wy);
 			const finalX = useWindow ? (x - (registers.wx - 7)) : (baseX + x);
 			const finalY = useWindow ? baseWindowY : baseY;
-			const attributes = (useWindow ? windowTilemapRowAttributes : tilemapRowAttributes)[(finalX / 8) % 32];
-			const tile = (useWindow ? windowTilemapRow : tilemapRow)[(finalX / 8) % 32];
+			const attributes = (useWindow ? windowTilemapRowAttributes : tilemapRowAttributes)[(finalX / 8) % fullTileWidth];
+			const tile = (useWindow ? windowTilemapRow : tilemapRow)[(finalX / 8) % fullTileWidth];
 			const subX = autoFlip(cast(ubyte)(finalX % 8), attributes.xFlip);
 			const subY = autoFlip(cast(ubyte)(finalY % 8), attributes.yFlip);
 			auto prospectivePixel = getTile(tile, true, attributes.bank)[subX, subY];
@@ -145,13 +145,13 @@ struct PPU {
 	auto bank() inout=> (cgbMode && registers.vbk) ? vram.raw[0x2000 .. 0x4000] : vram.raw[0x0000 .. 0x2000];
 	auto bgScreen() inout => registers.lcdc.bgTilemap ? vram.screenB[] : vram.screenA[];
 	auto bgScreenCGB() inout => registers.lcdc.bgTilemap ? vram.screenBCGB[] : vram.screenACGB[];
-	auto bgScreen2D() const => Array2D!(const ubyte)(32, 32, 32, bgScreen);
-	auto bgScreenCGB2D() const => Array2D!(const CGBBGAttributeValue)(32, 32, 32, bgScreenCGB);
+	auto bgScreen2D() const => Array2D!(const ubyte)(fullTileWidth, fullTileHeight, bgScreen);
+	auto bgScreenCGB2D() const => Array2D!(const CGBBGAttributeValue)(fullTileWidth, fullTileHeight, bgScreenCGB);
 	auto oam() inout => cast(inout(ubyte)[])_oam[];
 	auto windowScreen() inout => registers.lcdc.windowTilemap ? vram.screenB[] : vram.screenA[];
 	auto windowScreenCGB() inout => registers.lcdc.windowTilemap ? vram.screenBCGB[] : vram.screenACGB[];
-	auto windowScreen2D() const => Array2D!(const ubyte)(32, 32, 32, windowScreen);
-	auto windowScreenCGB2D() const=> Array2D!(const CGBBGAttributeValue)(32, 32, 32, windowScreenCGB);
+	auto windowScreen2D() const => Array2D!(const ubyte)(fullTileWidth, fullTileHeight, windowScreen);
+	auto windowScreenCGB2D() const=> Array2D!(const CGBBGAttributeValue)(fullTileWidth, fullTileHeight, windowScreenCGB);
 	Intertwined2BPP getTile(short id, bool useLCDC, ubyte bank) const @safe pure {
 		auto blockA = (cgbMode && bank) ? vram.tileBlockACGB[] : vram.tileBlockA[];
 		auto blockB = (cgbMode && bank) ? vram.tileBlockBCGB[] : vram.tileBlockB[];
@@ -175,12 +175,8 @@ struct PPU {
 		registers.ly = 0;
 		this.pixels = pixels;
 	}
-	void drawFullBackground(Array2D!ColourFormat buffer) const @safe pure {
-		drawDebugCommon(buffer, bgScreen2D, bgScreenCGB2D);
-	}
-	void drawFullWindow(Array2D!ColourFormat buffer) const @safe pure {
-		drawDebugCommon(buffer, windowScreen2D, windowScreenCGB2D);
-	}
+	void drawFullBackground(Array2D!ColourFormat buffer) const @safe pure => drawDebugCommon(buffer, bgScreen2D, bgScreenCGB2D);
+	void drawFullWindow(Array2D!ColourFormat buffer) const @safe pure  => drawDebugCommon(buffer, windowScreen2D, windowScreenCGB2D);
 	void drawDebugCommon(Array2D!ColourFormat buffer, const Array2D!(const ubyte) tiles, const Array2D!(const CGBBGAttributeValue) attributes) const @safe pure {
 		foreach (size_t tileX, size_t tileY, const ubyte tileID; tiles) {
 			const tile = getTile(tileID, true, attributes[tileX, tileY].bank);
