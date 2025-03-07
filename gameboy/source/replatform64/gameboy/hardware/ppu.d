@@ -120,16 +120,8 @@ struct PPU {
 				const sprite = oamSorted[highestMatchingSprite];
 				const xpos = autoFlip(x - (sprite.x - 8), sprite.flags.xFlip);
 				const ypos = autoFlip((registers.ly - (sprite.y - 16)), sprite.flags.yFlip, sprHeight);
-				static immutable bool[8] objPriority = [
-					0b000: true,
-					0b001: true,
-					0b010: true,
-					0b011: true,
-					0b100: true,
-					0b101: false,
-					0b110: false,
-					0b111: false,
-				];
+				// a combined priority below 5 causes a sprite pixel to be drawn instead of a BG/window pixel
+				static immutable bool[8] objPriority = () { return iota(0, 8).map!(x => x < 5).array; } ();
 				const combinedPriority = ((!cgbMode || registers.lcdc.bgEnabled) << 2) + (sprite.flags.priority << 1) + prospectivePriority;
 				if (objPriority[combinedPriority] || (prospectivePixel == 0)) {
 					const pixel = getTile(cast(short)(sprite.tile + ypos / 8), false, cgbMode && sprite.flags.bank)[xpos, ypos % 8];
