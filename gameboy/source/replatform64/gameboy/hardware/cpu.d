@@ -34,6 +34,24 @@ ubyte sra(ubyte value, ref bool carry) @safe pure {
 	runTest!sra(0b00000010, false, 0b00000001, false);
 	runTest!sra(0b00000011, false, 0b00000001, true);
 }
+ubyte rra(ubyte value, ref bool carry) @safe pure {
+	const inCarry = carry;
+	carry = !!(value & 0b00000001);
+	const msb = inCarry << 7;
+	value >>= 1;
+	value |= msb;
+	return value;
+}
+///
+@safe pure unittest {
+	runTest!rra(0b00000000, false, 0b00000000, false);
+	runTest!rra(0b10000000, false, 0b01000000, false);
+	runTest!rra(0b00000000, true, 0b10000000, false);
+	runTest!rra(0b10000000, true, 0b11000000, false);
+	runTest!rra(0b00000001, false, 0b00000000, true);
+	runTest!rra(0b00000010, false, 0b00000001, false);
+	runTest!rra(0b00000011, false, 0b00000001, true);
+}
 ubyte srl(ubyte value, ref bool carry) @safe pure {
 	carry = !!(value & 0b00000001);
 	value >>= 1;
