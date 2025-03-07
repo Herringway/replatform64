@@ -173,15 +173,9 @@ struct PPU {
 		foreach (size_t tileX, size_t tileY, const ubyte tileID; tiles) {
 			const tile = getTile(tileID, true, attributes[tileX, tileY].bank);
 			foreach (subPixelX; 0 .. 8) {
-				auto x = subPixelX;
-				if (attributes[tileX, tileY].xFlip) {
-					x = 7 - x;
-				}
+				const x = autoFlip(subPixelX, attributes[tileX, tileY].xFlip);
 				foreach (subPixelY; 0 .. 8) {
-					auto y = subPixelY;
-					if (attributes[tileX, tileY].yFlip) {
-						y = 7 - y;
-					}
+					const y = autoFlip(subPixelY, attributes[tileX, tileY].yFlip);
 					buffer[tileX * 8 + subPixelX, tileY * 8 + subPixelY] = paletteRAM[attributes[tileX, tileY].palette][tile[x, y]];
 				}
 			}
@@ -193,9 +187,9 @@ struct PPU {
 		foreach (tileID; 0 .. tiles) {
 			const tile = getTile((oamEntry.tile + tileID) & 0xFF, false, oamEntry.flags.bank);
 			foreach (x; 0 .. 8) {
+				const tileX = autoFlip(x, oamEntry.flags.xFlip);
 				foreach (y; 0 .. 8) {
-					const tileX = oamEntry.flags.xFlip ? 7 - x : x;
-					const tileY = oamEntry.flags.yFlip ? 7 - y : y;
+					const tileY = autoFlip(y, oamEntry.flags.yFlip);
 					const palette = 8 + (cgbMode ? oamEntry.flags.cgbPalette : oamEntry.flags.dmgPalette);
 					buffer[x, y + 8 * tileID] = paletteRAM[palette][tile[tileX, tileY]];
 				}
