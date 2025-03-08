@@ -305,6 +305,19 @@ struct GameBoySimple {
 	ubyte[] oam() return @safe pure => ppu.oam;
 	ubyte[] bgScreen() return @safe pure => ppu.bgScreen;
 	ubyte[] windowScreen() return @safe pure => ppu.windowScreen;
+	void dump(StateDumper dumpFunction) @safe {
+		static struct DumpState {
+			APU apu;
+			Infrared infrared;
+			Interrupts interrupts;
+			JOY joy;
+			KEY key1;
+			Serial serial;
+			Timer timer;
+		}
+		dumpFunction("platform.state.yaml", DumpState(apu, infrared, interrupts, joy, key1, serial, timer).serialized());
+		ppu.dump(dumpFunction);
+	}
 }
 
 unittest {

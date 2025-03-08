@@ -7,11 +7,11 @@ import replatform64.ui;
 alias InterruptFunction = void function();
 
 struct Interrupts {
-	InterruptFunction vblank;
-	InterruptFunction stat;
-	InterruptFunction timer;
-	InterruptFunction serial;
-	InterruptFunction joypad;
+	@Skip InterruptFunction vblank;
+	@Skip InterruptFunction stat;
+	@Skip InterruptFunction timer;
+	@Skip InterruptFunction serial;
+	@Skip InterruptFunction joypad;
 	private bool ime;
 	private ubyte ie;
 	private ubyte if_;

@@ -26,6 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 */
 
+import replatform64.dumping;
 import replatform64.testhelpers;
 import replatform64.snes.hardware;
 import replatform64.ui;
@@ -162,6 +163,7 @@ struct PPU {
 	int m7startX = 0;
 	int m7startY = 0;
 
+	@Skip:
 	union {
 		struct {
 			OAMEntry[128] oam;
@@ -1508,7 +1510,7 @@ struct PpuWindows {
 }
 
 unittest {
-	import replatform64.dumping : dumpPNG;
+	import replatform64.dumping : writePNG;
 	import replatform64.snes.hardware : HDMAWrite;
 	import std.algorithm.iteration : splitter;
 	import std.conv : to;
@@ -1981,7 +1983,7 @@ unittest {
 		static void compare(Array2D!(PPU.ColourFormat) frame, bool expected, string renderName, string dumpSuffix, string testName) {
 			if (const result = comparePNG(frame, "testdata/snes", testName~".png")) {
 				mkdirRecurse("failed");
-				dumpPNG(frame, "failed/"~testName~"-"~dumpSuffix~".png");
+				writePNG(frame, "failed/"~testName~"-"~dumpSuffix~".png");
 				if (!expected) {
 					writeln(format!"(Expected) %s pixel mismatch at %s, %s in %s (got %s, expecting %s)"(renderName, result.x, result.y, testName, result.got, result.expected));
 				} else {

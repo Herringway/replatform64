@@ -2,6 +2,7 @@ module replatform64.snes.renderer;
 
 import replatform64.snes.bsnes.renderer;
 import replatform64.snes.hardware;
+import replatform64.dumping;
 import replatform64.ui;
 import replatform64.util;
 
@@ -101,7 +102,7 @@ struct SNESRenderer {
 				return cast(ushort[])frame;
 		}
 	}
-	ref inout(ushort) numHDMA() inout pure {
+	ref inout(ushort) numHDMA() inout return @safe pure {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
@@ -110,7 +111,7 @@ struct SNESRenderer {
 				return neoNumHDMA;
 		}
 	}
-	inout(HDMAWrite)[] hdmaData() inout pure {
+	inout(HDMAWrite)[] hdmaData() inout return @safe pure {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:
@@ -164,16 +165,7 @@ struct SNESRenderer {
 				return cast(ubyte[])(neoRenderer.oamHigh[]);
 		}
 	}
-	const(ubyte)[] registers() const {
-		final switch (renderer) {
-			case Renderer.autoSelect: assert(0);
-			case Renderer.bsnes:
-				return bsnesFrame.getRegistersConst;
-			case Renderer.neo:
-				return []; // unsupported
-		}
-	}
-	const(HDMAWrite[]) allHDMAData() const {
+	const(HDMAWrite[]) allHDMAData() const return @safe pure {
 		return hdmaData[0 .. numHDMA];
 	}
 	void writeRegister(ushort addr, ubyte value) @safe pure {
@@ -208,6 +200,22 @@ struct SNESRenderer {
 				return neoRenderer.debugUI(state);
 				break;
 		}
+	}
+	void dump(StateDumper dumpFile) @safe {
+		final switch (renderer) {
+			case Renderer.autoSelect: assert(0);
+			case Renderer.bsnes:
+				dumpFile("gfxstate.registers.yaml", bsnesFrame.serialized);
+				break;
+			case Renderer.neo:
+				dumpFile("gfxstate.registers.yaml", neoRenderer.serialized);
+				break;
+		}
+		dumpFile("gfxstate.vram", cast(const(ubyte)[])vram);
+		dumpFile("gfxstate.cgram", cast(const(ubyte)[])cgram);
+		dumpFile("gfxstate.oam", cast(const(ubyte)[])oam1);
+		dumpFile("gfxstate.oam2", cast(const(ubyte)[])oam2);
+		dumpFile("gfxstate.hdma", cast(const(ubyte)[])allHDMAData());
 	}
 	Resolution getResolution() @safe pure {
 		final switch (renderer) {

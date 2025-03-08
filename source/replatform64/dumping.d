@@ -1,5 +1,6 @@
 module replatform64.dumping;
 
+import std.conv;
 import std.datetime;
 import std.file;
 import std.format;
@@ -13,7 +14,10 @@ import pixelmancy.colours : RGBA32;
 
 import replatform64.util;
 
-alias CrashHandler = void delegate(string);
+public import siryul : Skip;
+
+alias StateDumper = void delegate(scope string filename, scope const(ubyte)[] data) @safe;
+alias CrashHandler = void delegate(StateDumper);
 
 CrashHandler crashHandler;
 string repositoryURL;
@@ -49,9 +53,12 @@ noreturn writeDebugDumpOtherThread(string msg, Throwable.TraceInfo traceInfo) no
 void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
 	auto crashDir = buildNormalizedPath("dump", format!"crash %s"(Clock.currTime.toISOString)).absolutePath;
 	mkdirRecurse(crashDir);
-	File(buildPath(crashDir, "trace.txt"), "w").write(msg, "\n", traceInfo);
+	void addFile(string filename, scope const(ubyte)[] data) @trusted {
+		File(buildPath(crashDir, filename), "w").rawWrite(data);
+	}
+	addFile("trace.txt", cast(const(ubyte)[])text(msg, "\n", traceInfo));
 	dumpStateToFile(buildPath(crashDir, "state.yaml"));
-	crashHandler(crashDir);
+	crashHandler(&addFile);
 	if (repositoryURL != "") {
 		infof("Game crashed! Details written to '%s', please report this bug at %s with as many details as you can include.", crashDir, repositoryURL);
 	} else {
@@ -69,15 +76,28 @@ Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
 	return result;
 }
 
-void dumpPNG(ref Texture texture, string file) {
-	sw: final switch (texture.format) {
+const(ubyte)[] dumpPNG(ref Texture texture) {
+	final switch (texture.format) {
 		static foreach (pixelFormat; EnumMembers!PixelFormat) {
 			case pixelFormat:
-				dumpPNG(texture.asArray2D!(ColourFormatOf!pixelFormat), file);
-				break sw;
+				return dumpPNG(texture.asArray2D!(ColourFormatOf!pixelFormat));
 		}
 	}
 }
-void dumpPNG(T)(const Array2D!T pixels, string file) {
-	writePng(file, pixels.convert!RGBA32(), PngType.truecolor_with_alpha);
+
+const(ubyte)[] dumpPNG(T)(const Array2D!T pixels) {
+	PngHeader h;
+	h.width = cast(uint)pixels.width;
+	h.height = cast(uint)pixels.height;
+	h.type = cast(ubyte)PngType.truecolor_with_alpha;
+	h.depth = 8;
+
+	auto png = blankPNG(h);
+	addImageDatastreamToPng(cast(const(ubyte)[])(pixels.convert!RGBA32[]), png);
+
+	return writePng(png);
+}
+
+void writePNG(T)(const Array2D!T pixels, string filename) {
+	File(filename, "w").rawWrite(dumpPNG(pixels));
 }

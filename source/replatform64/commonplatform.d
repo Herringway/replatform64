@@ -508,10 +508,10 @@ struct PlatformCommon {
 	private string saveFileName(uint slot) {
 		return format!"%s.%s.sav"(gameID, slot);
 	}
-	void dumpScreen(string dumpDir) {
+	void dumpScreen(StateDumper dumpFunction) {
 		Texture texture;
 		backend.video.getDrawingTexture(texture);
-		dumpPNG(texture, buildPath(dumpDir, "screen.png"));
+		dumpFunction("screen.png", dumpPNG(texture));
 	}
 	private void renderUIElements() {
 		UIState state;
@@ -636,7 +636,7 @@ struct PlatformCommon {
 
 mixin template PlatformCommonForwarders() {
 	import replatform64.assets : ExtractFunction, LoadFunction;
-	import replatform64.dumping : crashHandler, dumpPNG;
+	import replatform64.dumping : crashHandler, dumpPNG, StateDumper;
 	import std.traits : EnumMembers, Parameters;
 	DebugFunction debugMenuRenderer;
 	DebugFunction gameStateMenu;
@@ -740,9 +740,9 @@ mixin template PlatformCommonForwarders() {
 	void registerMemoryRange(string name, ubyte[] range) @safe pure {
 		platform.registerMemoryRange(name, range);
 	}
-	void debugDump(string dumpDir) {
-		platform.dumpScreen(dumpDir);
-		runIfPresent!"dumpExtraDebugData"(dumpDir);
+	void debugDump(StateDumper dumpFunction) {
+		platform.dumpScreen(dumpFunction);
+		runIfPresent!"dump"(dumpFunction);
 	}
 	static if (is(Register)) {
 		import std.traits : hasUDA;

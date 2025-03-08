@@ -7,6 +7,11 @@ import std.traits;
 
 public import pixelmancy.util : Array2D;
 
+const(ubyte)[] serialized(T)(auto ref const T data) {
+	import siryul : toString, YAML;
+	return cast(const(ubyte)[])data.toString!YAML();
+}
+
 /// Dumps the game state to a human-readable file
 void function(string path) dumpStateToFile = (str) {};
 

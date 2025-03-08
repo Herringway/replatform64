@@ -1,6 +1,7 @@
 module replatform64.snes.bsnes.renderer;
 
 import replatform64.backend.common.interfaces;
+import replatform64.dumping;
 import replatform64.snes.hardware;
 import replatform64.snes.renderer;
 import replatform64.ui;
@@ -68,8 +69,9 @@ align:
 	ubyte FIXED_COLOUR_DATA_G;
 	ubyte FIXED_COLOUR_DATA_B;
 	ubyte SETINI;
-
+	@Skip
 	ushort[0x8000] vram;
+	@Skip
 	ushort[0x100] cgram;
 	union {
 		struct {
@@ -79,13 +81,10 @@ align:
 		ubyte[oam1.sizeof + oam2.sizeof] oamFull;
 	}
 
+	@Skip
 	ushort numHdmaWrites;
+	@Skip
 	HDMAWrite[4*8*240] hdmaData;
-	const(ubyte[]) getRegistersConst() const {
-		const ubyte* first = cast(const ubyte*)(&INIDISP);
-		const ubyte* last = cast(const ubyte*)(&SETINI);
-		return first[0..(last-first+1)];
-	}
 	void writeRegister(ushort addr, ubyte val) @safe pure {
 		switch (addr) {
 			case 0x2100:

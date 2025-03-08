@@ -145,32 +145,10 @@ struct SNES {
 			assert(0, "Unsupported write");
 		}
 	}
-	void dumpExtraDebugData(string crashDir) {
-		dumpVRAMToDir(crashDir);
+	void dump(StateDumper dumpFile) @safe {
+		renderer.dump(dumpFile);
 	}
-	void dumpVRAMToDir(string dir) {
-		File(buildPath(dir, "gfxstate.regs"), "wb").rawWrite(renderer.registers);
-		File(buildPath(dir, "gfxstate.vram"), "wb").rawWrite(renderer.vram);
-		File(buildPath(dir, "gfxstate.cgram"), "wb").rawWrite(renderer.cgram);
-		File(buildPath(dir, "gfxstate.oam"), "wb").rawWrite(renderer.oam1);
-		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
-		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
-	}
-	private void commonDebugMenu(UIState state) {
-		static bool platformDebugWindowOpen;
-		bool doDumpPPU;
-		if (ImGui.BeginMainMenuBar()) {
-			if (ImGui.BeginMenu("RAM")) {
-				ImGui.MenuItem("Dump VRAM", null, &doDumpPPU);
-				ImGui.EndMenu();
-			}
-			ImGui.EndMainMenuBar();
-		}
-		if (doDumpPPU) {
-			dumpPPU();
-			doDumpPPU = false;
-		}
-	}
+	private void commonDebugMenu(UIState state) {}
 	private void commonDebugState(UIState state) {
 		if (ImGui.BeginTabBar("platformdebug")) {
 			if (ImGui.BeginTabItem("PPU")) {
@@ -183,15 +161,6 @@ struct SNES {
 			}
 			ImGui.EndTabBar();
 		}
-	}
-	void dumpPPU() {
-		const dir = prepareDumpDirectory();
-		File(buildPath(dir, "gfxstate.regs"), "wb").rawWrite(renderer.registers);
-		File(buildPath(dir, "gfxstate.vram"), "wb").rawWrite(renderer.vram);
-		File(buildPath(dir, "gfxstate.cgram"), "wb").rawWrite(renderer.cgram);
-		File(buildPath(dir, "gfxstate.oam"), "wb").rawWrite(renderer.oam1);
-		File(buildPath(dir, "gfxstate.oam2"), "wb").rawWrite(renderer.oam2);
-		File(buildPath(dir, "gfxstate.hdma"), "wb").rawWrite(renderer.allHDMAData());
 	}
 }
 

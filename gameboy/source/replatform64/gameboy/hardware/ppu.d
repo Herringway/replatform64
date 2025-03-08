@@ -2,6 +2,7 @@ module replatform64.gameboy.hardware.ppu;
 
 import replatform64.gameboy.hardware.registers;
 
+import replatform64.dumping;
 import replatform64.testhelpers;
 import replatform64.ui;
 import replatform64.util;
@@ -424,6 +425,7 @@ struct PPU {
 			ImGui.EndTabBar();
 		}
 	}
+	void dump(StateDumper dumpFunction) @safe {}
 }
 
 unittest {
@@ -451,7 +453,7 @@ unittest {
 	import std.path : buildPath;
 	import std.string : lineSplitter;
 	import std.stdio : File;
-	import replatform64.dumping : convert, dumpPNG;
+	import replatform64.dumping : convert, writePNG;
 	enum width = 160;
 	enum height = 144;
 	static struct FauxDMA {
@@ -585,7 +587,7 @@ unittest {
 		}
 		const frame = renderMesen2State(cast(ubyte[])read(buildPath("testdata/gameboy", name~".mss")), dma);
 		if (const result = comparePNG(frame, "testdata/gameboy", name~".png")) {
-			dumpPNG(frame, "failed/"~name~".png");
+			writePNG(frame, "failed/"~name~".png");
 			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
 		}
 	}
