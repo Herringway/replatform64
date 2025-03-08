@@ -41,6 +41,7 @@ import std.algorithm.mutation;
 import std.bitmanip;
 import std.format;
 import std.range;
+import std.typecons;
 
 struct BGLayer {
 	ushort hScroll = 0;
@@ -64,14 +65,14 @@ struct PpuPixelPrioBufs {
 	PpuZbufType[kPpuXPixels] data;
 }
 
-enum KPPURenderFlags {
-	newRenderer = 1,
+enum PPURenderFlags {
+	newRenderer = 1 << 0,
 	// Render mode7 upsampled by 4x4
-	mode74x4 = 2,
+	mode74x4 = 1 << 1,
 	// Use 240 height instead of 224
-	height240 = 4,
+	height240 = 1 << 2,
 	// Disable sprite render limits
-	noSpriteLimits = 8,
+	noSpriteLimits = 1 << 3,
 }
 
 struct Tile {
@@ -89,12 +90,19 @@ struct Tile {
 	}
 }
 
+struct WindowLayerSettings {
+	bool window1Inverted;
+	bool window1Enabled;
+	bool window2Inverted;
+	bool window2Enabled;
+}
+
 struct PPU {
 	alias ColourFormat = BGR555;
 	bool lineHasSprites;
 	ubyte lastBrightnessMult = 0xff;
 	ubyte lastMosaicModulo = 0xff;
-	ubyte renderFlags;
+	BitFlags!PPURenderFlags renderFlags;
 	ubyte extraLeftCur = 0;
 	ubyte extraRightCur = 0;
 	ubyte extraLeftRight = 0;
@@ -115,7 +123,7 @@ struct PPU {
 	ubyte window1right = 0;
 	ubyte window2left = 0;
 	ubyte window2right = 0;
-	uint windowsel = 0;
+	WindowLayerSettings[6] windowsel;
 
 	// color math
 	ubyte clipMode = 0;
@@ -180,13 +188,13 @@ struct PPU {
 	ColourFormat[256] colorMapRgb;
 	ushort[0x8000] vram;
 
-	int getCurrentRenderScale(uint render_flags) const @safe pure {
-		bool hq = mode == 7 && !forcedBlank && (render_flags & (KPPURenderFlags.mode74x4 | KPPURenderFlags.newRenderer)) == (KPPURenderFlags.mode74x4 | KPPURenderFlags.newRenderer);
+	int getCurrentRenderScale(BitFlags!PPURenderFlags flags) const @safe pure {
+		bool hq = mode == 7 && !forcedBlank && flags.mode74x4 && flags.newRenderer;
 		return hq ? 4 : 1;
 	}
 
-	void beginDrawing(uint render_flags) @safe pure {
-		renderFlags = cast(ubyte)render_flags;
+	void beginDrawing(PPURenderFlags flags) @safe pure {
+		renderFlags = BitFlags!PPURenderFlags(flags);
 
 		// Cache the brightness computation
 		if (brightness != lastBrightnessMult) {
@@ -232,7 +240,7 @@ struct PPU {
 				return;
 			}
 
-			if (renderFlags & KPPURenderFlags.newRenderer) {
+			if (renderFlags.newRenderer) {
 				drawWholeLine(renderBuffer, winBuffers, line);
 			} else {
 				if (mode == 7) {
@@ -264,14 +272,14 @@ struct PPU {
 		// Evaluate which spans to render based on the window settings.
 		// There are at most 5 windows.
 		// Algorithm from Snes9x
-		uint winflags = GET_WINDOW_FLAGS(layer);
+		const winflags = GET_WINDOW_FLAGS(layer);
 		uint nr = 1;
 		int window_right = 256 + (layer != 2 ? extraRightCur : 0);
 		win.edges[0] = - (layer != 2 ? extraLeftCur : 0);
 		win.edges[1] = cast(short)window_right;
 		uint i, j;
 		int t;
-		bool w1_ena = (winflags & kWindow1Enabled) && window1left <= window1right;
+		bool w1_ena = winflags.window1Enabled && window1left <= window1right;
 		if (w1_ena) {
 			if (window1left > win.edges[0]) {
 				win.edges[nr] = window1left;
@@ -282,7 +290,7 @@ struct PPU {
 				win.edges[++nr] = cast(short)window_right;
 			}
 		}
-		bool w2_ena = (winflags & kWindow2Enabled) && window2left <= window2right;
+		bool w2_ena = winflags.window2Enabled && window2left <= window2right;
 		if (w2_ena) {
 			for (i = 0; i <= nr && (t = window2left) != win.edges[i]; i++) {
 				if (t < win.edges[i]) {
@@ -311,7 +319,7 @@ struct PPU {
 			for (j = i; win.edges[j] != window1right + 1; j++) {}
 			w1_bits = cast(ubyte)(((1 << (j - i)) - 1) << i);
 		}
-		if ((winflags & (kWindow1Enabled | kWindow1Inversed)) == (kWindow1Enabled | kWindow1Inversed)) {
+		if (winflags.window1Enabled && winflags.window1Inverted) {
 			w1_bits = cast(ubyte)~w1_bits;
 		}
 		if (w2_ena) {
@@ -319,7 +327,7 @@ struct PPU {
 			for (j = i; win.edges[j] != window2right + 1; j++) {}
 			w2_bits = cast(ubyte)(((1 << (j - i)) - 1) << i);
 		}
-		if ((winflags & (kWindow2Enabled | kWindow2Inversed)) == (kWindow2Enabled | kWindow2Inversed)) {
+		if (winflags.window2Enabled && winflags.window2Inverted) {
 			w2_bits = cast(ubyte)~w2_bits;
 		}
 		win.bits = w1_bits | w2_bits;
@@ -719,7 +727,7 @@ struct PPU {
 			return;
 		}
 
-		if (mode == 7 && (renderFlags & KPPURenderFlags.mode74x4)) {
+		if (mode == 7 && (renderFlags.mode74x4)) {
 			drawMode7Upsampled(renderBuffer, winBuffers[2], y);
 			return;
 		}
@@ -1098,24 +1106,24 @@ struct PPU {
 	}
 
 	private bool getWindowState(int layer, int x) const @safe pure {
-		uint winflags = GET_WINDOW_FLAGS(layer);
-		if (!(winflags & kWindow1Enabled) && !(winflags & kWindow2Enabled)) {
+		const winflags = GET_WINDOW_FLAGS(layer);
+		if (!winflags.window1Enabled && !winflags.window2Enabled) {
 			return false;
 		}
-		if ((winflags & kWindow1Enabled) && !(winflags & kWindow2Enabled)) {
+		if (winflags.window1Enabled && !winflags.window2Enabled) {
 			bool test = x >= window1left && x <= window1right;
-			return (winflags & kWindow1Inversed) ? !test : test;
+			return winflags.window1Inverted ? !test : test;
 		}
-		if (!(winflags & kWindow1Enabled) && (winflags & kWindow2Enabled)) {
+		if (!winflags.window1Enabled && winflags.window2Enabled) {
 			bool test = x >= window2left && x <= window2right;
-			return (winflags & kWindow2Inversed) ? !test : test;
+			return winflags.window2Inverted ? !test : test;
 		}
 		bool test1 = x >= window1left && x <= window1right;
 		bool test2 = x >= window2left && x <= window2right;
-		if (winflags & kWindow1Inversed) {
+		if (winflags.window1Inverted) {
 			test1 = !test1;
 		}
-		if (winflags & kWindow2Inversed) {
+		if (winflags.window2Inverted) {
 			test2 = !test2;
 		}
 		return test1 || test2;
@@ -1124,7 +1132,7 @@ struct PPU {
 	private bool evaluateSprites(int line, scope ref PpuPixelPrioBufs objBuffer) const @safe pure {
 		int spritesLeft = 32 + 1, tilesLeft = 34 + 1;
 		const spriteSizes = kSpriteSizes[objSize];
-		if (renderFlags & KPPURenderFlags.noSpriteLimits) {
+		if (renderFlags.noSpriteLimits) {
 			spritesLeft = tilesLeft = 1024;
 		}
 		int tilesLeftOrg = tilesLeft;
@@ -1351,13 +1359,16 @@ struct PPU {
 				cgramSecondWrite = !cgramSecondWrite;
 				break;
 			case 0x23: // W12SEL
-				windowsel = (windowsel & ~0xff) | val;
+				windowsel[0] = WindowLayerSettings(!!(val & (1 << 0)), !!(val & (1 << 1)), !!(val & (1 << 2)), !!(val & (1 << 3)));
+				windowsel[1] = WindowLayerSettings(!!(val & (1 << 4)), !!(val & (1 << 5)), !!(val & (1 << 6)), !!(val & (1 << 7)));
 				break;
 			case 0x24: // W34SEL
-				windowsel = (windowsel & ~0xff00) | (val << 8);
+				windowsel[2] = WindowLayerSettings(!!(val & (1 << 0)), !!(val & (1 << 1)), !!(val & (1 << 2)), !!(val & (1 << 3)));
+				windowsel[3] = WindowLayerSettings(!!(val & (1 << 4)), !!(val & (1 << 5)), !!(val & (1 << 6)), !!(val & (1 << 7)));
 				break;
 			case 0x25: // WOBJSEL
-				windowsel = (windowsel & ~0xff0000) | (val << 16);
+				windowsel[4] = WindowLayerSettings(!!(val & (1 << 0)), !!(val & (1 << 1)), !!(val & (1 << 2)), !!(val & (1 << 3)));
+				windowsel[5] = WindowLayerSettings(!!(val & (1 << 4)), !!(val & (1 << 5)), !!(val & (1 << 6)), !!(val & (1 << 7)));
 				break;
 			case 0x26:
 				window1left = val;
@@ -1427,7 +1438,7 @@ struct PPU {
 	}
 	bool IS_SCREEN_ENABLED(uint sub, uint layer) const @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
 	bool IS_SCREEN_WINDOWED(uint sub, uint layer) const @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
-	bool GET_WINDOW_FLAGS(uint layer) const @safe pure { return !!(windowsel >> (layer * 4)); }
+	WindowLayerSettings GET_WINDOW_FLAGS(uint layer) const @safe pure { return windowsel[layer]; }
 	void debugUI(UIState state) {
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("State")) {
@@ -1489,14 +1500,6 @@ immutable ubyte[2][8] kSpriteSizes = [
 	[16, 64], [32, 64], [16, 32], [16, 32]
 ];
 
-enum {
-	kWindow1Inversed = 1,
-	kWindow1Enabled = 2,
-	kWindow2Inversed = 4,
-	kWindow2Enabled = 8,
-}
-
-
 struct PpuWindows {
 	short[6] edges;
 	ubyte nr;
@@ -1536,7 +1539,7 @@ unittest {
 		}
 		return result;
 	}
-	static Array2D!(PPU.ColourFormat) draw(ref PPU ppu, HDMAWrite[] hdmaWrites, int flags) {
+	static Array2D!(PPU.ColourFormat) draw(ref PPU ppu, HDMAWrite[] hdmaWrites, PPURenderFlags flags) {
 		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
 		ppu.beginDrawing(flags);
 		foreach (i; 0 .. height + 1) {
@@ -1549,7 +1552,7 @@ unittest {
 		}
 		return buffer;
 	}
-	static Array2D!(PPU.ColourFormat) renderMesen2State(string filename, HDMAWrite[] hdma = [], int flags) {
+	static Array2D!(PPU.ColourFormat) renderMesen2State(string filename, HDMAWrite[] hdma = [], PPURenderFlags flags) {
 		PPU ppu;
 		auto file = cast(ubyte[])read(buildPath("testdata/snes", filename));
 		INIDISPValue INIDISP;
@@ -1912,9 +1915,9 @@ unittest {
 					WOBJLOG |= (intData & 3) << 2;
 					break;
 				case "ppu.fixedColor":
-					COLDATAB |= (shortData & 0b000000000011111) >> 0;
+					COLDATAR |= (shortData & 0b000000000011111) >> 0;
 					COLDATAG |= (shortData & 0b000001111100000) >> 5;
-					COLDATAR |= (shortData & 0b111110000000000) >> 10;
+					COLDATAB |= (shortData & 0b111110000000000) >> 10;
 					break;
 				case "ppu.vram":
 					ppu.vram[] = cast(const(ushort)[])data;
@@ -1993,8 +1996,8 @@ unittest {
 				assert(expected, format!"Unexpected %s success in %s"(renderName, testName));
 			}
 		}
-		compare(renderMesen2State(name~".mss", writes, 0), oldRenderer, "Old renderer", "old", name);
-		compare(renderMesen2State(name~".mss", writes, KPPURenderFlags.newRenderer), newRenderer, "New renderer", "new", name);
+		compare(renderMesen2State(name~".mss", writes, cast(PPURenderFlags)0), oldRenderer, "Old renderer", "old", name);
+		compare(renderMesen2State(name~".mss", writes, PPURenderFlags.newRenderer), newRenderer, "New renderer", "new", name);
 	}
 	// TODO: change all falses to true
 	runTest("helloworld", true, true);
@@ -2006,7 +2009,7 @@ unittest {
 	runTest("ebspriteprio", true, true);
 	runTest("ebspriteprio2", true, false);
 	runTest("ebbattle", true, true);
-	runTest("ebmeteor", false, false);
+	runTest("ebmeteor", true, false);
 	runTest("ebgas", true, true);
 	runTest("eb_ss", true, true);
 	runTest("yi_intro", false, false);
@@ -2032,7 +2035,7 @@ unittest {
 	runTest("extbgtest2", true, false);
 	runTest("smasb2", false, false);
 	runTest("cttitle", false, false);
-	runTest("gradient", false, false);
+	runTest("gradient", true, true);
 }
 
 private float interpolate(float x, float xmin, float xmax, float ymin, float ymax) @safe pure {

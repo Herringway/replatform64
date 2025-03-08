@@ -73,7 +73,7 @@ struct SNESRenderer {
 			case Renderer.neo:
 				alias Fmt = PPU.ColourFormat;
 				auto buffer = Array2D!Fmt(width, height, pitch / Fmt.sizeof, cast(Fmt[])texture);
-				neoRenderer.beginDrawing(KPPURenderFlags.newRenderer);
+				neoRenderer.beginDrawing(PPURenderFlags.newRenderer);
 				HDMAWrite[] hdmaTemp = neoHDMAData[0 .. neoNumHDMA];
 				foreach (i; 0 .. height) {
 					while ((hdmaTemp.length > 0) && (hdmaTemp[0].vcounter == i)) {
