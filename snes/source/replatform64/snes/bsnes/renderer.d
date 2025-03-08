@@ -21,9 +21,7 @@ import pixelmancy.tiles;
 public enum ImgW = 512;
 public enum ImgH = 448;
 
-public struct SnesDrawFrameData {
-	alias ColourFormat = RGB555;
-align:
+struct Registers {
 	ubyte INIDISP;
 	ubyte OBSEL;
 	ushort OAMADDR;
@@ -69,6 +67,11 @@ align:
 	ubyte FIXED_COLOUR_DATA_G;
 	ubyte FIXED_COLOUR_DATA_B;
 	ubyte SETINI;
+}
+
+public struct SnesDrawFrameData {
+	alias ColourFormat = RGB555;
+	Registers registers;
 	@Skip
 	ushort[0x8000] vram;
 	@Skip
@@ -88,128 +91,128 @@ align:
 	void writeRegister(ushort addr, ubyte val) @safe pure {
 		switch (addr) {
 			case 0x2100:
-				INIDISP = val;
+				registers.INIDISP = val;
 				break;
 			case 0x2101:
-				OBSEL = val;
+				registers.OBSEL = val;
 				break;
 			case 0x2102:
-				//OAMADDL = val;
+				//registers.OAMADDL = val;
 				break;
 			case 0x2103:
-				//OAMADDH = val;
+				//registers.OAMADDH = val;
 				break;
 			case 0x2104:
-				//OAMDATA = val;
+				//registers.OAMDATA = val;
 				break;
 			case 0x2105:
-				BGMODE = val;
+				registers.BGMODE = val;
 				break;
 			case 0x2106:
-				MOSAIC = val;
+				registers.MOSAIC = val;
 				break;
 			case 0x2107:
-				BG1SC = val;
+				registers.BG1SC = val;
 				break;
 			case 0x2108:
-				BG2SC = val;
+				registers.BG2SC = val;
 				break;
 			case 0x2109:
-				BG3SC = val;
+				registers.BG3SC = val;
 				break;
 			case 0x210A:
-				BG4SC = val;
+				registers.BG4SC = val;
 				break;
 			case 0x210B:
-				BG12NBA = val;
+				registers.BG12NBA = val;
 				break;
 			case 0x210C:
-				BG34NBA = val;
+				registers.BG34NBA = val;
 				break;
 			case 0x210D:
-				BG1HOFS = (val << 8) | (BG1HOFS >> 8);
+				registers.BG1HOFS = (val << 8) | (registers.BG1HOFS >> 8);
 				break;
 			case 0x210E:
-				BG1VOFS = (val << 8) | (BG1VOFS >> 8);
+				registers.BG1VOFS = (val << 8) | (registers.BG1VOFS >> 8);
 				break;
 			case 0x210F:
-				BG2HOFS = (val << 8) | (BG2HOFS >> 8);
+				registers.BG2HOFS = (val << 8) | (registers.BG2HOFS >> 8);
 				break;
 			case 0x2110:
-				BG2VOFS = (val << 8) | (BG2VOFS >> 8);
+				registers.BG2VOFS = (val << 8) | (registers.BG2VOFS >> 8);
 				break;
 			case 0x2111:
-				BG3HOFS = (val << 8) | (BG3HOFS >> 8);
+				registers.BG3HOFS = (val << 8) | (registers.BG3HOFS >> 8);
 				break;
 			case 0x2112:
-				BG3VOFS = (val << 8) | (BG3VOFS >> 8);
+				registers.BG3VOFS = (val << 8) | (registers.BG3VOFS >> 8);
 				break;
 			case 0x2113:
-				BG4HOFS = (val << 8) | (BG4HOFS >> 8);
+				registers.BG4HOFS = (val << 8) | (registers.BG4HOFS >> 8);
 				break;
 			case 0x2114:
-				BG4VOFS = (val << 8) | (BG4VOFS >> 8);
+				registers.BG4VOFS = (val << 8) | (registers.BG4VOFS >> 8);
 				break;
 			case 0x2115:
-				//VMAIN = val;
+				//registers.VMAIN = val;
 				break;
 			case 0x2116:
-				//VMADDL = val;
+				//registers.VMADDL = val;
 				break;
 			case 0x2123:
-				W12SEL = val;
+				registers.W12SEL = val;
 				break;
 			case 0x2124:
-				W34SEL = val;
+				registers.W34SEL = val;
 				break;
 			case 0x2125:
-				WOBJSEL = val;
+				registers.WOBJSEL = val;
 				break;
 			case 0x2126:
-				WH0 = val;
+				registers.WH0 = val;
 				break;
 			case 0x2127:
-				WH1 = val;
+				registers.WH1 = val;
 				break;
 			case 0x2128:
-				WH2 = val;
+				registers.WH2 = val;
 				break;
 			case 0x2129:
-				WH3 = val;
+				registers.WH3 = val;
 				break;
 			case 0x212A:
-				WBGLOG = val;
+				registers.WBGLOG = val;
 				break;
 			case 0x212B:
-				WOBJLOG = val;
+				registers.WOBJLOG = val;
 				break;
 			case 0x212C:
-				TM = val;
+				registers.TM = val;
 				break;
 			case 0x212D:
-				TS = val;
+				registers.TS = val;
 				break;
 			case 0x212E:
-				TMW = val;
+				registers.TMW = val;
 				break;
 			case 0x212F:
-				TSW = val;
+				registers.TSW = val;
 				break;
 			case 0x2130:
-				CGWSEL = val;
+				registers.CGWSEL = val;
 				break;
 			case 0x2131:
-				CGADSUB = val;
+				registers.CGADSUB = val;
 				break;
 			case 0x2132:
 				if (val & 0x80) {
-					FIXED_COLOUR_DATA_B = val;
+					registers.FIXED_COLOUR_DATA_B = val;
 				}
 				if (val & 0x40) {
-					FIXED_COLOUR_DATA_G = val;
+					registers.FIXED_COLOUR_DATA_G = val;
 				}
 				if (val & 0x20) {
-					FIXED_COLOUR_DATA_R = val;
+					registers.FIXED_COLOUR_DATA_R = val;
 				}
 				break;
 			default:
@@ -223,8 +226,8 @@ align:
 	void debugUI(UIState state) {
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("Global state")) {
-				ImGui.Text("BG mode: %d", BGMODE & 7);
-				ImGui.Text("Brightness: %d", INIDISP & 15);
+				ImGui.Text("BG mode: %d", registers.BGMODE & 7);
+				ImGui.Text("Brightness: %d", registers.INIDISP & 15);
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Sprites")) {
@@ -254,21 +257,21 @@ align:
 				ImGui.EndTabItem();
 			}
 			if (ImGui.BeginTabItem("Layers")) {
-				const screenRegisters = [BG1SC, BG2SC, BG3SC, BG4SC];
-				const screenRegisters2 = [BG12NBA & 0xF, BG12NBA >> 4, BG34NBA & 0xF, BG34NBA >> 4];
+				const screenRegisters = [registers.BG1SC, registers.BG2SC, registers.BG3SC, registers.BG4SC];
+				const screenRegisters2 = [registers.BG12NBA & 0xF, registers.BG12NBA >> 4, registers.BG34NBA & 0xF, registers.BG34NBA >> 4];
 				static foreach (layer, label; ["BG1", "BG2", "BG3", "BG4"]) {{
 					if (ImGui.TreeNode(label)) {
 						ImGui.Text(format!"Tilemap address: $%04X"((screenRegisters[layer] & 0xFC) << 8));
 						ImGui.Text(format!"Tile base address: $%04X"(screenRegisters2[layer] << 12));
 						ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][screenRegisters[layer] & 3]));
-						ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(BGMODE >> (4 + layer))]));
+						ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(registers.BGMODE >> (4 + layer))]));
 						if (layer == 2) {
 							ImGui.BeginDisabled();
-							bool boolean = !!((BGMODE >> 3) & 1);
+							bool boolean = !!((registers.BGMODE >> 3) & 1);
 							ImGui.Checkbox("Priority", &boolean);
 							ImGui.EndDisabled();
 						}
-						//disabledCheckbox("Mosaic Enabled", !!((MOSAIC >> layer) & 1));
+						//disabledCheckbox("Mosaic Enabled", !!((registers.MOSAIC >> layer) & 1));
 						ImGui.TreePop();
 					}
 				}}
