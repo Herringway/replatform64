@@ -416,11 +416,7 @@ struct PPU {
 				cast(const(TilemapEntry)[])vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
-		const tileadr = bglayer.tileAdr;
-		const tileadr1 = tileadr + 7 - (y & 0x7);
-		const tileadr0 = tileadr + (y & 0x7);
-		const(ushort)[] addr;
-		const tiles = cast(const(TileFormat)[])vram[];
+		const tiles = cast(const(TileFormat)[])(vram[(bglayer.tileAdr + (y & 0x7)) / TileFormat.sizeof .. $]);
 		foreach (edges; win.validEdges) {
 			const sx = edges[0];
 			auto dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
@@ -431,9 +427,8 @@ struct PPU {
 			const w = mosaicSize - (sx - mosaicModulo[sx]);
 			foreach (chunk; dstz.chunks(w)) {
 				const tile = tp[0];
-				const ta = tile.flipVertical ? tileadr1 : tileadr0;
 				const z = priorities[tile.priority];
-				ubyte pixel = tiles[ta / TileFormat.sizeof + tile.index][x % 8, y % 8];
+				ubyte pixel = tiles[tile.index][x % 8, y % 8];
 				if (pixel) {
 					if (z > dstz[0].priority) {
 						dstz[0] = ZBufType(z, pixel);
