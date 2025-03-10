@@ -410,10 +410,13 @@ struct PPU {
 	// Draw a whole line of a background layer into bgBuffer, with mosaic applied
 	private void drawBackgroundMosaic(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		static if (bpp == 2) {
+			alias TileFormat = Intertwined2BPP;
 			enum kPaletteShift = 8;
 		} else static if (bpp == 4) {
+			alias TileFormat = Intertwined4BPP;
 			enum kPaletteShift = 6;
 		} else static if (bpp == 8) {
+			alias TileFormat = Intertwined8BPP;
 			enum kPaletteShift = 12;
 		}
 		const bglayer = bgLayer[layer];
@@ -432,14 +435,7 @@ struct PPU {
 		const tileadr1 = tileadr + 7 - (y & 0x7);
 		const tileadr0 = tileadr + (y & 0x7);
 		const(ushort)[] addr;
-		ulong READ_BITS(uint ta, uint tile) {
-			ulong result;
-			addr = vram[(ta + tile * bpp * 4) & 0x7FFF .. $];
-			static foreach (plane; 0 .. bpp / 2) {
-				result |= cast(ulong)addr[plane * 8] << (plane * 16);
-			}
-			return result;
-		}
+		const tiles = cast(const(TileFormat)[])vram[];
 		foreach (edges; win.validEdges) {
 			const sx = edges[0];
 			auto dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
@@ -452,26 +448,11 @@ struct PPU {
 				const tile = tp[0];
 				const ta = (tile & 0x8000) ? tileadr1 : tileadr0;
 				const z = priorities[(tile & 0x2000)];
-				auto bits = READ_BITS(ta, tile & 0x3ff);
-				ubyte pixel = 0;
-				if (tile & 0x4000) {
-					bits >>= x;
-					static foreach (plane; 0 .. bpp) {
-						pixel |= (bits >> (7 * plane)) & (1 << plane);
-					}
-					if (pixel && (z > dstz[0].priority)) {
-						dstz[0] = ZBufType(z, pixel);
-					}
-				} else {
-					bits <<= x;
-					static foreach (plane; 0 .. bpp) {
-						pixel |= (bits >> (7 * (plane + 1))) & (1 << plane);
-					}
-					if (pixel && (z > dstz[0].priority)) {
-						dstz[0] = ZBufType(z, pixel);
-					}
-				}
+				const pixel = tiles[ta / TileFormat.sizeof + tile & 0x3FF][x % 8, y % 8];
 				if (pixel) {
+					if (z > dstz[0].priority) {
+						dstz[0] = ZBufType(z, pixel);
+					}
 					pixel += (tile & 0x1c00) >> kPaletteShift;
 					foreach (ref p; chunk) {
 						if (z > p.priority) {
