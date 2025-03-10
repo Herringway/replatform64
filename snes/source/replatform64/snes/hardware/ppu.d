@@ -58,11 +58,21 @@ enum kPpuExtraLeftRight = 88;
 
 enum kPpuXPixels = 256 + kPpuExtraLeftRight * 2;
 
-alias PpuZbufType = ushort;
+struct ZBufType {
+	ubyte priority;
+	ubyte pixel;
+	this(ubyte priority, ubyte pixel) @safe pure {
+		this.priority = priority;
+		this.pixel = pixel;
+	}
+	this(ubyte priority, ubyte pixel, ubyte palette, ubyte bpp) @safe pure {
+		this(priority, cast(ubyte)(pixel + (palette << bpp)));
+	}
+}
 
 struct PpuPixelPrioBufs {
 	// This holds the prio in the upper 8 bits and the color in the lower 8 bits.
-	PpuZbufType[kPpuXPixels] data;
+	ZBufType[kPpuXPixels] data;
 }
 
 enum PPURenderFlags {
@@ -216,7 +226,7 @@ struct PPU {
 	}
 
 	private void ClearBackdrop(ref PpuPixelPrioBufs buf) const @safe pure {
-		(cast(ulong[])buf.data)[] = 0x0500050005000500;
+		buf.data[] = ZBufType(5, 0);
 	}
 
 	void runLine(Array2D!ColourFormat renderBuffer, int line) @safe pure {
@@ -351,7 +361,7 @@ struct PPU {
 		];
 	}
 	// Draw a whole line of a background layer into bgBuffer
-	private void drawBackground(size_t bpp)(uint y, uint layer, PpuZbufType[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
+	private void drawBackground(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		const bglayer = bgLayer[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
 		static if (bpp == 2) {
@@ -366,18 +376,18 @@ struct PPU {
 		foreach (edges; win.validEdges) {
 			uint x = edges[0] + bglayer.hScroll;
 			uint w = edges[1] - edges[0];
-			PpuZbufType[] dstz = bgBuffer.data[edges[0] + kPpuExtraLeftRight .. $];
+			auto dstz = bgBuffer.data[edges[0] + kPpuExtraLeftRight .. $];
 			const tileLine = (y / 8) % 32;
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
 			void renderTile(Tile tile, const uint start, uint end) {
-				const z = cast(ushort)(priorities[tile.priority] + (tile.palette << bpp));
+				const z = priorities[tile.priority];
 				foreach (i; 8 - start .. end) {
 					const tileX = autoFlip(cast(ubyte)i, tile.hFlip);
 					const tileY = autoFlip(y % 8, tile.vFlip);
 					const pixel = tiles[tile.chr][tileX, tileY];
-					if (pixel && (z > dstz[i - (8 - start)])) {
-						dstz[i - (8 - start)] = cast(ushort)(z + pixel);
+					if (pixel && (z > dstz[i - (8 - start)].priority)) {
+						dstz[i - (8 - start)] = ZBufType(z, pixel, cast(ubyte)tile.palette, bpp);
 					}
 				}
 			}
@@ -398,7 +408,7 @@ struct PPU {
 	}
 
 	// Draw a whole line of a background layer into bgBuffer, with mosaic applied
-	private void drawBackgroundMosaic(size_t bpp)(uint y, uint layer, PpuZbufType[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
+	private void drawBackgroundMosaic(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		static if (bpp == 2) {
 			enum kPaletteShift = 8;
 		} else static if (bpp == 4) {
@@ -432,7 +442,7 @@ struct PPU {
 		}
 		foreach (edges; win.validEdges) {
 			const sx = edges[0];
-			PpuZbufType[] dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
+			auto dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
 			uint x = sx + bglayer.hScroll;
 			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
 			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
@@ -443,29 +453,29 @@ struct PPU {
 				const ta = (tile & 0x8000) ? tileadr1 : tileadr0;
 				const z = priorities[(tile & 0x2000)];
 				auto bits = READ_BITS(ta, tile & 0x3ff);
-				int pixel = 0;
+				ubyte pixel = 0;
 				if (tile & 0x4000) {
 					bits >>= x;
 					static foreach (plane; 0 .. bpp) {
 						pixel |= (bits >> (7 * plane)) & (1 << plane);
 					}
-					if (pixel && (z > dstz[0])) {
-						dstz[0] = cast(ushort)(z + pixel);
+					if (pixel && (z > dstz[0].priority)) {
+						dstz[0] = ZBufType(z, pixel);
 					}
 				} else {
 					bits <<= x;
 					static foreach (plane; 0 .. bpp) {
 						pixel |= (bits >> (7 * (plane + 1))) & (1 << plane);
 					}
-					if (pixel && z > dstz[0]) {
-						dstz[0] = cast(ushort)(z + pixel);
+					if (pixel && (z > dstz[0].priority)) {
+						dstz[0] = ZBufType(z, pixel);
 					}
 				}
 				if (pixel) {
 					pixel += (tile & 0x1c00) >> kPaletteShift;
 					foreach (ref p; chunk) {
-						if (z > p) {
-							p = cast(ushort)(pixel + z);
+						if (z > p.priority) {
+							p = ZBufType(z, pixel);
 						}
 					}
 				}
@@ -478,11 +488,11 @@ struct PPU {
 	}
 
 	// level6 should be set if it's from palette 0xc0 which means color math is not applied
-	uint SPRITE_PRIO_TO_PRIO(uint prio, bool level6) const @safe pure {
-		return SPRITE_PRIO_TO_PRIO_HI(prio) * 16 + 4 + (level6 ? 2 : 0);
+	ubyte SPRITE_PRIO_TO_PRIO(uint prio, bool level6) const @safe pure {
+		return cast(ubyte)(SPRITE_PRIO_TO_PRIO_HI(prio) * 16 + 4 + (level6 ? 2 : 0));
 	}
-	uint SPRITE_PRIO_TO_PRIO_HI(uint prio) const @safe pure {
-		return (prio + 1) * 3;
+	ubyte SPRITE_PRIO_TO_PRIO_HI(uint prio) const @safe pure {
+		return cast(ubyte)((prio + 1) * 3);
 	}
 
 	private void drawSprites(uint y, bool clearBackdrop, scope ref PpuPixelPrioBufs bgBuffer, scope const ref PpuPixelPrioBufs objBuffer, const PpuWindows win) const @safe pure {
@@ -490,12 +500,12 @@ struct PPU {
 			const left = edges[0];
 			const width = edges[1] - left;
 			auto src = objBuffer.data[left + kPpuExtraLeftRight .. $];
-			PpuZbufType[] dst = bgBuffer.data[left + kPpuExtraLeftRight .. $];
+			auto dst = bgBuffer.data[left + kPpuExtraLeftRight .. $];
 			if (clearBackdrop) {
 				dst[0 .. min($, width * ushort.sizeof)] = src[0 .. min($, width * ushort.sizeof)];
 			} else {
 				foreach (_; 0 .. width) {
-					if (src[0] > dst[0]) {
+					if (src[0].priority > dst[0].priority) {
 						dst[0] = src[0];
 					}
 					src = src[1 .. $];
@@ -506,7 +516,7 @@ struct PPU {
 	}
 
 	// Assumes it's drawn on an empty backdrop
-	private void drawBackgroundMode7(uint y, PpuZbufType z, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
+	private void drawBackgroundMode7(uint y, ubyte z, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		int layer = 0;
 
 		// expand 13-bit values to signed values
@@ -529,7 +539,7 @@ struct PPU {
 			(m7matrix[3] * clippedV & ~63) + (yCenter << 8);
 		foreach (edges; win.validEdges) {
 			int x = edges[0], x2 = edges[1], tile;
-			PpuZbufType[] dstz = bgBuffer.data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
+			auto dstz = bgBuffer.data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
 			uint rx = m7xFlip ? 255 - x : x;
 			uint xpos = m7startX + m7matrix[0] * rx;
 			uint ypos = m7startY + m7matrix[2] * rx;
@@ -550,7 +560,7 @@ struct PPU {
 					}
 					const pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
 					if (pixel) {
-						chunk[] = cast(ushort)(pixel + z);
+						chunk[] = ZBufType(z, pixel);
 					}
 					xpos += dx * chunk.length;
 					ypos += dy * chunk.length;
@@ -567,7 +577,7 @@ struct PPU {
 					}
 					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
 					if (pixel) {
-						dst = cast(ushort)(pixel + z);
+						dst = ZBufType(z, pixel);
 					}
 					xpos += dx;
 					ypos += dy;
@@ -635,7 +645,7 @@ struct PPU {
 			auto dst = render_buffer_ptr[0 .. $, 0];
 			const pixels = objBuffer.data[kPpuExtraLeftRight - extraLeftCur .. $];
 			for (size_t i = 0; i < draw_width; i++, dst = dst[16 .. $]) {
-				uint pixel = pixels[i] & 0xff;
+				uint pixel = pixels[i].pixel;
 				if (pixel) {
 					dst[0 .. 7][] = colorMapRgb[pixel];
 				}
@@ -660,7 +670,7 @@ struct PPU {
 	private void drawBackgrounds(int y, bool sub, scope ref PpuPixelPrioBufs[3] winBuffers) const @safe pure {
 		// Top 4 bits contain the prio level, and bottom 4 bits the layer num
 		// split into minimums and maximums
-		enum ushort[2][4][2][8] priorityTable = [
+		enum ubyte[2][4][2][8] priorityTable = [
 			0: [[[11, 8], [10, 7], [5, 2], [4, 1]], [[11, 8], [10, 7], [5, 2], [4, 1]]],
 			1: [[[11, 8], [10, 7], [2, 1], [0, 0]], [[11, 8], [10, 7], [12, 5], [0, 0]]],
 			2: [[[11, 5], [8, 2], [0, 0], [0, 0]], [[11, 5], [8, 2], [0, 0], [0, 0]]],
@@ -695,8 +705,8 @@ struct PPU {
 						enum bpp = bgBPP[i][layer];
 						static if (bpp > 0) {
 							if (IS_SCREEN_ENABLED(sub, layer)) {
-								const priorityHigh = cast(ushort)((priorityTable[i][bg3Priority][layer][0] << 12) | (layer << 8));
-								const priorityLow = cast(ushort)((priorityTable[i][bg3Priority][layer][1] << 12) | (layer << 8));
+								const priorityHigh = cast(ubyte)((priorityTable[i][bg3Priority][layer][0] << 4) | layer);
+								const priorityLow = cast(ubyte)((priorityTable[i][bg3Priority][layer][1] << 4) | layer);
 								const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
 								if (bgLayer[layer].mosaic) {
 									drawBackgroundMosaic!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
@@ -714,7 +724,7 @@ struct PPU {
 					return; // layer is completely hidden
 				}
 				const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
-				drawBackgroundMode7(y, 0xc000, winBuffers[layer], win);
+				drawBackgroundMode7(y, 0xc0, winBuffers[layer], win);
 				break;
 			default:
 				assert(0);
@@ -770,7 +780,7 @@ struct PPU {
 			if (math_enabled_cur == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
 				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
 				foreach (i; left .. right) {
-					const color = cgram[winBuffers[0].data[i] & 0xff];
+					const color = cgram[winBuffers[0].data[i].pixel];
 					dst[0] = ColourFormat(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
 					dst = dst[1 .. $];
 				}
@@ -780,17 +790,17 @@ struct PPU {
 				math_enabled_cur |= addSubscreen << 8 | subtractColor << 9;
 				// Need to check for each pixel whether to use math or not based on the main screen layer.
 				foreach (i; left .. right) {
-					const color = cgram[winBuffers[0].data[i] & 0xff];
+					const color = cgram[winBuffers[0].data[i].pixel];
 					BGR555 color2;
-					ubyte main_layer = (winBuffers[0].data[i] >> 8) & 0xf;
+					ubyte main_layer = winBuffers[0].data[i].priority & 0xf;
 					uint r = color.red & clip_color_mask;
 					uint g = color.green & clip_color_mask;
 					uint b = color.blue & clip_color_mask;
 					const(ubyte)[] color_map = brightnessMult;
 					if (math_enabled_cur & (1 << main_layer)) {
 						if (math_enabled_cur & 0x100) { // addSubscreen ?
-							if ((winBuffers[1].data[i] & 0xff) != 0) {
-								color2 = cgram[winBuffers[1].data[i] & 0xff];
+							if (winBuffers[1].data[i].pixel != 0) {
+								color2 = cgram[winBuffers[1].data[i].pixel];
 								color_map = half_color_map;
 							} else {// Don't halve if addSubscreen && backdrop
 								color2 = fixed_color;
@@ -971,8 +981,8 @@ struct PPU {
 				} else {
 					// get a pixel from the sprite buffer
 					pixel = 0;
-					if ((objBuffer.data[x + kPpuExtraLeftRight] >> 12) == SPRITE_PRIO_TO_PRIO_HI(curPriority)) {
-						pixel = objBuffer.data[x + kPpuExtraLeftRight] & 0xff;
+					if ((objBuffer.data[x + kPpuExtraLeftRight].priority >> 4) == SPRITE_PRIO_TO_PRIO_HI(curPriority)) {
+						pixel = objBuffer.data[x + kPpuExtraLeftRight].pixel;
 					}
 				}
 			}
@@ -1165,9 +1175,8 @@ struct PPU {
 				row = spriteSize - 1 - row;
 			}
 			// fetch all tiles in x-range
-			const paletteBase = 8 + lowOBJ.palette;
+			const paletteBase = cast(ubyte)(8 + lowOBJ.palette);
 			const prio = SPRITE_PRIO_TO_PRIO(lowOBJ.priority, (lowOBJ.palette & 8) == 0);
-			PpuZbufType z = cast(ushort)((paletteBase * 16) + (prio << 8));
 
 			for (int col = 0; col < spriteSize; col += 8) {
 				if (col + x > -8 - extraLeftRight && col + x < 256 + extraLeftRight) {
@@ -1183,15 +1192,16 @@ struct PPU {
 					// go over each pixel
 					int px_left = max(-(col + x + kPpuExtraLeftRight), 0);
 					int px_right = min(256 + kPpuExtraLeftRight - (col + x), 8);
-					PpuZbufType[] dst = objBuffer.data[col + x + px_left + kPpuExtraLeftRight .. $];
+					auto dst = objBuffer.data[col + x + px_left + kPpuExtraLeftRight .. $];
 
 					for (int px = px_left; px < px_right; px++) {
 						int shift = autoFlip(px, !lowOBJ.flipHorizontal);
 						uint bits = plane >> shift;
-						int pixel = (bits >> 0) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
+						ubyte pixel = (bits >> 0) & 1 | (bits >> 7) & 2 | (bits >> 14) & 4 | (bits >> 21) & 8;
 						// draw it in the buffer if there is a pixel here, and the buffer there is still empty
-						if (pixel != 0 && (dst[px - px_left] & 0xff) == 0) {
-							dst[px - px_left] = cast(ushort)(z + pixel);
+						if (pixel != 0 && (dst[px - px_left].pixel == 0)) {
+							// sprites are always 4BPP
+							dst[px - px_left] = ZBufType(prio, pixel, paletteBase, 4);
 						}
 					}
 				}
