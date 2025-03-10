@@ -411,13 +411,13 @@ struct PPU {
 	private void drawBackgroundMosaic(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		static if (bpp == 2) {
 			alias TileFormat = Intertwined2BPP;
-			enum kPaletteShift = 8;
+			enum kPaletteShift = 4;
 		} else static if (bpp == 4) {
 			alias TileFormat = Intertwined4BPP;
-			enum kPaletteShift = 6;
+			enum kPaletteShift = 16;
 		} else static if (bpp == 8) {
 			alias TileFormat = Intertwined8BPP;
-			enum kPaletteShift = 12;
+			enum kPaletteShift = 0;
 		}
 		const bglayer = bgLayer[layer];
 		y = mosaicModulo[y] + bglayer.vScroll;
@@ -425,10 +425,10 @@ struct PPU {
 		if ((y & 0x100) && bglayer.tilemapHigher) {
 			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
 		}
-		const(ushort)[] tps(uint i) {
+		const(TilemapEntry)[] tps(uint i) {
 			return [
-				vram[sc_offs & 0x7fff .. $],
-				vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
+				cast(const(TilemapEntry)[])vram[sc_offs & 0x7fff .. $],
+				cast(const(TilemapEntry)[])vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
 			][i];
 		}
 		const tileadr = bglayer.tileAdr;
@@ -440,23 +440,22 @@ struct PPU {
 			const sx = edges[0];
 			auto dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
 			uint x = sx + bglayer.hScroll;
-			const(ushort)[] tp_next = tps((x >> 8 & 1) ^ 1);
-			const(ushort)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
+			const(TilemapEntry)[] tp_next = tps((x >> 8 & 1) ^ 1);
+			const(TilemapEntry)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
 			x &= 7;
 			const w = mosaicSize - (sx - mosaicModulo[sx]);
 			foreach (chunk; dstz.chunks(w)) {
 				const tile = tp[0];
-				const ta = (tile & 0x8000) ? tileadr1 : tileadr0;
-				const z = priorities[(tile & 0x2000)];
-				const pixel = tiles[ta / TileFormat.sizeof + tile & 0x3FF][x % 8, y % 8];
+				const ta = tile.flipVertical ? tileadr1 : tileadr0;
+				const z = priorities[tile.priority];
+				ubyte pixel = tiles[ta / TileFormat.sizeof + tile.index][x % 8, y % 8];
 				if (pixel) {
 					if (z > dstz[0].priority) {
 						dstz[0] = ZBufType(z, pixel);
 					}
-					pixel += (tile & 0x1c00) >> kPaletteShift;
 					foreach (ref p; chunk) {
 						if (z > p.priority) {
-							p = ZBufType(z, pixel);
+							p = ZBufType(z, pixel, tile.palette, bpp);
 						}
 					}
 				}
@@ -996,22 +995,23 @@ struct PPU {
 		if ((y & tileHighBitY) && layerp.tilemapHigher) {
 			tilemapAdr += layerp.tilemapWider ? 0x800 : 0x400;
 		}
-		ushort tile = vram[tilemapAdr & 0x7fff];
+		const tile = (cast(const(TilemapEntry)[])vram)[tilemapAdr & 0x7fff];
 		// check priority, get palette
-		if ((cast(bool)(tile & 0x2000)) != priority) {
+		if (tile.priority != priority) {
 			return 0; // wrong priority
 		}
-		int paletteNum = (tile & 0x1c00) >> 10;
+		int paletteNum = tile.palette;
 		// figure out position within tile
-		int row = (tile & 0x8000) ? 7 - (y & 0x7) : (y & 0x7);
-		int col = (tile & 0x4000) ? (x & 0x7) : 7 - (x & 0x7);
-		int tileNum = tile & 0x3ff;
+		int row = tile.flipVertical ? 7 - (y & 0x7) : (y & 0x7);
+		int col = tile.flipHorizontal ? (x & 0x7) : 7 - (x & 0x7);
+		int tileNum = tile.index;
 		if (wideTiles) {
 			// if unflipped right half of tile, or flipped left half of tile
-			if ((cast(bool)(x & 8)) ^ (cast(bool)(tile & 0x4000))) {
+			if ((cast(bool)(x & 8)) ^ tile.flipVertical) {
 				tileNum += 1;
 			}
 		}
+		tileNum &= 0x3FF;
 		// read tiledata, ajust palette for mode 0
 		int bitDepth = bitDepthsPerMode[mode][layer];
 		if (mode == 0) {
@@ -1019,23 +1019,23 @@ struct PPU {
 		}
 		// plane 1 (always)
 		int paletteSize = 4;
-		ushort plane1 = vram[(layerp.tileAdr + ((tileNum & 0x3ff) * 4 * bitDepth) + row) & 0x7fff];
+		ushort plane1 = vram[(layerp.tileAdr + (tileNum * 4 * bitDepth) + row) & 0x7fff];
 		int pixel = (plane1 >> col) & 1;
 		pixel |= ((plane1 >> (8 + col)) & 1) << 1;
 		// plane 2 (for 4bpp, 8bpp)
 		if (bitDepth > 2) {
 			paletteSize = 16;
-			ushort plane2 = vram[(layerp.tileAdr + ((tileNum & 0x3ff) * 4 * bitDepth) + 8 + row) & 0x7fff];
+			ushort plane2 = vram[(layerp.tileAdr + (tileNum * 4 * bitDepth) + 8 + row) & 0x7fff];
 			pixel |= ((plane2 >> col) & 1) << 2;
 			pixel |= ((plane2 >> (8 + col)) & 1) << 3;
 		}
 		// plane 3 & 4 (for 8bpp)
 		if (bitDepth > 4) {
 			paletteSize = 256;
-			ushort plane3 = vram[(layerp.tileAdr + ((tileNum & 0x3ff) * 4 * bitDepth) + 16 + row) & 0x7fff];
+			ushort plane3 = vram[(layerp.tileAdr + (tileNum * 4 * bitDepth) + 16 + row) & 0x7fff];
 			pixel |= ((plane3 >> col) & 1) << 4;
 			pixel |= ((plane3 >> (8 + col)) & 1) << 5;
-			ushort plane4 = vram[(layerp.tileAdr + ((tileNum & 0x3ff) * 4 * bitDepth) + 24 + row) & 0x7fff];
+			ushort plane4 = vram[(layerp.tileAdr + (tileNum * 4 * bitDepth) + 24 + row) & 0x7fff];
 			pixel |= ((plane4 >> col) & 1) << 6;
 			pixel |= ((plane4 >> (8 + col)) & 1) << 7;
 		}

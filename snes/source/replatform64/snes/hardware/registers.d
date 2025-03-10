@@ -257,6 +257,19 @@ enum BGR555Mask {
 	Blue = 0x7C00,
 }
 ///
+union TilemapEntry {
+	ushort raw;
+	struct {
+		mixin(bitfields!(
+			ushort, "index", 10,
+			ubyte, "palette", 3,
+			bool, "priority", 1,
+			bool, "flipHorizontal", 1,
+			bool, "flipVertical", 1,
+		));
+	}
+}
+///
 enum TilemapFlag {
 	palette0 = 0x0000,
 	palette1 = 0x0400,
