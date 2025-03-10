@@ -85,21 +85,6 @@ enum PPURenderFlags {
 	noSpriteLimits = 1 << 3,
 }
 
-struct Tile {
-	align(1):
-	mixin(bitfields!(
-		uint, "chr", 10,
-		uint, "palette", 3,
-		bool, "priority", 1,
-		bool, "hFlip", 1,
-		bool, "vFlip", 1,
-	));
-	void toString(R)(ref R sink) const {
-		import std.format : formattedWrite;
-		sink.formattedWrite!"%s%s%s%s%03X"(vFlip ? "V" : "v", hFlip ? "H" : "h", priority ? "P" : "p", palette, chr);
-	}
-}
-
 struct WindowLayerSettings {
 	bool window1Inverted;
 	bool window1Enabled;
@@ -343,21 +328,21 @@ struct PPU {
 		win.bits = w1_bits | w2_bits;
 		return win;
 	}
-	private Array2D!(const Tile)[4] getBackgroundTilemaps(uint layer) const return @safe pure {
+	private Array2D!(const TilemapEntry)[4] getBackgroundTilemaps(uint layer) const return @safe pure {
 		static immutable tilemapOffsets = [
 			[0x000, 0x000, 0x000, 0x000],
 			[0x000, 0x400, 0x000, 0x400],
 			[0x000, 0x000, 0x400, 0x400],
 			[0x000, 0x400, 0x800, 0xC00],
 		];
-		alias Tilemap = Array2D!(const Tile);
+		alias Tilemap = Array2D!(const TilemapEntry);
 		const base = bgLayer[layer].tilemapAdr;
 		const offsets = tilemapOffsets[bgLayer[layer].tilemapWider + bgLayer[layer].tilemapHigher * 2];
 		return [
-			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[0] .. $][0 .. 32 * 32]),
-			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[1] .. $][0 .. 32 * 32]),
-			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[2] .. $][0 .. 32 * 32]),
-			Tilemap(32, 32, cast(const(Tile)[])vram[base + offsets[3] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(TilemapEntry)[])vram[base + offsets[0] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(TilemapEntry)[])vram[base + offsets[1] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(TilemapEntry)[])vram[base + offsets[2] .. $][0 .. 32 * 32]),
+			Tilemap(32, 32, cast(const(TilemapEntry)[])vram[base + offsets[3] .. $][0 .. 32 * 32]),
 		];
 	}
 	// Draw a whole line of a background layer into bgBuffer
@@ -380,12 +365,12 @@ struct PPU {
 			const tileLine = (y / 8) % 32;
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
-			void renderTile(Tile tile, const uint start, uint end) {
+			void renderTile(TilemapEntry tile, const uint start, uint end) {
 				const z = priorities[tile.priority];
 				foreach (i; 8 - start .. end) {
-					const tileX = autoFlip(cast(ubyte)i, tile.hFlip);
-					const tileY = autoFlip(y % 8, tile.vFlip);
-					const pixel = tiles[tile.chr][tileX, tileY];
+					const tileX = autoFlip(cast(ubyte)i, tile.flipHorizontal);
+					const tileY = autoFlip(y % 8, tile.flipVertical);
+					const pixel = tiles[tile.index][tileX, tileY];
 					if (pixel && (z > dstz[i - (8 - start)].priority)) {
 						dstz[i - (8 - start)] = ZBufType(z, pixel, cast(ubyte)tile.palette, bpp);
 					}
