@@ -214,7 +214,7 @@ struct PPU {
 			return;
 		}
 		// Check if the sprite is visible
-		if(!ignoreOAM && ((baseY >= 239) || (baseX >= 249))) {
+		if(!ignoreOAM && ((baseY >= height - 1) || (baseX >= width - 7))) {
 			return;
 		}
 
@@ -237,7 +237,7 @@ struct PPU {
 
 					const xPixel = baseX + tileX;
 					const yPixel = baseY + tileY + (8 * tileOffset);
-					if (xPixel < 0 || xPixel >= 256 || yPixel < 0 || yPixel >= 240) {
+					if (!xPixel.inRange(0, width) || !yPixel.inRange(0, height)) {
 						continue;
 					}
 
@@ -269,14 +269,12 @@ struct PPU {
 
 		// Draw the background (nametable)
 		if (ppuMask.enableBG) { // Is the background enabled?
-			const scrollX = cast(int)ppuScrollX + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
-			const scrollY = cast(int)ppuScrollY + ((ppuCtrl.raw & (1 << 0)) ? 256 : 0);
+			const scrollX = ppuScrollX + (ppuCtrl.nametableX << 8);
+			const scrollY = ppuScrollY + (ppuCtrl.nametableY << 8);
 			const xMin = scrollX / 8;
-			const xMax = (cast(int)scrollX + 256) / 8;
 			const yMin = scrollY / 8;
-			const yMax = (cast(int)scrollY + 240) / 8;
-			foreach (x; xMin .. xMax) {
-				foreach (y; yMin .. yMax) {
+			foreach (x; xMin .. xMin + width / 8) {
+				foreach (y; yMin .. yMin + height / 8) {
 					// Render the tile
 					renderTile(buffer, getTilemapOffset(x, y), (x * 8) - scrollX, (y * 8) - scrollY);
 				}
@@ -400,27 +398,26 @@ struct PPU {
 	}
 	private void renderTile(scope Array2D!ColourFormat buffer, int index, int xOffset, int yOffset) @safe pure {
 		// Lookup the pattern table entry
-		ushort tile = readByte(cast(ushort)index) + (ppuCtrl.bgPatternTable ? 256 : 0);
+		ushort tile = readByte(cast(ushort)index) + (ppuCtrl.bgPatternTable << 8);
 		ubyte attribute = getAttributeTableValue(cast(ushort)index);
 
 		// Read the pixels of the tile
-		for( int row = 0; row < 8; row++ ) {
+		for (int row = 0; row < 8; row++) {
 			ubyte plane1 = readCHR(tile * 16 + row);
 			ubyte plane2 = readCHR(tile * 16 + row + 8);
 
-			for( int column = 0; column < 8; column++ ) {
+			for (int column = 0; column < 8; column++) {
 				ubyte paletteIndex = (((plane1 & (1 << column)) ? 1 : 0) + ((plane2 & (1 << column)) ? 2 : 0));
 				ubyte colorIndex = palette[attribute * 4 + paletteIndex];
-				if( paletteIndex == 0 ) {
+				if (paletteIndex == 0) {
 					// skip transparent pixels
-					//colorIndex = palette[0];
 					continue;
 				}
 				auto pixel = paletteRGB[colorIndex];
 
 				int x = (xOffset + (7 - column));
 				int y = (yOffset + row);
-				if (x < 0 || x >= 256 || y < 0 || y >= 240) {
+				if (!x.inRange(0, width) || !y.inRange(0, height)) {
 					continue;
 				}
 				buffer[x, y] = pixel;
@@ -678,7 +675,7 @@ unittest {
 		const frame = renderMesen2State(name~".mss");
 		if (const result = comparePNG(frame, "testdata/nes", name~".png")) {
 			mkdirRecurse("failed");
-			dumpPNG(frame, "failed/"~name~".png");
+			writePNG(frame, "failed/"~name~".png");
 			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
 		}
 	}
