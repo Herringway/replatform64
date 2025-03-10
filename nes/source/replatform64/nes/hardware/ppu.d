@@ -564,9 +564,8 @@ unittest {
 		ppu.render(buffer);
 		return buffer;
 	}
-	static Array2D!(PPU.ColourFormat) renderMesen2State(string filename) {
+	static Array2D!(PPU.ColourFormat) renderMesen2State(const(ubyte)[] file, FauxDMA[] dma) {
 		PPU ppu;
-		auto file = cast(ubyte[])read(buildPath("testdata/nes", filename));
 		ppu.chr = new ubyte[](0x2000);
 		ppu.nametable = new ubyte[](0x1000);
 		ubyte PPUSCROLL;
@@ -671,14 +670,5 @@ unittest {
 		ppu.writeRegister(0x2005, PPUSCROLL2);
 		return draw(ppu);
 	}
-	static void runTest(string name) {
-		const frame = renderMesen2State(name~".mss");
-		if (const result = comparePNG(frame, "testdata/nes", name~".png")) {
-			mkdirRecurse("failed");
-			writePNG(frame, "failed/"~name~".png");
-			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
-		}
-	}
-	runTest("cv");
-	runTest("con2");
+	assert(runTests!renderMesen2State("nes", ""), "Tests failed");
 }

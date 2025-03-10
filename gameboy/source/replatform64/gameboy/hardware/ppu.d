@@ -456,18 +456,13 @@ unittest {
 	import replatform64.dumping : convert, writePNG;
 	enum width = 160;
 	enum height = 144;
-	static struct FauxDMA {
-		ubyte scanline;
-		Register register;
-		ubyte value;
-	}
-	static auto draw(ref PPU ppu, FauxDMA[] dma = []) {
+	static auto draw(ref PPU ppu, FauxDMA[] dma) {
 		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
 		ppu.beginDrawing(buffer);
 		foreach (i; 0 .. height) {
 			foreach (entry; dma) {
 				if (i == entry.scanline) {
-					ppu.writeRegister(entry.register, entry.value);
+					ppu.writeRegister(cast(Register)entry.register, entry.value);
 				}
 			}
 			ppu.runLine();
@@ -475,7 +470,7 @@ unittest {
 		}
 		return buffer;
 	}
-	static auto renderMesen2State(const ubyte[] file, FauxDMA[] dma = []) {
+	static auto renderMesen2State(const ubyte[] file, FauxDMA[] dma) {
 		PPU ppu;
 		LCDCValue lcdc;
 		STATValue stat;
@@ -576,34 +571,7 @@ unittest {
 		ppu.registers.stat = stat;
 		return draw(ppu, dma);
 	}
-	static void runTest(string name) {
-		FauxDMA[] dma;
-		const dmaPath = buildPath("testdata/gameboy", name~".dma");
-		if (dmaPath.exists) {
-			foreach (line; File(dmaPath, "r").byLine) {
-				auto split = line.split(" ");
-				dma ~= FauxDMA(split[0].to!ubyte, cast(Register)split[1].to!ushort(16), split[2].to!ubyte(16));
-			}
-		}
-		const frame = renderMesen2State(cast(ubyte[])read(buildPath("testdata/gameboy", name~".mss")), dma);
-		if (const result = comparePNG(frame, "testdata/gameboy", name~".png")) {
-			writePNG(frame, "failed/"~name~".png");
-			assert(0, format!"Pixel mismatch at %s, %s in %s (got %s, expecting %s)"(result.x, result.y, name, result.got, result.expected));
-		}
-	}
-	runTest("everythingok");
-	runTest("ffl2");
-	runTest("m2");
-	runTest("w2");
-	runTest("mqueen1");
-	runTest("gator");
-	runTest("ffa-obp1");
-	runTest("ooaintro");
-	runTest("ooaintro2");
-	runTest("ooaintro3");
-	runTest("ooaintro4");
-	runTest("cgb_bg_oam_priority");
-	runTest("cgb_oam_internal_priority");
+	assert(runTests!renderMesen2State("gameboy", ""), "Tests failed");
 }
 
 immutable ushort[] pixelBitmasks = [

@@ -5,6 +5,11 @@ import replatform64.util;
 
 import pixelmancy.colours;
 
+import std.file;
+import std.format;
+import std.path;
+import std.stdio;
+
 package:
 
 auto comparePNG(T)(const Array2D!T frame, string baseDir, string comparePath) {
@@ -80,4 +85,50 @@ void loadMesen2SaveState(const(ubyte)[] file, uint system, scope void delegate(c
 		auto data = popBytes(decompressed, dataSize);
 		dg(key, data);
 	}
+}
+
+bool runTests(alias render, T...)(string platform, string suffix, T extra) {
+	uint tests;
+	uint testSuccesses;
+	foreach (state; dirEntries(buildPath("testdata", platform), "*.mss", SpanMode.shallow)) {
+		testSuccesses += !runTest!render(platform, state.baseName.stripExtension, suffix, extra);
+		tests++;
+	}
+	writef!"%s/%s tests succeeded"(testSuccesses, tests);
+	if (suffix != "") {
+		writef!" (%s)"(suffix);
+	}
+	writeln();
+	return tests == testSuccesses;
+}
+
+struct FauxDMA {
+	ushort scanline;
+	uint register;
+	ubyte value;
+}
+bool runTest(alias render, T...)(string platform, string testName, string suffix, T extra) {
+	import std.conv : to;
+	import std.string : split;
+	auto file = cast(ubyte[])read(buildPath("testdata", platform, testName ~ ".mss"));
+	FauxDMA[] dma;
+	const dmaPath = buildPath("testdata", platform, testName ~ ".dma");
+	if (dmaPath.exists) {
+		foreach (line; File(dmaPath, "r").byLine) {
+			auto splitLine = line.split(" ");
+			dma ~= FauxDMA(splitLine[0].to!ushort, splitLine[1].to!uint(16), splitLine[2].to!ubyte(16));
+		}
+	}
+	const expected = !buildPath("testdata", platform, testName ~ "." ~ suffix ~ "expectedfail").exists;
+	const frame = render(file, dma, extra);
+	const outputDir = buildPath("failed", platform);
+	if (const result = comparePNG(frame, buildPath("testdata", platform), testName ~ ".png")) {
+		mkdirRecurse(outputDir);
+		writePNG(frame, buildPath(outputDir, testName ~ (suffix != "" ? "-" ~ suffix : "") ~ ".png"));
+		writefln!"%s pixel mismatch at %s, %s in %s (got %s, expecting %s)"(["\x1B[32mExpected\x1B[0m", "\x1B[31mUnexpected\x1B[0m"][expected], result.x, result.y, testName, result.got, result.expected);
+		return expected;
+	} else if (!expected) {
+		writefln!"%s success in %s"("\x1B[31mUnexpected\x1B[0m", testName);
+	}
+	return !expected;
 }

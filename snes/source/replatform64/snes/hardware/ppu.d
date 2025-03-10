@@ -1495,37 +1495,21 @@ unittest {
 	import std.string : lineSplitter;
 	enum width = 256;
 	enum height = 224;
-	static HDMAWrite[] parseHDMAWrites(string filename) {
-		HDMAWrite[] result;
-		auto file = readText(buildPath("testdata/snes", filename));
-		foreach (line; file.lineSplitter) {
-			HDMAWrite write;
-			auto split = line.splitter('\t');
-			write.vcounter = split.front.to!ushort;
-			split.popFront();
-			write.addr = split.front.to!ubyte(16);
-			split.popFront();
-			write.value = split.front.to!ubyte(16);
-			result ~= write;
-		}
-		return result;
-	}
-	static Array2D!(PPU.ColourFormat) draw(ref PPU ppu, HDMAWrite[] hdmaWrites, PPURenderFlags flags) {
+	static Array2D!(PPU.ColourFormat) draw(ref PPU ppu, FauxDMA[] dma, PPURenderFlags flags) {
 		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
 		ppu.beginDrawing(flags);
 		foreach (i; 0 .. height + 1) {
-			foreach (write; hdmaWrites) {
-				if (write.vcounter + 1 == i) {
-					ppu.writeRegister(write.addr, write.value);
+			foreach (write; dma) {
+				if (write.scanline + 1 == i) {
+					ppu.writeRegister(cast(ushort)write.register, write.value);
 				}
 			}
 			ppu.runLine(buffer, i);
 		}
 		return buffer;
 	}
-	static Array2D!(PPU.ColourFormat) renderMesen2State(string filename, HDMAWrite[] hdma = [], PPURenderFlags flags) {
+	static Array2D!(PPU.ColourFormat) renderMesen2State(const(ubyte)[] file, FauxDMA[] dma, PPURenderFlags flags) {
 		PPU ppu;
-		auto file = cast(ubyte[])read(buildPath("testdata/snes", filename));
 		INIDISPValue INIDISP;
 		OBSELValue OBSEL;
 		BGMODEValue BGMODE;
@@ -1947,66 +1931,12 @@ unittest {
 		ppu.writeRegister(Register.COLDATA, COLDATAG | 0x40);
 		ppu.writeRegister(Register.COLDATA, COLDATAR | 0x20);
 		ppu.writeRegister(Register.SETINI, SETINI.raw);
-		return draw(ppu, hdma, flags);
+		return draw(ppu, dma, flags);
 	}
-	static void runTest(string name, bool oldRenderer, bool newRenderer) {
-		HDMAWrite[] writes;
-		if (buildPath("testdata/snes", name~".hdma").exists) {
-			writes = parseHDMAWrites(name~".hdma");
-		}
-		static void compare(Array2D!(PPU.ColourFormat) frame, bool expected, string renderName, string dumpSuffix, string testName) {
-			if (const result = comparePNG(frame, "testdata/snes", testName~".png")) {
-				mkdirRecurse("failed");
-				writePNG(frame, "failed/"~testName~"-"~dumpSuffix~".png");
-				if (!expected) {
-					writeln(format!"(Expected) %s pixel mismatch at %s, %s in %s (got %s, expecting %s)"(renderName, result.x, result.y, testName, result.got, result.expected));
-				} else {
-					assert(0, format!"%s pixel mismatch at %s, %s in %s (got %s, expecting %s)"(renderName, result.x, result.y, testName, result.got, result.expected));
-				}
-			} else {
-				assert(expected, format!"Unexpected %s success in %s"(renderName, testName));
-			}
-		}
-		compare(renderMesen2State(name~".mss", writes, cast(PPURenderFlags)0), oldRenderer, "Old renderer", "old", name);
-		compare(renderMesen2State(name~".mss", writes, PPURenderFlags.newRenderer), newRenderer, "New renderer", "new", name);
-	}
-	// TODO: change all falses to true
-	runTest("helloworld", true, true);
-	runTest("mosaicm3", true, false);
-	runTest("mosaicm5", false, false);
-	runTest("ebswirl", false, false);
-	runTest("ebfadein", true, true);
-	runTest("ebnorm", true, true);
-	runTest("ebspriteprio", true, true);
-	runTest("ebspriteprio2", true, false);
-	runTest("ebbattle", true, true);
-	runTest("ebmeteor", true, false);
-	runTest("ebgas", true, true);
-	runTest("eb_ss", true, true);
-	runTest("yi_intro", false, false);
-	runTest("8x8BG1Map2BPP32x328PAL", true, true);
-	runTest("8x8BG2Map2BPP32x328PAL", true, false);
-	runTest("8x8BG3Map2BPP32x328PAL", true, false);
-	runTest("8x8BG4Map2BPP32x328PAL", true, false);
-	runTest("8x8BGMap4BPP32x328PAL", true, true);
-	runTest("8x8BGMap8BPP32x32", true, true);
-	runTest("8x8BGMap8BPP32x64", true, true);
-	runTest("8x8BGMap8BPP64x32", true, true);
-	runTest("8x8BGMap8BPP64x64", true, true);
-	runTest("8x8BGMapTileFlip", true, true);
-	runTest("HiColor575Myst", true, true);
-	runTest("HiColor1241DLair", true, true);
-	runTest("HiColor3840", true, true);
-	runTest("InterlaceFont", false, false);
-	runTest("InterlaceMystHDMA", false, false);
-	runTest("Perspective", false, false);
-	runTest("Rings", true, false);
-	runTest("RotZoom", false, false);
-	runTest("extbgtest", true, false);
-	runTest("extbgtest2", true, false);
-	runTest("smasb2", false, false);
-	runTest("cttitle", false, false);
-	runTest("gradient", true, true);
+	const result = // we don't want short-circuiting, so use & instead of &&
+		runTests!renderMesen2State("snes", "old", cast(PPURenderFlags)0) &
+		runTests!renderMesen2State("snes", "new", PPURenderFlags.newRenderer);
+	assert(result, "Tests failed");
 }
 
 private float interpolate(float x, float xmin, float xmax, float ymin, float ymax) @safe pure {
