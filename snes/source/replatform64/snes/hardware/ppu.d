@@ -43,7 +43,37 @@ import std.format;
 import std.range;
 import std.typecons;
 
-struct BGLayer {
+enum MaskLogic {
+	or = 0,
+	and = 1,
+	xor = 2,
+	xnor = 3,
+}
+
+///
+enum LayerID {
+	bg1, /// Background layer 1
+	bg2, /// Background layer 2 (also EXTBG)
+	bg3, /// Background layer 3
+	bg4, /// Background layer 4
+	obj, /// Sprites
+	math, /// Colour math pseudo-layer
+}
+
+struct Layer {
+	static struct MainSub {
+		bool screenEnabled;
+		bool windowEnabled;
+	}
+	MainSub main;
+	MainSub sub;
+	bool layerDisabled;
+	bool window1Inverted;
+	bool window1Enabled;
+	bool window2Inverted;
+	bool window2Enabled;
+	MaskLogic maskLogic; // NYI
+	// only used for background layers
 	ushort hScroll = 0;
 	ushort vScroll = 0;
 	bool tilemapWider = false;
@@ -85,13 +115,6 @@ enum PPURenderFlags {
 	noSpriteLimits = 1 << 3,
 }
 
-struct WindowLayerSettings {
-	bool window1Inverted;
-	bool window1Enabled;
-	bool window2Inverted;
-	bool window2Enabled;
-}
-
 struct PPU {
 	alias ColourFormat = BGR555;
 	bool lineHasSprites;
@@ -106,8 +129,6 @@ struct PPU {
 	bool interlacing;
 
 	// TMW / TSW etc
-	ubyte[2] screenEnabled;
-	ubyte[2] screenWindowed;
 	ubyte mosaicSize = 1;
 	// object/sprites
 	ushort objTileAdr1 = 0x4000;
@@ -118,7 +139,7 @@ struct PPU {
 	ubyte window1right = 0;
 	ubyte window2left = 0;
 	ubyte window2right = 0;
-	WindowLayerSettings[6] windowsel;
+	Layer[6] layers;
 
 	// color math
 	ubyte clipMode = 0;
@@ -149,7 +170,6 @@ struct PPU {
 	ubyte oamBuffer = 0;
 
 	// background layers
-	BGLayer[4] bgLayer;
 	ubyte scrollPrev = 0;
 	ubyte scrollPrev2 = 0;
 	bool bg3Priority;
@@ -267,7 +287,7 @@ struct PPU {
 		// Evaluate which spans to render based on the window settings.
 		// There are at most 5 windows.
 		// Algorithm from Snes9x
-		const winflags = GET_WINDOW_FLAGS(layer);
+		const winflags = layers[layer];
 		uint nr = 1;
 		int window_right = 256 + (layer != 2 ? extraRightCur : 0);
 		win.edges[0] = - (layer != 2 ? extraLeftCur : 0);
@@ -336,8 +356,8 @@ struct PPU {
 			[0x000, 0x400, 0x800, 0xC00],
 		];
 		alias Tilemap = Array2D!(const TilemapEntry);
-		const base = bgLayer[layer].tilemapAdr;
-		const offsets = tilemapOffsets[bgLayer[layer].tilemapWider + bgLayer[layer].tilemapHigher * 2];
+		const base = layers[layer].tilemapAdr;
+		const offsets = tilemapOffsets[layers[layer].tilemapWider + layers[layer].tilemapHigher * 2];
 		return [
 			Tilemap(32, 32, cast(const(TilemapEntry)[])vram[base + offsets[0] .. $][0 .. 32 * 32]),
 			Tilemap(32, 32, cast(const(TilemapEntry)[])vram[base + offsets[1] .. $][0 .. 32 * 32]),
@@ -347,7 +367,7 @@ struct PPU {
 	}
 	// Draw a whole line of a background layer into bgBuffer
 	private void drawBackground(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
-		const bglayer = bgLayer[layer];
+		const bglayer = layers[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
 		static if (bpp == 2) {
 			alias TileType = Intertwined2BPP;
@@ -404,7 +424,7 @@ struct PPU {
 			alias TileFormat = Intertwined8BPP;
 			enum kPaletteShift = 0;
 		}
-		const bglayer = bgLayer[layer];
+		const bglayer = layers[layer];
 		y = mosaicModulo[y] + bglayer.vScroll;
 		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
 		if ((y & 0x100) && bglayer.tilemapHigher) {
@@ -488,7 +508,7 @@ struct PPU {
 		int clippedV = vScroll - yCenter;
 		clippedH = (clippedH & 0x2000) ? (clippedH | ~1023) : (clippedH & 1023);
 		clippedV = (clippedV & 0x2000) ? (clippedV | ~1023) : (clippedV & 1023);
-		bool mosaic_enabled = bgLayer[0].mosaic;
+		bool mosaic_enabled = layers[0].mosaic;
 		if (mosaic_enabled) {
 			y = mosaicModulo[y];
 		}
@@ -650,11 +670,11 @@ struct PPU {
 			6: [4, 0, 0, 0],
 			7: [8, 0, 0, 0],
 		];
-
 		if (lineHasSprites) {
 			const layer = 4;
-			if (IS_SCREEN_ENABLED(sub, layer)) {
-				const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
+			const mainSub = sub ? layers[layer].sub : layers[layer].main;
+			if (mainSub.screenEnabled) {
+				const win = mainSub.windowEnabled ? windowsCalc(layer) : windowsClear(layer);
 				drawSprites(y, mode != 7, winBuffers[sub], winBuffers[2], win);
 			}
 		}
@@ -664,11 +684,12 @@ struct PPU {
 					static foreach (layer; 0 .. 4) {{
 						enum bpp = bgBPP[i][layer];
 						static if (bpp > 0) {
-							if (IS_SCREEN_ENABLED(sub, layer)) {
+							const mainSub = sub ? layers[layer].sub : layers[layer].main;
+							if (mainSub.screenEnabled) {
 								const priorityHigh = cast(ubyte)((priorityTable[i][bg3Priority][layer][0] << 4) | layer);
 								const priorityLow = cast(ubyte)((priorityTable[i][bg3Priority][layer][1] << 4) | layer);
-								const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
-								if (bgLayer[layer].mosaic) {
+								const win = mainSub.windowEnabled ? windowsCalc(layer) : windowsClear(layer);
+								if (layers[layer].mosaic) {
 									drawBackgroundMosaic!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
 								} else {
 									drawBackground!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
@@ -680,10 +701,11 @@ struct PPU {
 			}
 			case 7:
 				const layer = 0;
-				if (!IS_SCREEN_ENABLED(sub, layer)) {
+				const mainSub = sub ? layers[layer].sub : layers[layer].main;
+				if (!mainSub.screenEnabled) {
 					return; // layer is completely hidden
 				}
-				const win = IS_SCREEN_WINDOWED(sub, layer) ? windowsCalc(layer) : windowsClear(layer);
+				const win = mainSub.windowEnabled ? windowsCalc(layer) : windowsClear(layer);
 				drawBackgroundMode7(y, 0xc0, winBuffers[layer], win);
 				break;
 			default:
@@ -712,10 +734,8 @@ struct PPU {
 		bool rendered_subscreen = false;
 		if (preventMathMode != 3 && addSubscreen && mathEnabled) {
 			ClearBackdrop(winBuffers[1]);
-			if (screenEnabled[1] != 0) {
-				drawBackgrounds(y, true, winBuffers);
-				rendered_subscreen = true;
-			}
+			drawBackgrounds(y, true, winBuffers);
+			rendered_subscreen = true;
 		}
 
 		// Color window affects the drawing mode in each region
@@ -910,29 +930,22 @@ struct PPU {
 			int curLayer = layersPerMode[actMode][i];
 			int curPriority = prioritysPerMode[actMode][i];
 			bool layerActive = false;
-			if (!sub) {
-				layerActive = IS_SCREEN_ENABLED(0, curLayer) && (
-					!IS_SCREEN_WINDOWED(0, curLayer) || !getWindowState(curLayer, x)
-					);
-			} else {
-				layerActive = IS_SCREEN_ENABLED(1, curLayer) && (
-					!IS_SCREEN_WINDOWED(1, curLayer) || !getWindowState(curLayer, x)
-					);
-			}
+			const mainSub = sub ? layers[curLayer].sub : layers[curLayer].main;
+			layerActive = mainSub.screenEnabled && (!mainSub.windowEnabled || !getWindowState(curLayer, x));
 			if (layerActive) {
 				if (curLayer < 4) {
 					// bg layer
 					int lx = x;
 					int ly = y;
-					if (bgLayer[curLayer].mosaic) {
+					if (layers[curLayer].mosaic) {
 						lx -= lx % mosaicSize;
 						ly -= (ly - 1) % mosaicSize;
 					}
 					if (mode == 7) {
 						pixel = getPixelForMode7(lx, curLayer, !!curPriority);
 					} else {
-						lx += bgLayer[curLayer].hScroll;
-						ly += bgLayer[curLayer].vScroll;
+						lx += layers[curLayer].hScroll;
+						ly += layers[curLayer].vScroll;
 						pixel = getPixelForBGLayer(
 							lx & 0x3ff, ly & 0x3ff,
 							curLayer, !!curPriority
@@ -961,7 +974,7 @@ struct PPU {
 
 
 	private int getPixelForBGLayer(int x, int y, int layer, bool priority) const @safe pure {
-		const layerp = bgLayer[layer];
+		const layerp = layers[layer];
 		// figure out address of tilemap word and read it
 		bool wideTiles = mode == 5 || mode == 6;
 		int tileBitsX = wideTiles ? 4 : 3;
@@ -1034,7 +1047,7 @@ struct PPU {
 		int clippedV = vScroll - yCenter;
 		clippedH = (clippedH & 0x2000) ? (clippedH | ~1023) : (clippedH & 1023);
 		clippedV = (clippedV & 0x2000) ? (clippedV | ~1023) : (clippedV & 1023);
-		if(bgLayer[0].mosaic) {
+		if(layers[0].mosaic) {
 			y -= (y - 1) % mosaicSize;
 		}
 		ubyte ry = cast(ubyte)(m7yFlip ? 255 - y : y);
@@ -1053,7 +1066,7 @@ struct PPU {
 	}
 
 	private int getPixelForMode7(int x, int layer, bool priority) const @safe pure {
-		if (bgLayer[layer].mosaic) {
+		if (layers[layer].mosaic) {
 			x -= x % mosaicSize;
 		}
 		ubyte rx = cast(ubyte)(m7xFlip ? 255 - x : x);
@@ -1077,7 +1090,7 @@ struct PPU {
 	}
 
 	private bool getWindowState(int layer, int x) const @safe pure {
-		const winflags = GET_WINDOW_FLAGS(layer);
+		const winflags = layers[layer];
 		if (!winflags.window1Enabled && !winflags.window2Enabled) {
 			return false;
 		}
@@ -1090,10 +1103,10 @@ struct PPU {
 			return winflags.window2Inverted ? !test : test;
 		}
 		bool test1 = x >= window1left && x <= window1right;
-		bool test2 = x >= window2left && x <= window2right;
 		if (winflags.window1Inverted) {
 			test1 = !test1;
 		}
+		bool test2 = x >= window2left && x <= window2right;
 		if (winflags.window2Inverted) {
 			test2 = !test2;
 		}
@@ -1184,6 +1197,12 @@ struct PPU {
 	}
 
 	void writeRegister(ushort address, ubyte val) @safe pure {
+		void setWinSel(size_t layer, ubyte value) {
+			layers[layer].window1Inverted = !!(value & (1 << 0));
+			layers[layer].window1Enabled = !!(value & (1 << 1));
+			layers[layer].window2Inverted = !!(value & (1 << 2));
+			layers[layer].window2Enabled = !!(value & (1 << 3));
+		}
 		const adr = address & 0xFF;
 		switch (adr) {
 			case 0x00: // INIDISP
@@ -1217,35 +1236,35 @@ struct PPU {
 			case 0x05: // BGMODE
 				mode = val & 0b00000111;
 				bg3Priority = !!(val & 0b00001000);
-				bgLayer[0].doubleTileSize = !!(val & 0b00010000);
-				bgLayer[1].doubleTileSize = !!(val & 0b00100000);
-				bgLayer[2].doubleTileSize = !!(val & 0b01000000);
-				bgLayer[3].doubleTileSize = !!(val & 0b10000000);
+				layers[0].doubleTileSize = !!(val & 0b00010000);
+				layers[1].doubleTileSize = !!(val & 0b00100000);
+				layers[2].doubleTileSize = !!(val & 0b01000000);
+				layers[3].doubleTileSize = !!(val & 0b10000000);
 				break;
 			case 0x06: // MOSAIC
 				mosaicSize = (val >> 4) + 1;
 				if (mosaicSize > 1) {
-					bgLayer[0].mosaic = !!(val & 0b00000001);
-					bgLayer[1].mosaic = !!(val & 0b00000010);
-					bgLayer[2].mosaic = !!(val & 0b00000100);
-					bgLayer[3].mosaic = !!(val & 0b00001000);
+					layers[0].mosaic = !!(val & 0b00000001);
+					layers[1].mosaic = !!(val & 0b00000010);
+					layers[2].mosaic = !!(val & 0b00000100);
+					layers[3].mosaic = !!(val & 0b00001000);
 				}
 				break;
 			case 0x07: // BG1SC
 			case 0x08: // BG2SC
 			case 0x09: // BG3SC
 			case 0x0a: //BG4SC
-				bgLayer[adr - 7].tilemapWider = val & 0x1;
-				bgLayer[adr - 7].tilemapHigher = !!(val & 0x2);
-				bgLayer[adr - 7].tilemapAdr = (val & 0xfc) << 8;
+				layers[adr - 7].tilemapWider = val & 0x1;
+				layers[adr - 7].tilemapHigher = !!(val & 0x2);
+				layers[adr - 7].tilemapAdr = (val & 0xfc) << 8;
 				break;
 			case 0x0b: // BG12NBA
-				bgLayer[0].tileAdr = (val & 0xf) << 12;
-				bgLayer[1].tileAdr = (val & 0xf0) << 8;
+				layers[0].tileAdr = (val & 0xf) << 12;
+				layers[1].tileAdr = (val & 0xf0) << 8;
 				break;
 			case 0x0c: // BG34NBA
-				bgLayer[2].tileAdr = (val & 0xf) << 12;
-				bgLayer[3].tileAdr = (val & 0xf0) << 8;
+				layers[2].tileAdr = (val & 0xf) << 12;
+				layers[3].tileAdr = (val & 0xf0) << 8;
 				break;
 			case 0x0d: // BG1HOFS
 				m7matrix[6] = ((val << 8) | m7prev) & 0x1fff;
@@ -1254,7 +1273,7 @@ struct PPU {
 			case 0x0f: //BG2HOFS
 			case 0x11: //BG3HOFS
 			case 0x13: // BG4HOFS
-				bgLayer[(adr - 0xd) / 2].hScroll = ((val << 8) | (scrollPrev & 0xf8) | (scrollPrev2 & 0x7)) & 0x3ff;
+				layers[(adr - 0xd) / 2].hScroll = ((val << 8) | (scrollPrev & 0xf8) | (scrollPrev2 & 0x7)) & 0x3ff;
 				scrollPrev = val;
 				scrollPrev2 = val;
 				break;
@@ -1265,7 +1284,7 @@ struct PPU {
 			case 0x10: // BG2VOFS
 			case 0x12: // BG3VOFS
 			case 0x14: //BG4VOFS
-				bgLayer[(adr - 0xe) / 2].vScroll = ((val << 8) | scrollPrev) & 0x3ff;
+				layers[(adr - 0xe) / 2].vScroll = ((val << 8) | scrollPrev) & 0x3ff;
 				scrollPrev = val;
 				break;
 			case 0x15: // VMAIN
@@ -1330,16 +1349,16 @@ struct PPU {
 				cgramSecondWrite = !cgramSecondWrite;
 				break;
 			case 0x23: // W12SEL
-				windowsel[0] = WindowLayerSettings(!!(val & (1 << 0)), !!(val & (1 << 1)), !!(val & (1 << 2)), !!(val & (1 << 3)));
-				windowsel[1] = WindowLayerSettings(!!(val & (1 << 4)), !!(val & (1 << 5)), !!(val & (1 << 6)), !!(val & (1 << 7)));
+				setWinSel(0, val & 0xF);
+				setWinSel(1, val >> 4);
 				break;
 			case 0x24: // W34SEL
-				windowsel[2] = WindowLayerSettings(!!(val & (1 << 0)), !!(val & (1 << 1)), !!(val & (1 << 2)), !!(val & (1 << 3)));
-				windowsel[3] = WindowLayerSettings(!!(val & (1 << 4)), !!(val & (1 << 5)), !!(val & (1 << 6)), !!(val & (1 << 7)));
+				setWinSel(2, val & 0xF);
+				setWinSel(3, val >> 4);
 				break;
 			case 0x25: // WOBJSEL
-				windowsel[4] = WindowLayerSettings(!!(val & (1 << 0)), !!(val & (1 << 1)), !!(val & (1 << 2)), !!(val & (1 << 3)));
-				windowsel[5] = WindowLayerSettings(!!(val & (1 << 4)), !!(val & (1 << 5)), !!(val & (1 << 6)), !!(val & (1 << 7)));
+				setWinSel(4, val & 0xF);
+				setWinSel(5, val >> 4);
 				break;
 			case 0x26:
 				window1left = val;
@@ -1354,22 +1373,34 @@ struct PPU {
 				window2right = val;
 				break;
 			case 0x2a: // WBGLOG
-				//assert(val == 0);
+				layers[0].maskLogic = cast(MaskLogic)(val & 3);
+				layers[1].maskLogic = cast(MaskLogic)((val >> 2) & 3);
+				layers[2].maskLogic = cast(MaskLogic)((val >> 4) & 3);
+				layers[3].maskLogic = cast(MaskLogic)((val >> 6) & 3);
 				break;
 			case 0x2b: // WOBJLOG
-				//assert(val == 0);
+				layers[4].maskLogic = cast(MaskLogic)(val & 3);
+				layers[5].maskLogic = cast(MaskLogic)((val >> 2) & 3);
 				break;
 			case 0x2c: // TM
-				screenEnabled[0] = val;
+				foreach (layer; 0 .. 5) {
+					layers[layer].main.screenEnabled = !!(val & (1 << layer));
+				}
 				break;
 			case 0x2d: // TS
-				screenEnabled[1] = val;
+				foreach (layer; 0 .. 5) {
+					layers[layer].sub.screenEnabled = !!(val & (1 << layer));
+				}
 				break;
 			case 0x2e: // TMW
-				screenWindowed[0] = val;
+				foreach (layer; 0 .. 5) {
+					layers[layer].main.windowEnabled = !!(val & (1 << layer));
+				}
 				break;
 			case 0x2f: // TSW
-				screenWindowed[1] = val;
+				foreach (layer; 0 .. 5) {
+					layers[layer].sub.windowEnabled = !!(val & (1 << layer));
+				}
 				break;
 			case 0x30: // CGWSEL
 				const parsed = CGWSELValue(val);
@@ -1407,9 +1438,6 @@ struct PPU {
 		writeRegister(addr, value & 0xFF);
 		writeRegister(addr, value >> 8);
 	}
-	bool IS_SCREEN_ENABLED(uint sub, uint layer) const @safe pure { return !!(screenEnabled[sub] & (1 << layer)); }
-	bool IS_SCREEN_WINDOWED(uint sub, uint layer) const @safe pure { return !!(screenWindowed[sub] & (1 << layer)); }
-	WindowLayerSettings GET_WINDOW_FLAGS(uint layer) const @safe pure { return windowsel[layer]; }
 	void debugUI(UIState state) {
 		if (ImGui.BeginTabBar("rendererpreview")) {
 			if (ImGui.BeginTabItem("State")) {
@@ -1446,9 +1474,9 @@ struct PPU {
 			if (ImGui.BeginTabItem("Layers")) {
 				static foreach (layer, label; ["BG1", "BG2", "BG3", "BG4"]) {{
 					if (ImGui.TreeNode(label)) {
-						ImGui.Text(format!"Tilemap address: $%04X"(bgLayer[layer].tilemapAdr));
-						ImGui.Text(format!"Tile base address: $%04X"(bgLayer[layer].tileAdr));
-						ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][bgLayer[layer].tilemapWider + (bgLayer[layer].tilemapHigher << 1)]));
+						ImGui.Text(format!"Tilemap address: $%04X"(layers[layer].tilemapAdr));
+						ImGui.Text(format!"Tile base address: $%04X"(layers[layer].tileAdr));
+						ImGui.Text(format!"Size: %s"(["32x32", "64x32", "32x64", "64x64"][layers[layer].tilemapWider + (layers[layer].tilemapHigher << 1)]));
 						//ImGui.Text(format!"Tile size: %s"(["8x8", "16x16"][!!(BGMODE >> (4 + layer))]));
 						//disabledCheckbox("Mosaic Enabled", !!((MOSAIC >> layer) & 1));
 						ImGui.TreePop();
