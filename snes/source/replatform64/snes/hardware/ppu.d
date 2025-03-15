@@ -377,7 +377,10 @@ struct PPU {
 			alias TileType = Intertwined8BPP;
 		}
 		auto tiles = (cast(const(TileType)[])vram).cycle[(bglayer.tileAdr * 2) / TileType.sizeof .. (bglayer.tileAdr * 2) / TileType.sizeof + 0x400];
-		y = mosaicModulo[y] + bglayer.vScroll;
+		if (bglayer.mosaic) {
+			y -= (y - 1) % mosaicSize;
+		}
+		y += bglayer.vScroll;
 		foreach (edges; win.validEdges) {
 			uint x = edges[0] + bglayer.hScroll;
 			uint w = edges[1] - edges[0];
@@ -385,83 +388,17 @@ struct PPU {
 			const tileLine = (y / 8) % 32;
 			const tileMap = ((y >> 8) & 1) * 2;
 			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
-			void renderTile(TilemapEntry tile, const uint start, uint end) {
-				const z = priorities[tile.priority];
-				foreach (i; 8 - start .. end) {
-					const tileX = autoFlip(cast(ubyte)i, tile.flipHorizontal);
-					const tileY = autoFlip(y % 8, tile.flipVertical);
-					const pixel = tiles[tile.index][tileX, tileY];
-					if (pixel && (z > dstz[i - (8 - start)].priority)) {
-						dstz[i - (8 - start)] = ZBufType(z, pixel, cast(ubyte)tile.palette, bpp);
-					}
-				}
-			}
-			while (w >= 8) {
-				const start = 8 - (x & 7);
-				const tile = tp[0];
-				const end = 8;
-				renderTile(tp[0], start, 8);
-				dstz = dstz[start .. $];
-				tp = tp[1 .. $];
-				w -= start;
-				x += start;
-			}
-			if (w & 7) {
-				renderTile(tp[0], 8, w & 7);
-			}
-		}
-	}
-
-	// Draw a whole line of a background layer into bgBuffer, with mosaic applied
-	private void drawBackgroundMosaic(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
-		static if (bpp == 2) {
-			alias TileFormat = Intertwined2BPP;
-			enum kPaletteShift = 4;
-		} else static if (bpp == 4) {
-			alias TileFormat = Intertwined4BPP;
-			enum kPaletteShift = 16;
-		} else static if (bpp == 8) {
-			alias TileFormat = Intertwined8BPP;
-			enum kPaletteShift = 0;
-		}
-		const bglayer = layers[layer];
-		y = mosaicModulo[y] + bglayer.vScroll;
-		int sc_offs = bglayer.tilemapAdr + (((y >> 3) & 0x1f) << 5);
-		if ((y & 0x100) && bglayer.tilemapHigher) {
-			sc_offs += bglayer.tilemapWider ? 0x800 : 0x400;
-		}
-		const(TilemapEntry)[] tps(uint i) {
-			return [
-				cast(const(TilemapEntry)[])vram[sc_offs & 0x7fff .. $],
-				cast(const(TilemapEntry)[])vram[sc_offs + (bglayer.tilemapWider ? 0x400 : 0) & 0x7fff .. $]
-			][i];
-		}
-		const tiles = cast(const(TileFormat)[])(vram[(bglayer.tileAdr + (y & 0x7)) / TileFormat.sizeof .. $]);
-		foreach (edges; win.validEdges) {
-			const sx = edges[0];
-			auto dstz = bgBuffer.data[sx + kPpuExtraLeftRight .. edges[1] + kPpuExtraLeftRight];
-			uint x = sx + bglayer.hScroll;
-			const(TilemapEntry)[] tp_next = tps((x >> 8 & 1) ^ 1);
-			const(TilemapEntry)[] tp = tps(x >> 8 & 1)[(x >> 3) & 0x1f .. 32];
-			x &= 7;
-			const w = mosaicSize - (sx - mosaicModulo[sx]);
-			foreach (chunk; dstz.chunks(w)) {
-				const tile = tp[0];
-				const z = priorities[tile.priority];
-				ubyte pixel = tiles[tile.index][x % 8, y % 8];
-				if (pixel) {
-					if (z > dstz[0].priority) {
-						dstz[0] = ZBufType(z, pixel);
-					}
-					foreach (ref p; chunk) {
-						if (z > p.priority) {
-							p = ZBufType(z, pixel, tile.palette, bpp);
-						}
-					}
-				}
-				x += w;
-				for (; x >= 8; x -= 8) {
-					tp = (tp.length > 1) ? tp[1 .. $] : tp_next;
+			foreach (px; 0 .. w) {
+				const baseX_ = px + x % 8;
+				const baseX = bglayer.mosaic ? (baseX_ - baseX_ % mosaicSize) : baseX_;
+				const tileMapEntry = tp[baseX / 8];
+				const tile = tiles[tileMapEntry.index];
+				const tileX = autoFlip(baseX % 8, tileMapEntry.flipHorizontal);
+				const tileY = autoFlip(y % 8, tileMapEntry.flipVertical);
+				const priority = priorities[tileMapEntry.priority];
+				const pixel = tile[tileX, tileY];
+				if (pixel && (priority > dstz[px].priority)) {
+					dstz[px] = ZBufType(priority, tile[tileX, tileY], tileMapEntry.palette, bpp);
 				}
 			}
 		}
@@ -689,11 +626,7 @@ struct PPU {
 								const priorityHigh = cast(ubyte)((priorityTable[i][bg3Priority][layer][0] << 4) | layer);
 								const priorityLow = cast(ubyte)((priorityTable[i][bg3Priority][layer][1] << 4) | layer);
 								const win = mainSub.windowEnabled ? windowsCalc(layer) : windowsClear(layer);
-								if (layers[layer].mosaic) {
-									drawBackgroundMosaic!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
-								} else {
-									drawBackground!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
-								}
+								drawBackground!bpp(y, layer, [priorityLow, priorityHigh], winBuffers[sub], win);
 							}
 						}
 					}}
