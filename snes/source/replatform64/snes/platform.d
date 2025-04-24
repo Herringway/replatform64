@@ -131,7 +131,7 @@ struct SNES {
 		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
 			return renderer.readRegister(addr);
 		} else if ((addr >= Register.APUIO0) && (addr <= Register.APUIO3)) {
-			return apu.readRegister(addr);
+			return apu ? apu.readRegister(addr) : 0;
 		} else {
 			assert(0, "Unsupported read");
 		}
@@ -140,7 +140,9 @@ struct SNES {
 		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
 			renderer.writeRegister(addr, value);
 		} else if ((addr >= Register.APUIO0) && (addr <= Register.APUIO3)) {
-			apu.writeRegister(addr, value);
+			if (apu) {
+				apu.writeRegister(addr, value);
+			}
 		} else {
 			assert(0, "Unsupported write");
 		}
@@ -179,4 +181,10 @@ private auto detect(const scope ubyte[] data, scope string identifier) @safe pur
 		}
 	}
 	return Result(false, false);
+}
+
+unittest {
+	// An APU-less SNES shouldn't fail here
+	SNES().writeRegisterPlatform(Register.APUIO0, 0x00);
+	assert(SNES().readRegister(Register.APUIO0) == 0);
 }
