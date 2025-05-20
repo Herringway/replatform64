@@ -300,8 +300,8 @@ struct PPU {
 		}
 	}
 	void debugUI(UIState state) {
-		static void inputPaletteRegister(string label, ref ubyte palette) {
-			if (ImGui.TreeNode(label)) {
+		static void inputPaletteRegister(string label, string label2, ref ubyte palette) {
+			if (ImGui.TreeNode(label, label2, palette)) {
 				foreach (i; 0 .. 4) {
 					ImGui.Text("Colour %d", i);
 					foreach (colourIdx, colour; pocketPalette.map!(x => ImVec4(x.red / 31.0, x.green / 31.0, x.blue / 31.0, 1.0)).enumerate) {
@@ -359,9 +359,9 @@ struct PPU {
 				ImGui.InputScalar("SCY", ImGuiDataType.U8, &registers.scy, null, null, "%02X");
 				ImGui.InputScalar("LY", ImGuiDataType.U8, &registers.ly, null, null, "%02X");
 				ImGui.InputScalar("LYC", ImGuiDataType.U8, &registers.lyc, null, null, "%02X");
-				inputPaletteRegister("BGP", registers.bgp);
-				inputPaletteRegister("OBP0", registers.obp0);
-				inputPaletteRegister("OBP1", registers.obp1);
+				inputPaletteRegister("BGP", "BGP: %02X", registers.bgp);
+				inputPaletteRegister("OBP0", "OBP0: %02X", registers.obp0);
+				inputPaletteRegister("OBP1", "OBP1: %02X", registers.obp1);
 				ImGui.InputScalar("WX", ImGuiDataType.U8, &registers.wx, null, null, "%02X");
 				ImGui.InputScalar("WY", ImGuiDataType.U8, &registers.wy, null, null, "%02X");
 				ImGui.EndTabItem();
