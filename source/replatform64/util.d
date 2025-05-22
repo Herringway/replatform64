@@ -393,3 +393,17 @@ struct FixedPoint2(size_t size, size_t scaling, bool unsigned = false) {
 }
 
 ubyte autoFlip(int old, bool flip, ubyte dimension = 8) @safe pure => flip ? cast(ubyte)(dimension - 1 - old) : cast(ubyte)old;
+
+auto bitRangeOf(T)(const T value) if (isIntegral!T) {
+	static struct Result {
+		T value;
+		ubyte index;
+		bool front() const => this[index];
+		bool empty() const => index == T.sizeof;
+		void popFront() {
+			index++;
+		}
+		bool opIndex(size_t index) const => !!(value & (1 << index));
+	}
+	return Result(value);
+}

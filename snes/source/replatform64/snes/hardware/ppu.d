@@ -673,45 +673,46 @@ struct PPU {
 
 		// Color window affects the drawing mode in each region
 		const cwin = windowsCalc(5);
-		static immutable ubyte[8] kCwBitsMod = [
-			0x00, 0xff, 0xff, 0x00,
-			0xff, 0x00, 0xff, 0x00,
+		static immutable ubyte[4] keepBits = [
+			0x00, 0xFF, 0xFF, 0x00,
 		];
-		uint cw_clip_math = ((cwin.bits & kCwBitsMod[clipMode]) ^ kCwBitsMod[clipMode + 4]) |
-													((cwin.bits & kCwBitsMod[preventMathMode]) ^ kCwBitsMod[preventMathMode + 4]) << 8;
+		static immutable ubyte[4] flipBits = [
+			0xFF, 0x00, 0xFF, 0x00,
+		];
+		auto clipMath = only(clipMode, preventMathMode).map!(x => bitRangeOf((cwin.bits & keepBits[x]) ^ flipBits[x]));
 
 		auto dst_org = renderBuffer[0 .. $, y - 1];
 		auto dst = dst_org[extraLeftRight - extraLeftCur .. $];
 
-		foreach (edges; cwin.allEdges) {
+		foreach (idx, edges; cwin.allEdges.enumerate) {
 			const left = edges[0] + kPpuExtraLeftRight;
 			const right = edges[1] + kPpuExtraLeftRight;
 			// If clip is set, then zero out the rgb values from the main screen.
-			const clip_color_mask = (cw_clip_math & 1) ? 0x1f : 0;
-			uint math_enabled_cur = (cw_clip_math & 0x100) ? mathEnabled : 0;
+			const clipColourMask = clipMath[0][idx] ? 0x1F : 0;
+			uint colourMathEnabled = clipMath[1][idx] ? mathEnabled : 0;
 			const fixed_color = BGR555(fixedColorR, fixedColorG, fixedColorB);
-			if (math_enabled_cur == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
+			if (colourMathEnabled == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
 				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
 				foreach (i; left .. right) {
 					const color = cgram[winBuffers[0].data[i].pixel];
-					dst[0] = ColourFormat(brightnessMult[color.red & clip_color_mask], brightnessMult[color.green & clip_color_mask], brightnessMult[color.blue & clip_color_mask]);
+					dst[0] = ColourFormat(brightnessMult[color.red & clipColourMask], brightnessMult[color.green & clipColourMask], brightnessMult[color.blue & clipColourMask]);
 					dst = dst[1 .. $];
 				}
 			} else {
 				auto half_color_map = halfColor ? brightnessMultHalf : brightnessMult;
 				// Store this in locals
-				math_enabled_cur |= addSubscreen << 8 | subtractColor << 9;
+				colourMathEnabled |= addSubscreen << 8 | subtractColor << 9;
 				// Need to check for each pixel whether to use math or not based on the main screen layer.
 				foreach (i; left .. right) {
 					const color = cgram[winBuffers[0].data[i].pixel];
 					BGR555 color2;
 					ubyte main_layer = winBuffers[0].data[i].priority & 0xf;
-					uint r = color.red & clip_color_mask;
-					uint g = color.green & clip_color_mask;
-					uint b = color.blue & clip_color_mask;
+					uint r = color.red & clipColourMask;
+					uint g = color.green & clipColourMask;
+					uint b = color.blue & clipColourMask;
 					const(ubyte)[] color_map = brightnessMult;
-					if (math_enabled_cur & (1 << main_layer)) {
-						if (math_enabled_cur & 0x100) { // addSubscreen ?
+					if (colourMathEnabled & (1 << main_layer)) {
+						if (colourMathEnabled & 0x100) { // addSubscreen ?
 							if (winBuffers[1].data[i].pixel != 0) {
 								color2 = cgram[winBuffers[1].data[i].pixel];
 								color_map = half_color_map;
@@ -723,7 +724,7 @@ struct PPU {
 							color_map = half_color_map;
 						}
 						uint r2 = color2.red, g2 = color2.green, b2 = color2.blue;
-						if (math_enabled_cur & 0x200) { // subtractColor?
+						if (colourMathEnabled & 0x200) { // subtractColor?
 							r = (r >= r2) ? r - r2 : 0;
 							g = (g >= g2) ? g - g2 : 0;
 							b = (b >= b2) ? b - b2 : 0;
@@ -737,7 +738,6 @@ struct PPU {
 					dst = dst[1 .. $];
 				}
 			}
-			cw_clip_math >>= 1;
 		}
 
 		// Clear out stuff on the sides.
