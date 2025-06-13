@@ -646,6 +646,7 @@ struct PPU {
 		}
 	}
 
+	// new renderer
 	private void drawWholeLine(Array2D!ColourFormat renderBuffer, scope ref PpuPixelPrioBufs[3] winBuffers, uint y) const @safe pure {
 		if (forcedBlank) {
 			renderBuffer[0 .. $, y - 1] = ColourFormat(0, 0, 0);
@@ -745,6 +746,7 @@ struct PPU {
 	}
 	private bool shouldForceMainScreenBlack(int x) const @safe pure => shouldDoClipMath(x, clipMode);
 	private bool colourMathEnabled(int x) const @safe pure => shouldDoClipMath(x, preventMathMode);
+	// old renderer
 	private void handlePixel(Array2D!ColourFormat renderBuffer, scope ref PpuPixelPrioBufs objBuffer, int x, int y) const @safe pure {
 		BGR555 colour1;
 		BGR555 colour2;
