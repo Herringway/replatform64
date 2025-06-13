@@ -376,29 +376,71 @@ struct PPU {
 		} else static if (bpp == 8) {
 			alias TileType = Intertwined8BPP;
 		}
-		auto tiles = (cast(const(TileType)[])vram).cycle[(bglayer.tileAdr * 2) / TileType.sizeof .. (bglayer.tileAdr * 2) / TileType.sizeof + 0x400];
 		if (bglayer.mosaic) {
 			y -= (y - 1) % mosaicSize;
 		}
-		y += bglayer.vScroll;
-		foreach (edges; win.validEdges) {
-			uint x = edges[0] + bglayer.hScroll;
-			uint w = edges[1] - edges[0];
-			auto dstz = bgBuffer.data[edges[0] + kPpuExtraLeftRight .. $];
-			const tileLine = (y / 8) % 32;
-			const tileMap = ((y >> 8) & 1) * 2;
-			auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
-			foreach (px; 0 .. w) {
-				const baseX_ = px + x % 8;
-				const baseX = bglayer.mosaic ? (baseX_ - baseX_ % mosaicSize) : baseX_;
-				const tileMapEntry = tp[baseX / 8];
-				const tile = tiles[tileMapEntry.index];
-				const tileX = autoFlip(baseX % 8, tileMapEntry.flipHorizontal);
-				const tileY = autoFlip(y % 8, tileMapEntry.flipVertical);
-				const priority = priorities[tileMapEntry.priority];
-				const pixel = tile[tileX, tileY];
-				if (pixel && (priority > dstz[px].priority)) {
-					dstz[px] = ZBufType(priority, tile[tileX, tileY], tileMapEntry.palette, bpp);
+		if (mode == 7) {
+			// expand 13-bit values to signed values
+			int hScroll = (cast(short)(m7matrix[6] << 3)) >> 3;
+			int vScroll = (cast(short)(m7matrix[7] << 3)) >> 3;
+			int xCenter = (cast(short)(m7matrix[4] << 3)) >> 3;
+			int yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
+			int clippedH = hScroll - xCenter;
+			int clippedV = vScroll - yCenter;
+			clippedH = (clippedH & 0x2000) ? (clippedH | ~1023) : (clippedH & 1023);
+			clippedV = (clippedV & 0x2000) ? (clippedV | ~1023) : (clippedV & 1023);
+			uint ry = m7yFlip ? 255 - y : y;
+			uint m7startX = (m7matrix[0] * clippedH & ~63) + (m7matrix[1] * ry & ~63) + (m7matrix[1] * clippedV & ~63) + (xCenter << 8);
+			uint m7startY = (m7matrix[2] * clippedH & ~63) + (m7matrix[3] * ry & ~63) + (m7matrix[3] * clippedV & ~63) + (yCenter << 8);
+			foreach (edges; win.validEdges) {
+				int x = edges[0], x2 = edges[1], tile;
+				auto dstz = bgBuffer.data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
+				uint rx = m7xFlip ? 255 - x : x;
+				uint xpos = m7startX + m7matrix[0] * rx;
+				uint ypos = m7startY + m7matrix[2] * rx;
+				uint dx = m7xFlip ? -m7matrix[0] : m7matrix[0];
+				uint dy = m7xFlip ? -m7matrix[2] : m7matrix[2];
+				uint outside_value = m7largeField ? 0x3ffff : 0xffffffff;
+				bool char_fill = m7charFill;
+				foreach (ref dst; dstz) {
+					if (cast(uint)(xpos | ypos) > outside_value) {
+						if (!char_fill) {
+							break;
+						}
+						tile = 0;
+					} else {
+						tile = vram[(ypos >> 11 & 0x7f) * 128 + (xpos >> 11 & 0x7f)] & 0xff;
+					}
+					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
+					if (pixel) {
+						dst = ZBufType(0xC0, pixel);
+					}
+					xpos += dx;
+					ypos += dy;
+				}
+			}
+		} else {
+			auto tiles = (cast(const(TileType)[])vram).cycle[(bglayer.tileAdr * 2) / TileType.sizeof .. (bglayer.tileAdr * 2) / TileType.sizeof + 0x400];
+			y += bglayer.vScroll;
+			foreach (edges; win.validEdges) {
+				uint x = edges[0] + bglayer.hScroll;
+				uint w = edges[1] - edges[0];
+				auto dstz = bgBuffer.data[edges[0] + kPpuExtraLeftRight .. $];
+				const tileLine = (y / 8) % 32;
+				const tileMap = ((y >> 8) & 1) * 2;
+				auto tp = tilemaps[tileMap][0 .. $, tileLine].chain(tilemaps[tileMap + 1][0 .. $, tileLine]).cycle.drop((x / 8) & 0x3F).take(w);
+				foreach (px; 0 .. w) {
+					const baseX_ = px + x % 8;
+					const baseX = bglayer.mosaic ? (baseX_ - baseX_ % mosaicSize) : baseX_;
+					const tileMapEntry = tp[baseX / 8];
+					const tile = tiles[tileMapEntry.index];
+					const tileX = autoFlip(baseX % 8, tileMapEntry.flipHorizontal);
+					const tileY = autoFlip(y % 8, tileMapEntry.flipVertical);
+					const priority = priorities[tileMapEntry.priority];
+					const pixel = tile[tileX, tileY];
+					if (pixel && (priority > dstz[px].priority)) {
+						dstz[px] = ZBufType(priority, tile[tileX, tileY], tileMapEntry.palette, bpp);
+					}
 				}
 			}
 		}
@@ -432,76 +474,6 @@ struct PPU {
 		}
 	}
 
-	// Assumes it's drawn on an empty backdrop
-	private void drawBackgroundMode7(uint y, ubyte z, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
-		int layer = 0;
-
-		// expand 13-bit values to signed values
-		int hScroll = (cast(short)(m7matrix[6] << 3)) >> 3;
-		int vScroll = (cast(short)(m7matrix[7] << 3)) >> 3;
-		int xCenter = (cast(short)(m7matrix[4] << 3)) >> 3;
-		int yCenter = (cast(short)(m7matrix[5] << 3)) >> 3;
-		int clippedH = hScroll - xCenter;
-		int clippedV = vScroll - yCenter;
-		clippedH = (clippedH & 0x2000) ? (clippedH | ~1023) : (clippedH & 1023);
-		clippedV = (clippedV & 0x2000) ? (clippedV | ~1023) : (clippedV & 1023);
-		bool mosaic_enabled = layers[0].mosaic;
-		if (mosaic_enabled) {
-			y = mosaicModulo[y];
-		}
-		uint ry = m7yFlip ? 255 - y : y;
-		uint m7startX = (m7matrix[0] * clippedH & ~63) + (m7matrix[1] * ry & ~63) +
-			(m7matrix[1] * clippedV & ~63) + (xCenter << 8);
-		uint m7startY = (m7matrix[2] * clippedH & ~63) + (m7matrix[3] * ry & ~63) +
-			(m7matrix[3] * clippedV & ~63) + (yCenter << 8);
-		foreach (edges; win.validEdges) {
-			int x = edges[0], x2 = edges[1], tile;
-			auto dstz = bgBuffer.data[x + kPpuExtraLeftRight .. x2 + kPpuExtraLeftRight];
-			uint rx = m7xFlip ? 255 - x : x;
-			uint xpos = m7startX + m7matrix[0] * rx;
-			uint ypos = m7startY + m7matrix[2] * rx;
-			uint dx = m7xFlip ? -m7matrix[0] : m7matrix[0];
-			uint dy = m7xFlip ? -m7matrix[2] : m7matrix[2];
-			uint outside_value = m7largeField ? 0x3ffff : 0xffffffff;
-			bool char_fill = m7charFill;
-			if (mosaic_enabled) {
-				int w = mosaicSize - (x - mosaicModulo[x]);
-				foreach (chunk; dstz.chunks(w)) {
-					if (cast(uint)(xpos | ypos) > outside_value) {
-						if (!char_fill) {
-							break;
-						}
-						tile = 0;
-					} else {
-						tile = vram[(ypos >> 11 & 0x7f) * 128 + (xpos >> 11 & 0x7f)] & 0xff;
-					}
-					const pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
-					if (pixel) {
-						chunk[] = ZBufType(z, pixel);
-					}
-					xpos += dx * chunk.length;
-					ypos += dy * chunk.length;
-				}
-			} else {
-				foreach (ref dst; dstz) {
-					if (cast(uint)(xpos | ypos) > outside_value) {
-						if (!char_fill) {
-							break;
-						}
-						tile = 0;
-					} else {
-						tile = vram[(ypos >> 11 & 0x7f) * 128 + (xpos >> 11 & 0x7f)] & 0xff;
-					}
-					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
-					if (pixel) {
-						dst = ZBufType(z, pixel);
-					}
-					xpos += dx;
-					ypos += dy;
-				}
-			}
-		}
-	}
 
 	void setMode7PerspectiveCorrection(int low, int high) @safe pure {
 		mode7PerspectiveLow = low ? 1.0f / low : 0.0f;
@@ -616,7 +588,7 @@ struct PPU {
 			}
 		}
 		sw: switch (mode) {
-			static foreach (i; 0 .. 7) {
+			static foreach (i; 0 .. 8) {
 				case i:
 					static foreach (layer; 0 .. 4) {{
 						enum bpp = bgBPP[i][layer];
@@ -632,15 +604,6 @@ struct PPU {
 					}}
 					break sw;
 			}
-			case 7:
-				const layer = 0;
-				const mainSub = sub ? layers[layer].sub : layers[layer].main;
-				if (!mainSub.screenEnabled) {
-					return; // layer is completely hidden
-				}
-				const win = mainSub.windowEnabled ? windowsCalc(layer) : windowsClear(layer);
-				drawBackgroundMode7(y, 0xc0, winBuffers[layer], win);
-				break;
 			default:
 				assert(0);
 		}
