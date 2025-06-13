@@ -142,8 +142,8 @@ struct PPU {
 	Layer[6] layers;
 
 	// color math
-	ubyte clipMode = 0;
-	ubyte preventMathMode = 0;
+	MathClipMode clipMode;
+	ColourMathEnabled preventMathMode;
 	bool addSubscreen = false;
 	bool subtractColor = false;
 	bool halfColor = false;
@@ -749,27 +749,25 @@ struct PPU {
 			dst_org[start .. start + uint.sizeof * (extraLeftRight - extraRightCur)] = ColourFormat(0, 0, 0);
 		}
 	}
-
+	private bool shouldDoClipMath(T)(int x, T value) const @safe pure {
+		const colorWindowState = getWindowState(5, x);
+		return (value == T.always) ||
+			((value == T.mathWindow) && colorWindowState) ||
+			((value == T.notMathWindow) && !colorWindowState);
+	}
+	private bool shouldForceMainScreenBlack(int x) const @safe pure => shouldDoClipMath(x, clipMode);
+	private bool colourMathEnabled(int x) const @safe pure => shouldDoClipMath(x, preventMathMode);
 	private void handlePixel(Array2D!ColourFormat renderBuffer, scope ref PpuPixelPrioBufs objBuffer, int x, int y) const @safe pure {
 		BGR555 colour1;
 		BGR555 colour2;
 		if (!forcedBlank) {
 			int mainLayer = getPixel(x, y, false, colour1, objBuffer);
 
-			bool colorWindowState = getWindowState(5, x);
-			if (
-				clipMode == 3 ||
-				(clipMode == 2 && colorWindowState) ||
-				(clipMode == 1 && !colorWindowState)
-				) {
+			if (shouldForceMainScreenBlack(x)) {
 				colour1 = BGR555(0, 0, 0);
 			}
-			int secondLayer = 5; // backdrop
-			bool mathEnabled = mainLayer < 6 && (mathEnabled & (1 << mainLayer)) && !(
-				preventMathMode == 3 ||
-				(preventMathMode == 2 && colorWindowState) ||
-				(preventMathMode == 1 && !colorWindowState)
-				);
+			int secondLayer = LayerID.math; // backdrop
+			const mathEnabled = mainLayer < 6 && (mathEnabled & (1 << mainLayer)) && colourMathEnabled(x);
 			if ((mathEnabled && addSubscreen) || mode == 5 || mode == 6) {
 				secondLayer = getPixel(x, y, true, colour2, objBuffer);
 			}
@@ -780,15 +778,15 @@ struct PPU {
 				auto g = colour1.green;
 				auto b = colour1.blue;
 				if (subtractColor) {
-					r -= (addSubscreen && secondLayer != 5) ? colour2.red: fixedColorR;
-					g -= (addSubscreen && secondLayer != 5) ? colour2.green: fixedColorG;
-					b -= (addSubscreen && secondLayer != 5) ? colour2.blue: fixedColorB;
+					r -= (addSubscreen && secondLayer != LayerID.math) ? colour2.red: fixedColorR;
+					g -= (addSubscreen && secondLayer != LayerID.math) ? colour2.green: fixedColorG;
+					b -= (addSubscreen && secondLayer != LayerID.math) ? colour2.blue: fixedColorB;
 				} else {
-					r += (addSubscreen && secondLayer != 5) ? colour2.red : fixedColorR;
-					g += (addSubscreen && secondLayer != 5) ? colour2.green : fixedColorG;
-					b += (addSubscreen && secondLayer != 5) ? colour2.blue : fixedColorB;
+					r += (addSubscreen && secondLayer != LayerID.math) ? colour2.red : fixedColorR;
+					g += (addSubscreen && secondLayer != LayerID.math) ? colour2.green : fixedColorG;
+					b += (addSubscreen && secondLayer != LayerID.math) ? colour2.blue : fixedColorB;
 				}
-				if (halfColor && (secondLayer != 5 || !addSubscreen)) {
+				if (halfColor && (secondLayer != LayerID.math || !addSubscreen)) {
 					r >>= 1;
 					g >>= 1;
 					b >>= 1;
@@ -1669,10 +1667,10 @@ unittest {
 					CGWSEL.subscreenEnable = byteData & 1;
 					break;
 				case "ppu.colorMathPreventMode":
-					CGWSEL.mathPreventMode = intData & 0b00000011;
+					CGWSEL.mathPreventMode = cast(ColourMathEnabled)(intData & 0b00000011);
 					break;
 				case "ppu.colorMathClipMode":
-					CGWSEL.mathClipMode = intData & 0b00000011;
+					CGWSEL.mathClipMode = cast(MathClipMode)(intData & 0b00000011);
 					break;
 				case "ppu.colorMathEnabled":
 					CGADSUB.layers = byteData & 0b00111111;

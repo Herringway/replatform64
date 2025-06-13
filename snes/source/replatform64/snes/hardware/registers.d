@@ -536,6 +536,20 @@ union ScreenWindowEnableValue {
 	}
 }
 
+enum MathClipMode {
+	never = 0,
+	notMathWindow = 1,
+	mathWindow = 2,
+	always = 3,
+}
+
+enum ColourMathEnabled {
+	always = 0,
+	mathWindow = 1,
+	notMathWindow = 2,
+	never = 3,
+}
+
 ///
 union CGWSELValue {
 	ubyte raw;
@@ -544,8 +558,8 @@ union CGWSELValue {
 			bool, "directColour", 1,
 			bool, "subscreenEnable", 1,
 			ubyte, "", 2,
-			ubyte, "mathPreventMode", 2,
-			ubyte, "mathClipMode", 2,
+			ColourMathEnabled, "mathPreventMode", 2,
+			MathClipMode, "mathClipMode", 2,
 		));
 	}
 }
