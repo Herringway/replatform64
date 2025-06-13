@@ -664,11 +664,9 @@ struct PPU {
 		drawBackgrounds(y, false, winBuffers);
 
 		// Render also the subscreen?
-		bool rendered_subscreen = false;
-		if (preventMathMode != 3 && addSubscreen && mathEnabled) {
+		if (preventMathMode != ColourMathEnabled.never && addSubscreen && mathEnabled) {
 			ClearBackdrop(winBuffers[1]);
 			drawBackgrounds(y, true, winBuffers);
-			rendered_subscreen = true;
 		}
 
 		// Color window affects the drawing mode in each region
@@ -690,53 +688,43 @@ struct PPU {
 			// If clip is set, then zero out the rgb values from the main screen.
 			const clipColourMask = clipMath[0][idx] ? 0x1F : 0;
 			uint colourMathEnabled = clipMath[1][idx] ? mathEnabled : 0;
-			const fixed_color = BGR555(fixedColorR, fixedColorG, fixedColorB);
-			if (colourMathEnabled == 0 || (fixed_color == BGR555(0, 0, 0)) && !halfColor && !rendered_subscreen) {
-				// Math is disabled (or has no effect), so can avoid the per-pixel maths check
-				foreach (i; left .. right) {
-					const color = cgram[winBuffers[0].data[i].pixel];
-					dst[0] = ColourFormat(brightnessMult[color.red & clipColourMask], brightnessMult[color.green & clipColourMask], brightnessMult[color.blue & clipColourMask]);
-					dst = dst[1 .. $];
-				}
-			} else {
-				auto half_color_map = halfColor ? brightnessMultHalf : brightnessMult;
-				// Store this in locals
-				colourMathEnabled |= addSubscreen << 8 | subtractColor << 9;
-				// Need to check for each pixel whether to use math or not based on the main screen layer.
-				foreach (i; left .. right) {
-					const color = cgram[winBuffers[0].data[i].pixel];
-					BGR555 color2;
-					ubyte main_layer = winBuffers[0].data[i].priority & 0xf;
-					uint r = color.red & clipColourMask;
-					uint g = color.green & clipColourMask;
-					uint b = color.blue & clipColourMask;
-					const(ubyte)[] color_map = brightnessMult;
-					if (colourMathEnabled & (1 << main_layer)) {
-						if (colourMathEnabled & 0x100) { // addSubscreen ?
-							if (winBuffers[1].data[i].pixel != 0) {
-								color2 = cgram[winBuffers[1].data[i].pixel];
-								color_map = half_color_map;
-							} else {// Don't halve if addSubscreen && backdrop
-								color2 = fixed_color;
-							}
-						} else {
-							color2 = fixed_color;
-							color_map = half_color_map;
+			const fixedColour = BGR555(fixedColorR, fixedColorG, fixedColorB);
+			const halfColourMap = halfColor ? brightnessMultHalf : brightnessMult;
+			// Store this in locals
+			colourMathEnabled |= addSubscreen << 8 | subtractColor << 9;
+			// Need to check for each pixel whether to use math or not based on the main screen layer.
+			foreach (i; left .. right) {
+				const color = cgram[winBuffers[0].data[i].pixel];
+				BGR555 color2;
+				const mainLayer = winBuffers[0].data[i].priority & 0xF;
+				uint r = color.red & clipColourMask;
+				uint g = color.green & clipColourMask;
+				uint b = color.blue & clipColourMask;
+				const(ubyte)[] colourMap = brightnessMult;
+				if (colourMathEnabled & (1 << mainLayer)) {
+					if (colourMathEnabled & 0x100) { // addSubscreen ?
+						if (winBuffers[1].data[i].pixel != 0) {
+							color2 = cgram[winBuffers[1].data[i].pixel];
+							colourMap = halfColourMap;
+						} else {// Don't halve if addSubscreen && backdrop
+							color2 = fixedColour;
 						}
-						uint r2 = color2.red, g2 = color2.green, b2 = color2.blue;
-						if (colourMathEnabled & 0x200) { // subtractColor?
-							r = (r >= r2) ? r - r2 : 0;
-							g = (g >= g2) ? g - g2 : 0;
-							b = (b >= b2) ? b - b2 : 0;
-						} else {
-							r += r2;
-							g += g2;
-							b += b2;
-						}
+					} else {
+						color2 = fixedColour;
+						colourMap = halfColourMap;
 					}
-					dst[0] = ColourFormat(color_map[r], color_map[g], color_map[b]);
-					dst = dst[1 .. $];
+					if (colourMathEnabled & 0x200) { // subtractColor?
+						r = (r >= color2.red) ? r - color2.red : 0;
+						g = (g >= color2.green) ? g - color2.green : 0;
+						b = (b >= color2.blue) ? b - color2.blue : 0;
+					} else {
+						r += color2.red;
+						g += color2.green;
+						b += color2.blue;
+					}
 				}
+				dst[0] = ColourFormat(colourMap[r], colourMap[g], colourMap[b]);
+				dst = dst[1 .. $];
 			}
 		}
 
