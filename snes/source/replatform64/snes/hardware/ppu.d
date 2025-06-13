@@ -793,7 +793,7 @@ struct PPU {
 		renderBuffer[x + extraLeftRight, row] = ColourFormat(brightnessMult[colour1.red], brightnessMult[colour1.green], brightnessMult[colour1.blue]);
 	}
 
-	immutable int[4][10] bitDepthsPerMode = [
+	static immutable int[4][10] bitDepthsPerMode = [
 		[2, 2, 2, 2],
 		[4, 4, 2, 5],
 		[4, 4, 5, 5],
