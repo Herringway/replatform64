@@ -95,9 +95,13 @@ struct ZBufType {
 		this.priority = priority;
 		this.pixel = pixel;
 	}
+	this(ubyte priority, LayerID layer, ubyte pixel) @safe pure {
+		this(cast(ubyte)((priority << 4) | layer), pixel);
+	}
 	this(ubyte priority, ubyte pixel, ubyte palette, ubyte bpp) @safe pure {
 		this(priority, cast(ubyte)(pixel + (palette << bpp)));
 	}
+	ubyte layer() const @safe pure => priority & 0xF;
 }
 
 struct PpuPixelPrioBufs {
@@ -231,7 +235,7 @@ struct PPU {
 	}
 
 	private void ClearBackdrop(ref PpuPixelPrioBufs buf) const @safe pure {
-		buf.data[] = ZBufType(5, 0);
+		buf.data[] = ZBufType(0, LayerID.math, 0);
 	}
 
 	void runLine(Array2D!ColourFormat renderBuffer, int line) @safe pure {
@@ -366,7 +370,7 @@ struct PPU {
 		];
 	}
 	// Draw a whole line of a background layer into bgBuffer
-	private void drawBackground(size_t bpp)(uint y, uint layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
+	private void drawBackground(size_t bpp)(uint y, LayerID layer, ubyte[2] priorities, scope ref PpuPixelPrioBufs bgBuffer, const PpuWindows win) const @safe pure {
 		const bglayer = layers[layer];
 		const tilemaps = getBackgroundTilemaps(layer);
 		static if (bpp == 2) {
@@ -401,10 +405,9 @@ struct PPU {
 				uint dx = m7xFlip ? -m7matrix[0] : m7matrix[0];
 				uint dy = m7xFlip ? -m7matrix[2] : m7matrix[2];
 				uint outside_value = m7largeField ? 0x3ffff : 0xffffffff;
-				bool char_fill = m7charFill;
 				foreach (ref dst; dstz) {
 					if (cast(uint)(xpos | ypos) > outside_value) {
-						if (!char_fill) {
+						if (!m7charFill) {
 							break;
 						}
 						tile = 0;
@@ -413,7 +416,7 @@ struct PPU {
 					}
 					ubyte pixel = vram[tile * 64 + (ypos >> 8 & 7) * 8 + (xpos >> 8 & 7)] >> 8;
 					if (pixel) {
-						dst = ZBufType(0xC0, pixel);
+						dst = ZBufType(priority: 12, layer: layer, pixel: pixel);
 					}
 					xpos += dx;
 					ypos += dy;
@@ -590,7 +593,7 @@ struct PPU {
 		sw: switch (mode) {
 			static foreach (i; 0 .. 8) {
 				case i:
-					static foreach (layer; 0 .. 4) {{
+					static foreach (LayerID layer; LayerID.bg1 .. cast(LayerID)(LayerID.bg4 + 1)) {{
 						enum bpp = bgBPP[i][layer];
 						static if (bpp > 0) {
 							const mainSub = sub ? layers[layer].sub : layers[layer].main;
@@ -660,7 +663,7 @@ struct PPU {
 			foreach (i; left .. right) {
 				const color = cgram[winBuffers[0].data[i].pixel];
 				BGR555 color2;
-				const mainLayer = winBuffers[0].data[i].priority & 0xF;
+				const mainLayer = winBuffers[0].data[i].layer;
 				uint r = color.red & clipColourMask;
 				uint g = color.green & clipColourMask;
 				uint b = color.blue & clipColourMask;
