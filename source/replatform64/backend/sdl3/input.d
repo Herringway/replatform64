@@ -72,14 +72,13 @@ class SDL3Input : InputBackend {
 	}
 }
 private void connectGamepad(int id) {
-	if (SDL_IsGamepad(id)) {
-		if (auto controller = SDL_OpenGamepad(id)) {
-			enforceSDL(SDL_SetGamepadPlayerIndex(controller, 1), "SDL_SetGamepadPlayerIndex");
-			const(char)* name = SDL_GetGamepadNameForID(id);
-			infof("Initialized controller: %s", name.fromStringz);
-		} else {
-			SDLError("Error opening controller: %s");
-		}
+	assert(SDL_IsGamepad(id), "Non-gamepad controller added?");
+	if (auto controller = SDL_OpenGamepad(id)) {
+		enforceSDL(SDL_SetGamepadPlayerIndex(controller, 1), "SDL_SetGamepadPlayerIndex");
+		const(char)* name = SDL_GetGamepadNameForID(id);
+		infof("Initialized controller: %s", name.fromStringz);
+	} else {
+		SDLError("Error opening controller: %s");
 	}
 }
 private void disconnectGamepad(int id) {
