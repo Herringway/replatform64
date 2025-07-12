@@ -24,6 +24,7 @@ struct NES {
 	void function() entryPoint;
 	void function() interruptHandlerVBlank;
 	string title;
+	string sourceFile;
 	bool interruptsEnabled;
 	enum width = PPU.width;
 	enum height = PPU.height;
@@ -32,9 +33,9 @@ struct NES {
 	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
 
 	private Settings settings;
+	private immutable(ubyte)[] originalData;
 	private APU apu;
 	private PPU ppu;
-	private immutable(ubyte)[] romData;
 	private ubyte[2] pads;
 
 	private PlatformCommon platform;
@@ -105,6 +106,12 @@ struct NES {
 		} else {
 			assert(0, "Unknown/unsupported write");
 		}
+	}
+	immutable(ubyte)[] romData() {
+		if (!originalData && sourceFile.exists) {
+			originalData = (cast(ubyte[])read(sourceFile)).idup;
+		}
+		return originalData;
 	}
 	void JOY1(ubyte val) {
 	}
