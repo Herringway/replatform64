@@ -16,6 +16,23 @@ ubyte rrc(ubyte value, ref bool carry) @safe pure {
 	runTest!rrc(0b00000010, false, 0b00000001, false);
 	runTest!rrc(0b00000011, false, 0b00000001, true);
 }
+alias rlca = rlc;
+ubyte rlc(ubyte value, ref bool carry) @safe pure {
+	const inCarry = carry;
+	carry = !!(value & 0b10000000);
+	value <<= 1;
+	value |= inCarry;
+	return value;
+}
+///
+@safe pure unittest {
+	runTest!rlc(0b00000000, false, 0b00000000, false);
+	runTest!rlc(0b00000000, true, 0b00000001, false);
+	runTest!rlc(0b10000000, false, 0b00000000, true);
+	runTest!rlc(0b00000001, false, 0b00000010, false);
+	runTest!rlc(0b00000010, false, 0b00000100, false);
+	runTest!rlc(0b00000011, false, 0b00000110, false);
+}
 
 ubyte sra(ubyte value, ref bool carry) @safe pure {
 	carry = !!(value & 0b00000001);
