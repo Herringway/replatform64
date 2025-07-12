@@ -59,6 +59,13 @@ class SDL3Input : InputBackend {
 			case SDL_EVENT_GAMEPAD_REMOVED:
 				disconnectGamepad(event.cdevice.which);
 				break;
+			case SDL_EVENT_JOYSTICK_ADDED:
+				if (!SDL_IsGamepad(event.jdevice.which)) {
+					char[33] buf = 0;
+					SDL_GUIDToString(SDL_GetJoystickGUIDForID(event.jdevice.which), &buf[0], buf.length);
+					infof("Detected unknown joystick: %s", buf.fromStringz);
+				}
+				break;
 			default: break;
 		}
 		return state.exit;
