@@ -55,6 +55,7 @@ struct PlatformCommon {
 	DebugFunction debugState;
 	DebugFunction platformDebugState;
 	Resolution nativeResolution;
+	immutable(ubyte)[] originalData;
 	private const(RecordedInputState)[] inputPlayback;
 	private uint inputPlaybackFrameCounter;
 	private HookState[][string] hooks;
@@ -759,6 +760,15 @@ mixin template PlatformCommonForwarders() {
 				mixin("void ", register.stringof, "(Type value) { writeRegister(", register, ", value); }");
 			}
 		}
+	}
+	immutable(ubyte)[] romData() {
+		if (!platform.originalData && (gameID ~ romExtension).exists) {
+			platform.originalData = (cast(ubyte[])read(gameID~romExtension)).idup;
+			static if (__traits(hasMember, this, "romDataPostProcess")) {
+				platform.originalData = romDataPostProcess(platform.originalData);
+			}
+		}
+		return platform.originalData;
 	}
 }
 

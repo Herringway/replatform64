@@ -30,10 +30,10 @@ struct NES {
 	enum height = PPU.height;
 	enum renderWidth = width;
 	enum renderHeight = height;
+	enum romExtension = ".nes";
 	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
 
 	private Settings settings;
-	private immutable(ubyte)[] originalData;
 	private APU apu;
 	private PPU ppu;
 	private ubyte[2] pads;
@@ -107,11 +107,8 @@ struct NES {
 			assert(0, "Unknown/unsupported write");
 		}
 	}
-	immutable(ubyte)[] romData() {
-		if (!originalData && sourceFile.exists) {
-			originalData = (cast(ubyte[])read(sourceFile)).idup;
-		}
-		return originalData;
+	immutable(ubyte)[] romDataPostProcess(immutable(ubyte)[] data) {
+		return data[0x10 .. $];
 	}
 	void JOY1(ubyte val) {
 	}

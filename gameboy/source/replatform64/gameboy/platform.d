@@ -54,6 +54,7 @@ struct GameBoySimple {
 	enum height = PPU.height;
 	enum renderWidth = width;
 	enum renderHeight = height;
+	enum romExtension = ".gb";
 	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
 	void function(ushort) entryPoint;
 	string title;
@@ -65,7 +66,6 @@ struct GameBoySimple {
 	private Random rng;
 	private Settings settings;
 	private APU apu;
-	private immutable(ubyte)[] originalData;
 	private KEY key1;
 	private JOY joy;
 	private PPU ppu;
@@ -98,12 +98,6 @@ struct GameBoySimple {
 		platform.registerMemoryRange("VRAM", ppu.vram.raw);
 		platform.registerMemoryRange("OAM", ppu.oam);
 		platform.registerMemoryRange("Palette RAM", cast(ubyte[])ppu.paletteRAM);
-	}
-	immutable(ubyte)[] romData() {
-		if (!originalData && sourceFile.exists) {
-			originalData = (cast(ubyte[])read(sourceFile)).idup;
-		}
-		return originalData;
 	}
 	void enableSRAM() {
 		//enableSRAM(saveSize);

@@ -32,7 +32,6 @@ struct SNES {
 	string matchingInternalID;
 	APU apu;
 	private Settings settings;
-	private immutable(ubyte)[] originalData;
 	private PlatformCommon platform;
 	private ushort[2] pads;
 	DMAChannel[8] dmaChannels; ///
@@ -46,6 +45,7 @@ struct SNES {
 	auto RenderPixelFormat() const => renderer.textureType;
 	enum screenHeight = 224;
 	enum screenWidth = 256;
+	enum romExtension = ".sfc";
 
 	mixin PlatformCommonForwarders;
 
@@ -71,16 +71,13 @@ struct SNES {
 			platform.registerMemoryRange("ARAM", apu.aram);
 		}
 	}
-	immutable(ubyte)[] romData() {
-		if (!originalData && (gameID ~ ".sfc").exists) {
-			originalData = (cast(ubyte[])read(gameID~".sfc")).idup;
-			const result = detect(originalData, matchingInternalID);
-			info("Loaded ", title, " ROM", result.header ? " (with header)" : "");
-			if (result.header) {
-				originalData = originalData[0x200 .. $];
-			}
+	immutable(ubyte)[] romDataPostProcess(immutable(ubyte)[] data) {
+		const result = detect(data, matchingInternalID);
+		info("Loaded ", title, " ROM", result.header ? " (with header)" : "");
+		if (result.header) {
+			return data[0x200 .. $];
 		}
-		return originalData;
+		return data;
 	}
 	void handleHDMA() {
 		.handleHDMA(renderer, HDMAEN, dmaChannels);
