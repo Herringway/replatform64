@@ -289,6 +289,8 @@ struct GameBoySimple {
 			timerUpdate();
 			ppu.registers.ly++;
 		}
+		// reset to 0 for next frame
+		ppu.registers.ly = 0;
 	}
 	private void timerUpdate() {
 		timer.scanlineUpdate();
