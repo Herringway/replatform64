@@ -124,4 +124,6 @@ struct NES {
 	void handleOAMDMA(const(OAMEntry)[] src, ushort dest) {
 		ppu.oam[0 .. src.length] = src;
 	}
+	void enableInterrupts() {}
+	void disableInterrupts() {}
 }
