@@ -24,8 +24,8 @@ struct Settings {
 }
 
 struct SNES {
-	void function() entryPoint;
-	void function() interruptHandlerVBlank;
+	void function() entryPoint = { throw new Exception("No entry point defined"); };
+	void function() interruptHandlerVBlank = {};
 	deprecated("Use interruptHandlerVBlank instead") alias interruptHandler = interruptHandlerVBlank;
 	string title;
 	SNESRenderer renderer;

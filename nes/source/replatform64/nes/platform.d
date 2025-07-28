@@ -21,8 +21,8 @@ struct Settings {
 }
 
 struct NES {
-	void function() entryPoint;
-	void function() interruptHandlerVBlank;
+	void function() entryPoint = { throw new Exception("No entry point defined"); };
+	void function() interruptHandlerVBlank = {};
 	string title;
 	string sourceFile;
 	bool interruptsEnabled;

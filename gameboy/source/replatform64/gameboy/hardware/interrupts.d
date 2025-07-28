@@ -7,11 +7,11 @@ import replatform64.ui;
 alias InterruptFunction = void function();
 
 struct Interrupts {
-	@Skip InterruptFunction vblank;
-	@Skip InterruptFunction stat;
-	@Skip InterruptFunction timer;
-	@Skip InterruptFunction serial;
-	@Skip InterruptFunction joypad;
+	@Skip InterruptFunction vblank = {};
+	@Skip InterruptFunction stat = {};
+	@Skip InterruptFunction timer = {};
+	@Skip InterruptFunction serial = {};
+	@Skip InterruptFunction joypad = {};
 	private bool ime;
 	private ubyte ie;
 	private ubyte if_;
@@ -114,7 +114,8 @@ unittest {
 	with(Interrupts()) { // make sure it doesn't run interrupts that aren't set
 		setInterrupts(true);
 		writeRegister(Register.IE, InterruptFlag.vblank);
-		assertThrown!Error(writeRegister(Register.IF, InterruptFlag.vblank));
+		writeRegister(Register.IF, InterruptFlag.vblank);
+		assert(runCount == 0);
 	}
 	with(Interrupts()) { // don't run interrupts if all are disabled
 		setInterrupts(false);

@@ -56,7 +56,7 @@ struct GameBoySimple {
 	enum renderHeight = height;
 	enum romExtension = ".gb";
 	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
-	void function(ushort) entryPoint;
+	void function(ushort) entryPoint = model => throw new Exception("No entry point defined");
 	string title;
 	string sourceFile;
 	ubyte lcdYUpdateValue = 1;
