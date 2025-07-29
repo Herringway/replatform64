@@ -214,7 +214,7 @@ struct PPU {
 			return;
 		}
 		// Check if the sprite is visible
-		if(!ignoreOAM && ((baseY >= height - 1) || (baseX >= width - 7))) {
+		if(!ignoreOAM && (baseY >= height - 1)) {
 			return;
 		}
 
@@ -600,7 +600,7 @@ unittest {
 					ppu.ppuCtrl.ppuDataIncreaseByRow = !!byteData;
 					break;
 				case "ppu.control.spritePatternAddr":
-					ppu.ppuCtrl.spritePatternTable = !shortData;
+					ppu.ppuCtrl.spritePatternTable = !!shortData;
 					break;
 				case "ppu.control.backgroundPatternAddr":
 					ppu.ppuCtrl.bgPatternTable = !!shortData;
