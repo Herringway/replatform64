@@ -2,6 +2,12 @@ module replatform64.nes.mappers.mmc1;
 
 import replatform64.nes.hardware.ppu;
 
+enum MMC1Register {
+	control = 0x8000,
+	chrBank0 = 0xA000,
+	chrBank1 = 0xC000,
+	prgBank = 0xE000,
+}
 enum InternalRegister {
 	control,
 	chrBank0,
