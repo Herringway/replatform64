@@ -2,6 +2,8 @@ module replatform64.nes.mappers.mmc1;
 
 import replatform64.nes.hardware.ppu;
 
+import replatform64.ui;
+
 enum MMC1Register {
 	control = 0x8000,
 	chrBank0 = 0xA000,
@@ -23,6 +25,7 @@ enum NameTableMode {
 }
 
 struct MMC1 {
+	enum name = "MMC1";
 	ubyte shiftValue;
 	ubyte shiftWrites;
 	NameTableMode nameTableArrangement;
@@ -61,6 +64,17 @@ struct MMC1 {
 				prgBank = value;
 				break;
 		}
+	}
+	void debugUI(UIState state) {
+		ImGui.SeparatorText("Bank Config");
+		InputEditable("CHR Bank 1", chrBank1);
+		InputEditable("CHR Bank 2", chrBank2);
+		InputEditable("PRG Bank", prgBank);
+		ImGui.SeparatorText("Name Table");
+		InputEditable("Arrangement", nameTableArrangement);
+		ImGui.SeparatorText("Shift Register State");
+		InputEditable("Current value", shiftValue);
+		InputEditable("Write count", shiftWrites);
 	}
 }
 

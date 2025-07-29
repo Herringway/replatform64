@@ -19,7 +19,11 @@ enum settingsFile = "settings.yaml";
 struct Settings {
 	bool debugging;
 }
-struct NullMapper { void writeRegister(ushort, ubyte, ref PPU) {} }
+
+struct NullMapper {
+	enum name = "null";
+	void writeRegister(ushort, ubyte, ref PPU) {}
+}
 
 struct NES(Mapper = NullMapper) {
 	void function() entryPoint = { throw new Exception("No entry point defined"); };
@@ -87,6 +91,12 @@ struct NES(Mapper = NullMapper) {
 			if (ImGui.BeginTabItem("APU")) {
 				apu.debugUI(state);
 				ImGui.EndTabItem();
+			}
+			static if (__traits(hasMember, mapper, "debugUI")) {
+				if (ImGui.BeginTabItem(mapper.name)) {
+					mapper.debugUI(state);
+					ImGui.EndTabItem();
+				}
 			}
 			ImGui.EndTabBar();
 		}
