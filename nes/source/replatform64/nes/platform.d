@@ -38,7 +38,7 @@ struct NES(Mapper = NullMapper) {
 	private APU apu;
 	private PPU ppu;
 	private Mapper mapper;
-	private ubyte[2] pads;
+	private JOY pad;
 
 	private PlatformCommon platform;
 
@@ -62,8 +62,8 @@ struct NES(Mapper = NullMapper) {
 		ppu.render(texture.asArray2D!(PPU.ColourFormat));
 	}
 	private void copyInputState(InputState state) @safe pure {
-		pads = 0;
-		foreach (idx, ref pad; pads) {
+		pad.padData = 0;
+		foreach (idx, ref pad; pad.padData) {
 			if (platform.inputState.controllers[idx] & ControllerMask.b) { pad |= Pad.b; }
 			if (platform.inputState.controllers[idx] & ControllerMask.a) { pad |= Pad.a; }
 			if (platform.inputState.controllers[idx] & ControllerMask.start) { pad |= Pad.start; }
@@ -75,7 +75,7 @@ struct NES(Mapper = NullMapper) {
 		}
 	}
 	ubyte getControllerState(ubyte playerID) const @safe pure {
-		return pads[playerID];
+		return pad.padData[playerID];
 	}
 	private void commonDebugMenu(UIState state) {}
 	private void commonDebugState(UIState state) {
@@ -96,6 +96,8 @@ struct NES(Mapper = NullMapper) {
 			ppu.writeRegister(addr, value);
 		} else if (addr >= 0x8000) { // anything where ROM usually lives
 			mapper.writeRegister(addr, value, ppu);
+		} else if ((addr >= Register.JOY1) && (addr <= Register.JOY2)) {
+			pad.writeRegister(addr, value);
 		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
 			apu.writeRegister(addr, value);
 		} else {
@@ -105,6 +107,8 @@ struct NES(Mapper = NullMapper) {
 	ubyte readRegister(ushort addr) {
 		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
 			return ppu.readRegister(addr);
+		} else if ((addr >= Register.JOY1) && (addr <= Register.JOY2)) {
+			return pad.readRegister(addr);
 		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
 			return apu.readRegister(addr);
 		} else {
@@ -113,10 +117,6 @@ struct NES(Mapper = NullMapper) {
 	}
 	immutable(ubyte)[] romDataPostProcess(immutable(ubyte)[] data) {
 		return data[0x10 .. $];
-	}
-	void JOY1(ubyte val) {
-	}
-	void JOY2(ubyte val) {
 	}
 	void setNametableMirroring(MirrorType type) {
 		ppu.mirrorMode = type;
