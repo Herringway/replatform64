@@ -5,7 +5,7 @@ import std.functional;
 import std.logger;
 
 struct GameSettings {}
-NES nes;
+NES!() nes;
 
 ubyte[4][8] palettes = [
 	// bg palettes

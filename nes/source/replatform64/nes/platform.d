@@ -19,8 +19,9 @@ enum settingsFile = "settings.yaml";
 struct Settings {
 	bool debugging;
 }
+struct NullMapper { void writeRegister(ushort, ubyte, ref PPU) {} }
 
-struct NES {
+struct NES(Mapper = NullMapper) {
 	void function() entryPoint = { throw new Exception("No entry point defined"); };
 	void function() interruptHandlerVBlank = {};
 	string title;
@@ -36,6 +37,7 @@ struct NES {
 	private Settings settings;
 	private APU apu;
 	private PPU ppu;
+	private Mapper mapper;
 	private ubyte[2] pads;
 
 	private PlatformCommon platform;
@@ -92,6 +94,8 @@ struct NES {
 	void writeRegisterPlatform(ushort addr, ubyte value) {
 		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
 			ppu.writeRegister(addr, value);
+		} else if (addr >= 0x8000) { // anything where ROM usually lives
+			mapper.writeRegister(addr, value, ppu);
 		} else if (((addr >= Register.SQ1) && (addr <= Register.DMC_LEN)) || (addr == Register.SND_CHN)) {
 			apu.writeRegister(addr, value);
 		} else {
