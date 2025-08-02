@@ -269,8 +269,8 @@ struct PPU {
 
 		// Draw the background (nametable)
 		if (ppuMask.enableBG) { // Is the background enabled?
-			const scrollX = ppuScrollX + (ppuCtrl.nametableX << 8);
-			const scrollY = ppuScrollY + (ppuCtrl.nametableY << 8);
+			const scrollX = ppuScrollX + (ppuCtrl.nametableX * width);
+			const scrollY = ppuScrollY + (ppuCtrl.nametableY * height);
 			const xMin = scrollX / 8;
 			const yMin = scrollY / 8;
 			foreach (x; xMin .. xMin + width / 8) {
@@ -661,6 +661,11 @@ unittest {
 				case "ppu.tmpVideoRamAddr":
 					//mesen stores this in a strange way
 					PPUSCROLL2 = ((shortData & 0x3E0) >> 2) | ((shortData & 0x7000) >> 12);
+					break;
+				case "ppu.videoRamAddr":
+					const nameTable = (shortData >> 10) & 3;
+					ppu.ppuCtrl.nametableX = !!(nameTable & 1);
+					ppu.ppuCtrl.nametableY = !!(nameTable >> 1);
 					break;
 				default:
 					break;
