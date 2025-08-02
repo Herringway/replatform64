@@ -74,8 +74,8 @@ union PPUCTRLValue {
 	ubyte raw;
 	struct {
 		mixin(bitfields!(
-			bool, "nametableX", 1,
 			bool, "nametableY", 1,
+			bool, "nametableX", 1,
 			bool, "ppuDataIncreaseByRow", 1,
 			bool, "spritePatternTable", 1,
 			bool, "bgPatternTable", 1,
