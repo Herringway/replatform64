@@ -677,3 +677,18 @@ unittest {
 	}
 	assert(runTests!renderMesen2State("nes", ""), "Tests failed");
 }
+
+// make sure writing via PPUADDR/PPUDATA works
+@safe pure unittest {
+	import std.algorithm.comparison : equal;
+	with (PPU()) {
+		nametable = new ubyte[](0x2000);
+		writeRegister(Register.PPUADDR, 0x20);
+		writeRegister(Register.PPUADDR, 0x00);
+		foreach (_; 0 .. 0x200) {
+			writeRegister(Register.PPUDATA, 0x42);
+			writeRegister(Register.PPUDATA, 0x24);
+		}
+		assert(nametable[0 .. 0x400].equal((cast(ubyte[])[0x42, 0x24]).repeat(0x200).joiner));
+	}
+}
