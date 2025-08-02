@@ -41,7 +41,6 @@ struct JOY {
 		foreach (bit; 0 .. 8) {
 			readBits[bit] = !!readRegister(Register.JOY1);
 		}
-		import std.logger; debug infof("%s, %b, %b", readBits, padData[0], tmpRead[0]);
 		assert(readBits == [true, false, false, false, false, false, false, false]);
 	}
 }
