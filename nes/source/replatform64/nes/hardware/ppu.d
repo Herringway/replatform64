@@ -556,10 +556,8 @@ unittest {
 	import std.format : format;
 	import std.path : buildPath;
 	import std.string : lineSplitter;
-	enum width = 256;
-	enum height = 240;
 	static Array2D!(PPU.ColourFormat) draw(ref PPU ppu) {
-		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
+		auto buffer = Array2D!(PPU.ColourFormat)(ppu.width, ppu.height);
 		ppu.render(buffer);
 		return buffer;
 	}
