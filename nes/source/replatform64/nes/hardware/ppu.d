@@ -541,7 +541,6 @@ struct PPU {
 					ImGui.SameLine();
 					ImGui.Text(["Normal", "High"][sprite.priority]);
 					ImGui.Text("Palette: %d", sprite.palette);
-
 				});
 				ImGui.EndTabItem();
 			}
