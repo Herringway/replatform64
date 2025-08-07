@@ -6,12 +6,12 @@
 	"description": "Console port helper library",
 	"license": "BSL-1.0",
 	"dependencies": {
-		"bindbc-sdl": "~>2.0.0",
+		"bindbc-sdl": "~>2.2.0",
 		"siryul": "~>0.6",
 		"pixelmancy": "~>0.0",
 		"squiz-box": "~>0.3",
 		"d_imgui": { "repository": "git+https://github.com/Herringway/imgui.git", "version": "d88d230e58c85866a1225f53256f2bbdc5d1f8d3" },
-		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "42593d32c6430e58a74b8c731fecb0cfeda7f189" }
+		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "ae5f2d343f731812332b9ea0c4597ca4c2bfffa7" }
 	},
 	"subPackages": [
 		"gameboy",
