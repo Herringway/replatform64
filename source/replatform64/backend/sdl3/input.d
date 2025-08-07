@@ -43,13 +43,21 @@ class SDL3Input : InputBackend {
 				break;
 			case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 				if (auto axis = sdlAxisToGamePadAxis(cast(SDL_GamepadAxis)event.gaxis.axis) in settings.gamepadAxisMapping) {
-					handleAxis(state, *axis, event.gaxis.value, SDL_GetGamepadPlayerIndex(SDL_GetGamepadFromID(event.gaxis.which)));
+					const player = getControllerPlayerID(event.gaxis.which);
+					if (player == -1) { // False events are sometimes generated when a gamepad is disconnected
+						break;
+					}
+					handleAxis(state, *axis, event.gaxis.value, player);
 				}
 				break;
 			case SDL_EVENT_GAMEPAD_BUTTON_UP:
 			case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 				if (auto button = sdlButtonToGamePadButton(cast(SDL_GamepadButton)event.gbutton.button) in settings.gamepadMapping) {
-					handleButton(state, *button, event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN, SDL_GetGamepadPlayerIndex(SDL_GetGamepadFromID(event.gbutton.which)));
+					const player = getControllerPlayerID(event.gbutton.which);
+					if (player == -1) { // False events are sometimes generated when a gamepad is disconnected
+						break;
+					}
+					handleButton(state, *button, event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN, player);
 				}
 				break;
 			case SDL_EVENT_GAMEPAD_ADDED:
@@ -70,6 +78,11 @@ class SDL3Input : InputBackend {
 		}
 		return state.exit;
 	}
+}
+private int getControllerPlayerID(SDL_JoystickID id) {
+	auto pad = SDL_GetGamepadFromID(id);
+	enforceSDL(!!pad, "Could not get gamepad for ID");
+	return SDL_GetGamepadPlayerIndex(pad);
 }
 private void connectGamepad(int id) {
 	assert(SDL_IsGamepad(id), "Non-gamepad controller added?");
