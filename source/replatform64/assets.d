@@ -29,6 +29,7 @@ enum DataType {
 	bpp2Intertwined,
 	bpp2Linear,
 	bpp4Intertwined,
+	paletteBGR555,
 }
 
 struct ROMSource {
@@ -40,6 +41,7 @@ struct Asset {
 	string name;
 	DataType type;
 	bool forceMultipleFiles;
+	size_t paletteDepth;
 }
 
 private enum isROMLoadable(alias sym) = (Filter!(typeMatches!ROMSource, __traits(getAttributes, sym)).length == 1) || (Filter!(typeMatches!(ROMSource[]), __traits(getAttributes, sym)).length == 1);
@@ -70,6 +72,7 @@ string defaultExtension(DataType type) {
 		case DataType.bpp2Linear: return "png";
 		case DataType.bpp2Intertwined: return "png";
 		case DataType.bpp4Intertwined: return "png";
+		case DataType.paletteBGR555: return "png";
 	}
 }
 struct SymbolMetadata {
@@ -78,7 +81,7 @@ struct SymbolMetadata {
 	string extension = "bin";
 	bool array;
 	DataType type;
-	size_t originalLength;
+	size_t paletteDepth = 16;
 	bool requiresExtraction() const @safe pure {
 		return (sources.length != 0) && (type == DataType.structured);
 	}
@@ -178,9 +181,9 @@ private template SymbolMetadataFor(alias Sym) {
 	}
 	static if (isROMLoadable!Sym) {
 		static if (SingleSource.length == 1) { // single source
-			enum SymbolMetadataFor = SymbolMetadata([SingleSource], SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type);
+			enum SymbolMetadataFor = SymbolMetadata([SingleSource], SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type, ThisAsset.paletteDepth);
 		} else static if (MultiSources.length == 1) { // array of sources
-			enum SymbolMetadataFor = SymbolMetadata(MultiSources, SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type);
+			enum SymbolMetadataFor = SymbolMetadata(MultiSources, SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type, ThisAsset.paletteDepth);
 		}
 	} else static if (isAsset!Sym) { // not extracted, but expected to exist
 		enum SymbolMetadataFor = SymbolMetadata([], SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type);
@@ -337,7 +340,7 @@ struct PlanetArchive {
 	}
 }
 
-private const(ubyte)[] readTilesFromImage(T)(const(ubyte)[] data) {
+private const(ubyte)[] readTilesFromImage(T)(const(ubyte)[] data) @safe {
 	if (auto img = cast(IndexedImage)readPngFromBytes(data)) {
 		auto pixelArray = img.data;
 		auto tiles = Array2D!T(img.width / 8, img.height / 8);
@@ -350,7 +353,7 @@ private const(ubyte)[] readTilesFromImage(T)(const(ubyte)[] data) {
 		throw new Exception("Invalid PNG");
 	}
 }
-private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) {
+private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) @safe {
 	const w = min(tiles.length * 8, 16 * 8);
 	const h = max(1, cast(int)((tiles.length + 15) / 16)) * 8;
 	auto img = new IndexedImage(w, h);
@@ -369,7 +372,30 @@ private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) {
 	}
 	return writePngToArray(img);
 }
-const(ubyte)[] loadROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
+private const(ubyte)[] readPaletteFromImage(T)(const(ubyte)[] data) @safe {
+	if (auto img = cast(IndexedImage)readPngFromBytes(data)) {
+		T[] colours;
+		foreach (colour; img.palette) {
+			colours ~= colour.convert!T;
+		}
+		return cast(ubyte[])colours;
+	} else { // not an indexed PNG?
+		throw new Exception("Invalid PNG");
+	}
+}
+const(ubyte)[] savePaletteToImage(T)(const(T)[] colours, size_t entries) @safe {
+	const width = max(1, entries);
+	const height = colours.length / entries;
+	auto img = new IndexedImage(cast(int)width, cast(int)height);
+	foreach (colour; colours) {
+		img.addColor(colour.convert!RGBA32());
+	}
+	foreach (idx, colour; colours) {
+		img.data[idx % width, idx / width] = cast(ubyte)idx;
+	}
+	return writePngToArray(img);
+}
+const(ubyte)[] loadROMAsset(const(ubyte)[] data, const SymbolMetadata asset) @safe {
 	final switch (asset.type) {
 		case DataType.raw:
 		case DataType.structured: // array of characters, array of bytes. same thing
@@ -382,9 +408,11 @@ const(ubyte)[] loadROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
 			return readTilesFromImage!Intertwined2BPP(data);
 		case DataType.bpp4Intertwined:
 			return readTilesFromImage!Intertwined4BPP(data);
+		case DataType.paletteBGR555:
+			return readPaletteFromImage!BGR555(data);
 	}
 }
-const(ubyte)[] saveROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
+const(ubyte)[] saveROMAsset(const(ubyte)[] data, const SymbolMetadata asset) @safe {
 	final switch (asset.type) {
 		case DataType.raw:
 			return data;
@@ -396,7 +424,17 @@ const(ubyte)[] saveROMAsset(const(ubyte)[] data, SymbolMetadata asset) {
 			return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
 		case DataType.bpp4Intertwined:
 			return saveTilesToImage(cast(const(Intertwined4BPP)[])data);
+		case DataType.paletteBGR555:
+			return savePaletteToImage(cast(const(BGR555)[])data, 1 << asset.paletteDepth);
 		case DataType.structured:
 			assert(0);
+	}
+}
+
+@safe unittest {
+	{
+		const test = [ BGR555(11, 14, 3), BGR555(3, 14, 3), BGR555(9, 14, 7), BGR555(7, 4, 17) ];
+		const sym = SymbolMetadata(type: DataType.paletteBGR555, paletteDepth: 2);
+		assert(loadROMAsset(saveROMAsset(cast(const(ubyte)[])test, sym), sym) == cast(const(ubyte)[])test);
 	}
 }

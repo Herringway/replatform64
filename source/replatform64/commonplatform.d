@@ -459,10 +459,14 @@ struct PlatformCommon {
 		static foreach (Symbol; SymbolData!Modules) {
 			() {
 			if ((assetPath(Symbol.metadata, 0) !in arrayAssets) && (assetPath(Symbol.metadata, 0) !in nonArrayAlreadyLoaded)) {
-				const path = buildPath("data", assetPath(Symbol.metadata, 0));
-				if (path.exists) {
-					const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
-					loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, fileData, Symbol.metadata, assetPath(Symbol.metadata, 0), "filesystem");
+				import std.range : only;
+				foreach (candidate; only(assetPath(Symbol.metadata, 0), Symbol.metadata.name)) {
+					const path = buildPath("data", candidate);
+					if (path.exists) {
+						const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
+						loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, fileData, Symbol.metadata, path, "filesystem");
+						break;
+					}
 				}
 			}}();
 		}

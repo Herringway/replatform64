@@ -7,31 +7,6 @@ import std.logger;
 struct GameSettings {}
 SNES snes;
 
-enum black = BGR555(red: 0, green: 0, blue: 0);
-BGR555[16][16] palettes = [
-	// bg palettes
-	// bg
-	[ BGR555(red: 31, green: 31, blue: 31), BGR555(red: 0, green: 16, blue: 0), black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	// unused
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	// sprite palettes
-	// lil character
-	[ BGR555(red: 31, green: 31, blue: 31), black, BGR555(red: 2, green: 17, blue: 8), BGR555(red: 4, green: 2, blue: 17), BGR555(red: 31, green: 0, blue: 0), black, black, black, black, black, black, black, black, black, black, black ],
-	// unused
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-	[ black, black, black, black, black, black, black, black, black, black, black, black, black, black, black, black ],
-];
 
 OAMEntry[128] oam = OAMEntry.offscreen; // all unused sprites should render offscreen
 
@@ -49,6 +24,10 @@ void main(string[] args) {
 	snes.run();
 	snes.saveSettings(settings);
 }
+
+@Asset("basepalette.png", DataType.paletteBGR555, paletteDepth: 4)
+immutable(BGR555[16])[] palettes;
+
 @Asset("8x8font.png", DataType.bpp4Intertwined)
 immutable(ubyte)[] fontData;
 
@@ -194,7 +173,7 @@ void start() {
 	}
 }
 void vblank() {
-	snes.handleCGRAMDMA(0b00000000, 0x22, &palettes[0][0], cast(ushort)palettes.sizeof, 0);
+	snes.handleCGRAMDMA(0b00000000, 0x22, &palettes[0][0], cast(ushort)(palettes.length * palettes[0].sizeof), 0);
 	snes.handleOAMDMA(0b00000000, 0x04, &oam[0], cast(ushort)(oam.length * OAMEntry.sizeof), 0);
 	printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
 }
