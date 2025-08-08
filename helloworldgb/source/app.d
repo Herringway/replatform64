@@ -4,6 +4,11 @@ import std.format;
 import std.functional;
 import std.logger;
 
+struct GameState {
+	char[5] magic = "HELLO";
+	short x;
+	short y;
+}
 struct GameSettings {}
 GameBoySimple gb;
 
@@ -20,7 +25,7 @@ void main(string[] args) {
 	}
 	auto settings = gb.loadSettings!GameSettings();
 	gb.initialize();
-	gb.handleAssets!(mixin(__MODULE__))();
+	gb.handleAssets!(mixin(__MODULE__))(&loadStuff);
 	gb.run();
 	gb.saveSettings(settings);
 }
@@ -32,6 +37,7 @@ immutable(ubyte)[] objData;
 
 @Asset("config.yaml", DataType.structured)
 Config config;
+void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, immutable(ubyte)[] rom) @safe {}
 
 struct Vector {
 	ubyte x;
@@ -50,14 +56,13 @@ struct Config {
 	ubyte recoilFrames = 15;
 }
 
-ubyte inputPressed;
-void readInput() {
+ubyte readInput() {
 	gb.JOYP = 0x20;
-	ubyte tmp = (~gb.JOYP & 0xF) << 4;
+	ubyte inputPressed = (~gb.JOYP & 0xF) << 4;
 	gb.JOYP = 0x10;
-	tmp |= ~gb.JOYP & 0xF;
-	inputPressed = tmp;
+	inputPressed |= ~gb.JOYP & 0xF;
 	gb.JOYP = 0x30;
+	return inputPressed;
 }
 void writeToVRAM(scope const ubyte[] data, ushort addr) {
 	gb.vram[addr - 0x8000 .. addr - 0x8000 + data.length] = data;
@@ -116,11 +121,19 @@ void start(ushort system) {
 	oam[2] = OAMEntry(0, 0, 3, 0);
 	oam[3] = OAMEntry(0, 0, 2, OAMFlags.yFlip);
 	oam[4] = OAMEntry(0, 0, 3, OAMFlags.xFlip);
-	short x = config.startCoordinates.x;
-	short y = config.startCoordinates.y;
+	auto state = gb.sram!GameState(0);
+	if (state.magic != state.init.magic) {
+		state = state.init;
+		state.x = config.startCoordinates.x;
+		state.y = config.startCoordinates.y;
+	}
 	uint altFrames = 0;
+	int saveFramesLeft;
+	ubyte inputPressed;
 	while (true) {
-		readInput();
+		const lastPressed = inputPressed;
+		inputPressed = readInput();
+		const justPressed = (lastPressed ^ inputPressed) & inputPressed;
 		if (inputPressed & Pad.a) {
 			punctuation = "!";
 		} else if (inputPressed & Pad.b) {
@@ -128,28 +141,33 @@ void start(ushort system) {
 		} else {
 			punctuation = " ";
 		}
+		if (justPressed & Pad.start) {
+			saveFramesLeft = 60;
+			gb.sram!GameState(0) = state;
+			gb.commitSRAM();
+		}
 		if (inputPressed & Pad.left) {
-			x -= config.movementSpeed;
+			state.x -= config.movementSpeed;
 		} else if (inputPressed & Pad.right) {
-			x += config.movementSpeed;
+			state.x += config.movementSpeed;
 		}
 		if (inputPressed & Pad.up) {
-			y -= config.movementSpeed;
+			state.y -= config.movementSpeed;
 		} else if (inputPressed & Pad.down) {
-			y += config.movementSpeed;
+			state.y += config.movementSpeed;
 		}
-		if (x > 160) {
-			x = 160;
+		if (state.x > gb.width - 1) {
+			state.x = gb.width - 1;
 			altFrames = config.recoilFrames;
-		} else if (x < config.playerDimensions.width) {
-			x = config.playerDimensions.width;
+		} else if (state.x < config.playerDimensions.width) {
+			state.x = config.playerDimensions.width;
 			altFrames = config.recoilFrames;
 		}
-		if (y > 144) {
-			y = 144;
+		if (state.y > gb.height - 1) {
+			state.y = gb.height - 1;
 			altFrames = config.recoilFrames;
-		} else if (y < config.playerDimensions.height) {
-			y = config.playerDimensions.height;
+		} else if (state.y < config.playerDimensions.height) {
+			state.y = config.playerDimensions.height;
 			altFrames = config.recoilFrames;
 		}
 		bool useAltFrame;
@@ -157,22 +175,30 @@ void start(ushort system) {
 			altFrames--;
 			useAltFrame = true;
 		}
-		oam[0].x = cast(ubyte)x;
-		oam[0].y = cast(ubyte)(y + 8);
+		ubyte baseX = cast(ubyte)(state.x);
+		ubyte baseY = cast(ubyte)(state.y + 8);
+		oam[0].x = baseX;
+		oam[0].y = baseY;
 		oam[0].tile = useAltFrame ? 1 : 0;
-		oam[1].x = cast(ubyte)x;
-		oam[1].y = cast(ubyte)y;
-		oam[2].x = cast(ubyte)(x - 8);
-		oam[2].y = cast(ubyte)(y + 8);
-		oam[3].x = cast(ubyte)x;
-		oam[3].y = cast(ubyte)(y + 16);
-		oam[4].x = cast(ubyte)(x + 8);
-		oam[4].y = cast(ubyte)(y + 8);
+		oam[1].x = baseX;
+		oam[1].y = cast(ubyte)(baseY - 8);
+		oam[2].x = cast(ubyte)(baseX - 8);
+		oam[2].y = baseY;
+		oam[3].x = baseX;
+		oam[3].y = cast(ubyte)(baseY + 8);
+		oam[4].x = cast(ubyte)(baseX + 8);
+		oam[4].y = baseY;
+		if (saveFramesLeft > 0) {
+			saveFramesLeft--;
+			printText(0, 16, "State saved");
+		} else {
+			printText(0, 16, "           ");
+		}
+		printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
 		finishFrame();
 	}
 }
 void vblank() {
 	(cast(OAMEntry[])(gb.oam))[] = OAMEntry(-1, -1, 64, 0);
 	(cast(OAMEntry[])(gb.oam))[0 .. 5] = oam;
-	printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
 }

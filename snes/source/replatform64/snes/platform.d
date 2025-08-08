@@ -172,7 +172,7 @@ private auto detect(const scope ubyte[] data, scope string identifier) @safe pur
 		const checksum = (cast(const ushort[])data[base + 46 .. base + 48])[0];
 		const checksumComplement = (cast(const ushort[])data[base + 44 .. base + 46])[0];
 		if ((checksum ^ checksumComplement) == 0xFFFF) {
-			if (cast(const(char[]))data[base + 16 .. base + 37] == identifier) {
+			if ((cast(const(char[]))data[base + 16 .. base + 37] == identifier) || (identifier == "")) {
 				return Result(headered, true);
 			}
 		}

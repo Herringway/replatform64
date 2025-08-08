@@ -4,6 +4,11 @@ import std.format;
 import std.functional;
 import std.logger;
 
+struct GameState {
+	char[5] magic = "HELLO";
+	short x;
+	short y;
+}
 struct GameSettings {}
 NES!() nes;
 
@@ -36,7 +41,7 @@ void main(string[] args) {
 	}
 	auto settings = nes.loadSettings!GameSettings();
 	nes.initialize();
-	nes.handleAssets!(mixin(__MODULE__))();
+	nes.handleAssets!(mixin(__MODULE__))(&loadStuff);
 	nes.run();
 	nes.saveSettings(settings);
 }
@@ -48,6 +53,8 @@ immutable(ubyte)[] objData;
 
 @Asset("config.yaml", DataType.structured)
 Config config;
+
+void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, immutable(ubyte)[] rom) @safe {}
 
 struct Vector {
 	ubyte x;
@@ -66,9 +73,8 @@ struct Config {
 	ubyte recoilFrames = 15;
 }
 
-ubyte inputPressed;
-void readInput() {
-	inputPressed = nes.getControllerState(0);
+ubyte readInput() {
+	return nes.getControllerState(0);
 }
 void init() {
 	nes.JOY2 = 0x40;
@@ -131,11 +137,19 @@ void start() {
 	oam[2] = OAMEntry(0, 0, 3);
 	oam[3] = OAMEntry(0, 0, 2, vFlip: true);
 	oam[4] = OAMEntry(0, 0, 3, hFlip: true);
-	short x = config.startCoordinates.x;
-	short y = config.startCoordinates.y;
+	auto state = nes.sram!GameState(0);
+	if (state.magic != state.init.magic) {
+		state = state.init;
+		state.x = config.startCoordinates.x;
+		state.y = config.startCoordinates.y;
+	}
 	uint altFrames = 0;
+	int saveFramesLeft;
+	ubyte inputPressed;
 	while (true) {
-		readInput();
+		const lastPressed = inputPressed;
+		inputPressed = readInput();
+		const justPressed = (lastPressed ^ inputPressed) & inputPressed;
 		if (inputPressed & Pad.a) {
 			punctuation = "!";
 		} else if (inputPressed & Pad.b) {
@@ -143,28 +157,33 @@ void start() {
 		} else {
 			punctuation = " ";
 		}
+		if (justPressed & Pad.start) {
+			saveFramesLeft = 60;
+			nes.sram!GameState(0) = state;
+			nes.commitSRAM();
+		}
 		if (inputPressed & Pad.left) {
-			x -= config.movementSpeed;
+			state.x -= config.movementSpeed;
 		} else if (inputPressed & Pad.right) {
-			x += config.movementSpeed;
+			state.x += config.movementSpeed;
 		}
 		if (inputPressed & Pad.up) {
-			y -= config.movementSpeed;
+			state.y -= config.movementSpeed;
 		} else if (inputPressed & Pad.down) {
-			y += config.movementSpeed;
+			state.y += config.movementSpeed;
 		}
-		if (x > nes.width - 1) {
-			x = nes.width - 1;
+		if (state.x > nes.width - 1) {
+			state.x = nes.width - 1;
 			altFrames = config.recoilFrames;
-		} else if (x < config.playerDimensions.width + 1) {
-			x = config.playerDimensions.width + 1;
+		} else if (state.x < config.playerDimensions.width + 1) {
+			state.x = config.playerDimensions.width + 1;
 			altFrames = config.recoilFrames;
 		}
-		if (y > nes.height - 1) {
-			y = nes.height - 1;
+		if (state.y > nes.height - 1) {
+			state.y = nes.height - 1;
 			altFrames = config.recoilFrames;
-		} else if (y < config.playerDimensions.height + 1) {
-			y = config.playerDimensions.height + 1;
+		} else if (state.y < config.playerDimensions.height + 1) {
+			state.y = config.playerDimensions.height + 1;
 			altFrames = config.recoilFrames;
 		}
 		bool useAltFrame;
@@ -172,8 +191,8 @@ void start() {
 			altFrames--;
 			useAltFrame = true;
 		}
-		ubyte baseX = cast(ubyte)(x - 8);
-		ubyte baseY = cast(ubyte)(y - 8);
+		ubyte baseX = cast(ubyte)(state.x - 8);
+		ubyte baseY = cast(ubyte)(state.y - 8);
 		oam[0].x = baseX;
 		oam[0].y = baseY;
 		oam[0].index = useAltFrame ? 1 : 0;
@@ -185,8 +204,14 @@ void start() {
 		oam[3].y = cast(ubyte)(baseY + 8);
 		oam[4].x = cast(ubyte)(baseX + 8);
 		oam[4].y = baseY;
-		finishFrame();
+		if (saveFramesLeft > 0) {
+			saveFramesLeft--;
+			printText(12, 12, "State saved");
+		} else {
+			printText(12, 12, "           ");
+		}
 		printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
+		finishFrame();
 	}
 }
 void vblank() {

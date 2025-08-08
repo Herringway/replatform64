@@ -322,7 +322,7 @@ struct PlatformCommon {
 		static void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem, ExtractFunction extractor, string gameID) {
 			try {
 				PlanetArchive archive;
-				void addFile(string name, const ubyte[] data) {
+				void addFile(string name, const ubyte[] data) @trusted {
 					archive.addFile(name, data);
 					if (toFilesystem) {
 						auto fullPath = buildPath("data", name);
@@ -351,7 +351,7 @@ struct PlatformCommon {
 
 				// extract extra game data that needs special handling
 				if (extractor !is null) {
-					extractor(&addFile, (str) { send(main, str); }, rom);
+					extractor(&addFile, (str) @trusted { send(main, str); }, rom);
 				}
 
 				// write the archive

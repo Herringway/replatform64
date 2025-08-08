@@ -17,8 +17,8 @@ import replatform64.util;
 import pixelmancy;
 import squiz_box;
 
-alias ProgressUpdateFunction = void delegate(scope const Progress);
-alias AddFileFunction = void delegate(string, const ubyte[]);
+alias ProgressUpdateFunction = void delegate(scope const Progress) @safe;
+alias AddFileFunction = void delegate(string, const ubyte[]) @safe;
 alias ExtractFunction = void function(scope AddFileFunction, scope ProgressUpdateFunction, immutable(ubyte)[]);
 alias LoadFunction = void function(const scope char[], const scope ubyte[], scope PlatformBackend);
 

@@ -4,6 +4,11 @@ import std.format;
 import std.functional;
 import std.logger;
 
+struct GameState {
+	char[5] magic = "HELLO";
+	short x;
+	short y;
+}
 struct GameSettings {}
 SNES snes;
 
@@ -20,7 +25,7 @@ void main(string[] args) {
 	}
 	auto settings = snes.loadSettings!GameSettings();
 	snes.initialize();
-	snes.handleAssets!(mixin(__MODULE__))();
+	snes.handleAssets!(mixin(__MODULE__))(&loadStuff);
 	snes.run();
 	snes.saveSettings(settings);
 }
@@ -36,6 +41,9 @@ immutable(ubyte)[] objData;
 
 @Asset("config.yaml", DataType.structured)
 Config config;
+void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, immutable(ubyte)[] rom) @safe {
+	infof("Loaded data successfully");
+}
 
 struct Vector {
 	ubyte x;
@@ -54,9 +62,8 @@ struct Config {
 	ubyte recoilFrames = 15;
 }
 
-ushort inputPressed;
-void readInput() {
-	inputPressed = snes.getControllerState(0);
+ushort readInput() {
+	return snes.getControllerState(0);
 }
 void writeToVRAM(scope const ubyte[] data, ushort addr)
 	in(data.length)
@@ -115,10 +122,19 @@ void start() {
 	oam[2] = OAMEntry(0, 0, 3);
 	oam[3] = OAMEntry(0, 0, 2, vFlip: true);
 	oam[4] = OAMEntry(0, 0, 3, hFlip: true);
-	short x = config.startCoordinates.x;
-	short y = config.startCoordinates.y;
+	auto state = snes.sram!GameState(0);
+	if (state.magic != state.init.magic) {
+		state = state.init;
+		state.x = config.startCoordinates.x;
+		state.y = config.startCoordinates.y;
+	}
 	uint altFrames = 0;
+	int saveFramesLeft;
+	ushort inputPressed;
 	while (true) {
+		const lastPressed = inputPressed;
+		inputPressed = readInput();
+		const justPressed = (lastPressed ^ inputPressed) & inputPressed;
 		readInput();
 		if (inputPressed & Pad.a) {
 			punctuation = "!";
@@ -127,28 +143,33 @@ void start() {
 		} else {
 			punctuation = " ";
 		}
+		if (justPressed & Pad.start) {
+			saveFramesLeft = 60;
+			snes.sram!GameState(0) = state;
+			snes.commitSRAM();
+		}
 		if (inputPressed & Pad.left) {
-			x -= config.movementSpeed;
+			state.x -= config.movementSpeed;
 		} else if (inputPressed & Pad.right) {
-			x += config.movementSpeed;
+			state.x += config.movementSpeed;
 		}
 		if (inputPressed & Pad.up) {
-			y -= config.movementSpeed;
+			state.y -= config.movementSpeed;
 		} else if (inputPressed & Pad.down) {
-			y += config.movementSpeed;
+			state.y += config.movementSpeed;
 		}
-		if (x > 256 - 1) {
-			x = 256 - 1;
+		if (state.x > snes.screenWidth - 1) {
+			state.x = cast(short)(snes.screenWidth - 1);
 			altFrames = config.recoilFrames;
-		} else if (x < config.playerDimensions.width + 1) {
-			x = config.playerDimensions.width + 1;
+		} else if (state.x < config.playerDimensions.width + 1) {
+			state.x = config.playerDimensions.width + 1;
 			altFrames = config.recoilFrames;
 		}
-		if (y > 224 - 1) {
-			y = 224 - 1;
+		if (state.y > snes.screenHeight - 1) {
+			state.y = cast(short)(snes.screenHeight - 1);
 			altFrames = config.recoilFrames;
-		} else if (y < config.playerDimensions.height + 1) {
-			y = config.playerDimensions.height + 1;
+		} else if (state.y < config.playerDimensions.height + 1) {
+			state.y = config.playerDimensions.height + 1;
 			altFrames = config.recoilFrames;
 		}
 		bool useAltFrame;
@@ -156,8 +177,8 @@ void start() {
 			altFrames--;
 			useAltFrame = true;
 		}
-		ubyte baseX = cast(ubyte)(x - 8);
-		ubyte baseY = cast(ubyte)(y - 8);
+		ubyte baseX = cast(ubyte)(state.x - 8);
+		ubyte baseY = cast(ubyte)(state.y - 8);
 		oam[0].xCoord = baseX;
 		oam[0].yCoord = baseY;
 		oam[0].startingTile = useAltFrame ? 1 : 0;
@@ -169,11 +190,17 @@ void start() {
 		oam[3].yCoord = cast(ubyte)(baseY + 8);
 		oam[4].xCoord = cast(ubyte)(baseX + 8);
 		oam[4].yCoord = baseY;
+		if (saveFramesLeft > 0) {
+			saveFramesLeft--;
+			printText(0, 16, "State saved");
+		} else {
+			printText(0, 16, "           ");
+		}
+		printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
 		finishFrame();
 	}
 }
 void vblank() {
 	snes.handleCGRAMDMA(0b00000000, 0x22, &palettes[0][0], cast(ushort)(palettes.length * palettes[0].sizeof), 0);
 	snes.handleOAMDMA(0b00000000, 0x04, &oam[0], cast(ushort)(oam.length * OAMEntry.sizeof), 0);
-	printText(cast(ubyte)(config.textCoordinates.x + config.text.length), config.textCoordinates.y, punctuation);
 }
