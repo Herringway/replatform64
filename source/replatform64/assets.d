@@ -426,17 +426,17 @@ const(ubyte)[] saveROMAsset(const(ubyte)[] data, const SymbolMetadata asset) @sa
 		case DataType.raw:
 			return data;
 		case DataType.bpp2Linear:
-			return saveTilesToImage(cast(const(Linear2BPP)[])data);
+			return saveTilesToImage(cast(const(Linear2BPP)[])(data[0 .. ($ / Linear2BPP.sizeof) * Linear2BPP.sizeof]));
 		case DataType.bpp1:
-			return saveTilesToImage(cast(const(Simple1BPP)[])data);
+			return saveTilesToImage(cast(const(Simple1BPP)[])(data[0 .. ($ / Simple1BPP.sizeof) * Simple1BPP.sizeof]));
 		case DataType.bpp2Intertwined:
-			return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
+			return saveTilesToImage(cast(const(Intertwined2BPP)[])(data[0 .. ($ / Intertwined2BPP.sizeof) * Intertwined2BPP.sizeof]));
 		case DataType.bpp4Intertwined:
-			return saveTilesToImage(cast(const(Intertwined4BPP)[])data);
+			return saveTilesToImage(cast(const(Intertwined4BPP)[])(data[0 .. ($ / Intertwined4BPP.sizeof) * Intertwined4BPP.sizeof]));
 		case DataType.bpp8Intertwined:
-			return saveTilesToImage(cast(const(Intertwined8BPP)[])data);
+			return saveTilesToImage(cast(const(Intertwined8BPP)[])(data[0 .. ($ / Intertwined8BPP.sizeof) * Intertwined8BPP.sizeof]));
 		case DataType.bpp8packed:
-			return saveTilesToImage(cast(const(Packed8BPP)[])data);
+			return saveTilesToImage(cast(const(Packed8BPP)[])(data[0 .. ($ / Packed8BPP.sizeof) * Packed8BPP.sizeof]));
 		case DataType.paletteBGR555:
 			return savePaletteToImage(cast(const(BGR555)[])data, 1 << asset.paletteDepth);
 		case DataType.structured:
