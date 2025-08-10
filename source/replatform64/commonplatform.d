@@ -334,6 +334,7 @@ struct PlatformCommon {
 
 				//handle generic data
 				static foreach (asset; SymbolData!Modules) {{
+					tracef("Extracting %s", asset.metadata.name);
 					static if (asset.metadata.sources.length > 0) {
 						foreach (i, element; asset.metadata.sources) {{
 							{
