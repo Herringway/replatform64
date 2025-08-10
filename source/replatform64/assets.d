@@ -29,6 +29,8 @@ enum DataType {
 	bpp2Intertwined,
 	bpp2Linear,
 	bpp4Intertwined,
+	bpp8Intertwined,
+	bpp8packed,
 	paletteBGR555,
 }
 
@@ -72,6 +74,8 @@ string defaultExtension(DataType type) {
 		case DataType.bpp2Linear: return "png";
 		case DataType.bpp2Intertwined: return "png";
 		case DataType.bpp4Intertwined: return "png";
+		case DataType.bpp8Intertwined: return "png";
+		case DataType.bpp8packed: return "png";
 		case DataType.paletteBGR555: return "png";
 	}
 }
@@ -360,8 +364,8 @@ private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) @safe {
 	auto pixelArray = img.data;
 	const colours = 1 << T.bpp;
 	foreach (i; 0 .. colours) {
-		ubyte g = cast(ubyte)((255 / colours) * (colours - i));
-		img.addColor(RGBA32(red: g, green: g, blue: g, alpha: i == 0 ? 0 : 255));
+		float g = (255.0 / colours) * (colours - i);
+		img.addColor(RGBA32(red: cast(ubyte)g, green: cast(ubyte)g, blue: cast(ubyte)g, alpha: i == 0 ? 0 : 255));
 	}
 	foreach (tileID, tile; tiles) {
 		foreach (colIdx; 0 .. 8) {
@@ -408,6 +412,10 @@ const(ubyte)[] loadROMAsset(const(ubyte)[] data, const SymbolMetadata asset) @sa
 			return readTilesFromImage!Intertwined2BPP(data);
 		case DataType.bpp4Intertwined:
 			return readTilesFromImage!Intertwined4BPP(data);
+		case DataType.bpp8Intertwined:
+			return readTilesFromImage!Intertwined8BPP(data);
+		case DataType.bpp8packed:
+			return readTilesFromImage!Packed8BPP(data);
 		case DataType.paletteBGR555:
 			return readPaletteFromImage!BGR555(data);
 	}
@@ -424,6 +432,10 @@ const(ubyte)[] saveROMAsset(const(ubyte)[] data, const SymbolMetadata asset) @sa
 			return saveTilesToImage(cast(const(Intertwined2BPP)[])data);
 		case DataType.bpp4Intertwined:
 			return saveTilesToImage(cast(const(Intertwined4BPP)[])data);
+		case DataType.bpp8Intertwined:
+			return saveTilesToImage(cast(const(Intertwined8BPP)[])data);
+		case DataType.bpp8packed:
+			return saveTilesToImage(cast(const(Packed8BPP)[])data);
 		case DataType.paletteBGR555:
 			return savePaletteToImage(cast(const(BGR555)[])data, 1 << asset.paletteDepth);
 		case DataType.structured:
