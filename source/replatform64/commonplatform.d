@@ -340,7 +340,7 @@ struct PlatformCommon {
 								enum str = "Extracting " ~ asset.metadata.name;
 								send(main, Progress(str, cast(uint)i, cast(uint)asset.metadata.sources.length));
 							}
-							addFile(asset.metadata.assetPath(i), saveROMAsset(rom[element.offset .. element.offset + element.length], asset.metadata));
+							addFile(asset.metadata.assetPath(i), saveROMAsset(element.postProcess(rom[element.offset .. element.offset + element.length]), asset.metadata));
 						}}
 					} else {
 						if (asset.metadata.type == DataType.structured) {
@@ -429,7 +429,7 @@ struct PlatformCommon {
 				() {
 				if (asset.name.matches(Symbol.metadata)) {
 					matched = true;
-					auto data = loadROMAsset(asset.data, Symbol.metadata);
+					auto data = Symbol.metadata.preProcess(loadROMAsset(asset.data, Symbol.metadata));
 					static if (Symbol.metadata.array) {
 						arrayAssets[asset.name] ~= data;
 						Symbol.data = [];
@@ -463,7 +463,7 @@ struct PlatformCommon {
 				foreach (candidate; only(assetPath(Symbol.metadata, 0), Symbol.metadata.name)) {
 					const path = buildPath("data", candidate);
 					if (path.exists) {
-						const fileData = loadROMAsset(cast(ubyte[])read(path), Symbol.metadata);
+						const fileData = Symbol.metadata.preProcess(loadROMAsset(cast(ubyte[])read(path), Symbol.metadata));
 						loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, fileData, Symbol.metadata, path, "filesystem");
 						break;
 					}
@@ -585,6 +585,11 @@ struct PlatformCommon {
 }
 
 @system unittest {
+	static const(ubyte[]) postProcessTest(scope const ubyte[] input) {
+		auto result = input.dup;
+		result[] ^= 0xFF;
+		return result;
+	}
 	static struct FakeModule {
 		static struct SomeStruct {
 			ubyte a;
@@ -599,6 +604,11 @@ struct PlatformCommon {
 		static ubyte[] sample2;
 		@([ROMSource(0, 1), ROMSource(1, 3)])
 		static immutable(ubyte[])[] sample3;
+		@([ROMSource(0, 1, &postProcessTest), ROMSource(1, 3, &postProcessTest)])
+		static immutable(ubyte[])[] sample3Processed;
+		@([ROMSource(0, 1, &postProcessTest), ROMSource(1, 3, &postProcessTest)])
+		@Asset("test/whatever", DataType.raw, preProcess: &postProcessTest)
+		static immutable(ubyte[])[] sample3Reprocessed;
 		@Asset("test/structure.yaml", DataType.structured)
 		static SomeStruct someStruct = SomeStruct(4, [1, 2, 3], "blah");
 		@Asset("test/structures.yaml", DataType.structured)
@@ -623,17 +633,21 @@ struct PlatformCommon {
 	assert(FakeModule.sample == [0, 1, 2, 3]);
 	assert(FakeModule.sample2 == [0, 1, 2, 3]);
 	assert(FakeModule.sample3 == [[0], [1, 2, 3]]);
+	assert(FakeModule.sample3Processed == [[0xFF], [0xFE, 0xFD, 0xFC]]);
+	assert(FakeModule.sample3Reprocessed == [[0], [1, 2, 3]]);
 	assert(FakeModule.someStruct == FakeModule.SomeStruct(4, [1, 2, 3], "blah"));
 	assert(FakeModule.someStructArray == [FakeModule.SomeStruct(2, [2, 3], "bleh"), FakeModule.SomeStruct(6, [222, 3], "!!!")]);
 	FakeModule.sample = [];
 	FakeModule.sample2 = [];
-	FakeModule.sample3 = [];
+	FakeModule.sample3Processed = [];
 	FakeModule.someStruct = FakeModule.SomeStruct(2, [], "???");
 	FakeModule.someStructArray = [];
 	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader, toFilesystem: false);
 	assert(FakeModule.sample == [0, 1, 2, 3]);
 	assert(FakeModule.sample2 == [0, 1, 2, 3]);
 	assert(FakeModule.sample3 == [[0], [1, 2, 3]]);
+	assert(FakeModule.sample3Processed == [[0xFF], [0xFE, 0xFD, 0xFC]]);
+	assert(FakeModule.sample3Reprocessed == [[0], [1, 2, 3]]);
 	assert(FakeModule.someStruct == FakeModule.SomeStruct(4, [1, 2, 3], "blah"));
 	assert(FakeModule.someStructArray == [FakeModule.SomeStruct(2, [2, 3], "bleh"), FakeModule.SomeStruct(6, [222, 3], "!!!")]);
 	assert(count == 2);

@@ -34,9 +34,11 @@ enum DataType {
 	paletteBGR555,
 }
 
+private const(ubyte[]) identity(scope const(ubyte)[] input) => input;
 struct ROMSource {
 	uint offset;
 	uint length;
+	const(ubyte[]) function(scope const(ubyte)[]) postProcess = &identity;
 }
 
 struct Asset {
@@ -44,6 +46,7 @@ struct Asset {
 	DataType type;
 	bool forceMultipleFiles;
 	size_t paletteDepth;
+	const(ubyte[]) function(scope const(ubyte)[]) preProcess = &identity;
 }
 
 private enum isROMLoadable(alias sym) = (Filter!(typeMatches!ROMSource, __traits(getAttributes, sym)).length == 1) || (Filter!(typeMatches!(ROMSource[]), __traits(getAttributes, sym)).length == 1);
@@ -86,6 +89,7 @@ struct SymbolMetadata {
 	bool array;
 	DataType type;
 	size_t paletteDepth = 16;
+	const(ubyte[]) function(scope const(ubyte)[]) preProcess = &identity;
 	bool requiresExtraction() const @safe pure {
 		return (sources.length != 0) && (type == DataType.structured);
 	}
@@ -185,9 +189,9 @@ private template SymbolMetadataFor(alias Sym) {
 	}
 	static if (isROMLoadable!Sym) {
 		static if (SingleSource.length == 1) { // single source
-			enum SymbolMetadataFor = SymbolMetadata([SingleSource], SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type, ThisAsset.paletteDepth);
+			enum SymbolMetadataFor = SymbolMetadata([SingleSource], SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type, ThisAsset.paletteDepth, ThisAsset.preProcess);
 		} else static if (MultiSources.length == 1) { // array of sources
-			enum SymbolMetadataFor = SymbolMetadata(MultiSources, SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type, ThisAsset.paletteDepth);
+			enum SymbolMetadataFor = SymbolMetadata(MultiSources, SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type, ThisAsset.paletteDepth, ThisAsset.preProcess);
 		}
 	} else static if (isAsset!Sym) { // not extracted, but expected to exist
 		enum SymbolMetadataFor = SymbolMetadata([], SymbolAssetName!Sym, defaultExtension(ThisAsset.type), useMultipleFiles!(typeof(Sym)) || ThisAsset.forceMultipleFiles, ThisAsset.type);
