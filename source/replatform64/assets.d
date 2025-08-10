@@ -381,10 +381,10 @@ private const(ubyte)[] saveTilesToImage(T)(const(T)[] tiles) @safe {
 	return writePngToArray(img);
 }
 private const(ubyte)[] readPaletteFromImage(T)(const(ubyte)[] data) @safe {
-	if (auto img = cast(IndexedImage)readPngFromBytes(data)) {
+	if (auto img = cast(TrueColorImage)readPngFromBytes(data)) {
 		T[] colours;
-		foreach (colour; img.palette) {
-			colours ~= colour.convert!T;
+		foreach (x, y, pixel; img.colours) {
+			colours ~= pixel.convert!T;
 		}
 		return cast(ubyte[])colours;
 	} else { // not an indexed PNG?
@@ -394,12 +394,9 @@ private const(ubyte)[] readPaletteFromImage(T)(const(ubyte)[] data) @safe {
 const(ubyte)[] savePaletteToImage(T)(const(T)[] colours, size_t entries) @safe {
 	const width = max(1, entries);
 	const height = colours.length / entries;
-	auto img = new IndexedImage(cast(int)width, cast(int)height);
-	foreach (colour; colours) {
-		img.addColor(colour.convert!RGBA32());
-	}
+	auto img = new TrueColorImage(cast(int)width, cast(int)height);
 	foreach (idx, colour; colours) {
-		img.data[idx % width, idx / width] = cast(ubyte)idx;
+		img.colours[idx % width, idx / width] = colour.convert!RGBA32();
 	}
 	return writePngToArray(img);
 }
