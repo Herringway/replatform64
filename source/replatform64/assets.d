@@ -98,7 +98,7 @@ struct SymbolMetadata {
 string assetPath(const scope SymbolMetadata symbol, size_t i) @safe pure {
 	import std.math : ceil, log10;
 	import std.format;
-	if (!symbol.array) {
+	if (!symbol.array || ((symbol.sources.length == 1) && (symbol.type == DataType.paletteBGR555))) {
 		return symbol.name;
 	} else {
 		return format!"%s/%0*d%s%s"(symbol.name, cast(int)ceil(log10(cast(float)symbol.sources.length)), i, symbol.extension != "" ? "." : "", symbol.extension);
