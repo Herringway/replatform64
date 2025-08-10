@@ -88,7 +88,7 @@ struct SymbolMetadata {
 	string extension = "bin";
 	bool array;
 	DataType type;
-	size_t paletteDepth = 16;
+	size_t paletteDepth = 4;
 	const(ubyte[]) function(scope const(ubyte)[]) preProcess = &identity;
 	bool requiresExtraction() const @safe pure {
 		return (sources.length != 0) && (type == DataType.structured);
