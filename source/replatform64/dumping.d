@@ -17,7 +17,7 @@ import replatform64.util;
 public import siryul : Skip;
 
 alias StateDumper = void delegate(scope string filename, scope const(ubyte)[] data) @safe;
-alias CrashHandler = void delegate(StateDumper);
+alias CrashHandler = void delegate(StateDumper) @safe;
 
 CrashHandler crashHandler;
 string repositoryURL;
@@ -44,19 +44,22 @@ string prepareCrashDirectory() {
 	return dir;
 }
 
-noreturn writeDebugDumpOtherThread(string msg, Throwable.TraceInfo traceInfo) nothrow {
+noreturn writeDebugDumpOtherThread(string msg, Throwable.TraceInfo traceInfo) nothrow @trusted {
 	otherThreadCrashMsg = msg;
 	otherThreadCrashTrace = cast(shared)traceInfo;
 	otherThreadCrashed = true;
 	while(true) {}
 }
-void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) {
+void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) @safe {
 	auto crashDir = buildNormalizedPath("dump", format!"crash %s"(Clock.currTime.toISOString)).absolutePath;
 	mkdirRecurse(crashDir);
 	void addFile(string filename, scope const(ubyte)[] data) @trusted {
 		File(buildPath(crashDir, filename), "w").rawWrite(data);
 	}
-	addFile("trace.txt", cast(const(ubyte)[])text(msg, "\n", traceInfo));
+	static void trustedWriteDebugMessage(StateDumper addFile, string msg, Throwable.TraceInfo traceInfo) @trusted {
+		addFile("trace.txt", cast(const(ubyte)[])text(msg, "\n", traceInfo));
+	}
+	trustedWriteDebugMessage(&addFile, msg, traceInfo);
 	dumpStateToFile(buildPath(crashDir, "state.yaml"));
 	crashHandler(&addFile);
 	if (repositoryURL != "") {
@@ -76,7 +79,7 @@ Array2D!Target convert(Target, Source)(const Array2D!Source frame) {
 	return result;
 }
 
-const(ubyte)[] dumpPNG(ref Texture texture) {
+const(ubyte)[] dumpPNG(ref Texture texture) @safe {
 	final switch (texture.format) {
 		static foreach (pixelFormat; EnumMembers!PixelFormat) {
 			case pixelFormat:

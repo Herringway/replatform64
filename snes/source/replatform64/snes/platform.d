@@ -24,8 +24,8 @@ struct Settings {
 }
 
 struct SNES {
-	void function() entryPoint = { throw new Exception("No entry point defined"); };
-	void function() interruptHandlerVBlank = {};
+	void function() @safe entryPoint = { throw new Exception("No entry point defined"); };
+	void function() @safe interruptHandlerVBlank = {};
 	deprecated("Use interruptHandlerVBlank instead") alias interruptHandler = interruptHandlerVBlank;
 	string title;
 	SNESRenderer renderer;
@@ -57,7 +57,7 @@ struct SNES {
 		platform.registerMemoryRange("OAM2", renderer.oam2);
 	}
 	auto preDraw() => interruptHandlerVBlank();
-	void draw() {
+	void draw() @safe {
 		Texture texture;
 		platform.backend.video.getDrawingTexture(texture);
 		assert(texture.buffer.length > 0, "No buffer");
@@ -79,7 +79,7 @@ struct SNES {
 		}
 		return data;
 	}
-	void handleHDMA() {
+	void handleHDMA() @safe {
 		.handleHDMA(renderer, HDMAEN, dmaChannels);
 	}
 	void handleOAMDMA(ubyte dmap, ubyte bbad, const(void)* a1t, ushort das, ushort oamaddr) pure {
@@ -124,7 +124,7 @@ struct SNES {
 	ushort getControllerState(ubyte playerID) const @safe pure {
 		return pads[playerID];
 	}
-	ubyte readRegister(ushort addr) {
+	ubyte readRegister(ushort addr) @safe {
 		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
 			return renderer.readRegister(addr);
 		} else if ((addr >= Register.APUIO0) && (addr <= Register.APUIO3)) {
@@ -133,7 +133,7 @@ struct SNES {
 			assert(0, "Unsupported read");
 		}
 	}
-	void writeRegisterPlatform(ushort addr, ubyte value) {
+	void writeRegisterPlatform(ushort addr, ubyte value) @safe {
 		if ((addr >= Register.INIDISP) && (addr <= Register.STAT78)) {
 			renderer.writeRegister(addr, value);
 		} else if ((addr >= Register.APUIO0) && (addr <= Register.APUIO3)) {

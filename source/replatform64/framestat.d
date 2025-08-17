@@ -20,17 +20,17 @@ struct FrameStatTracker {
 	Frame[frameCount] history;
 	private Frame next;
 	private MonoTime lastCheck;
-	void startFrame() {
+	void startFrame() @safe {
 		auto now = MonoTime.currTime;
 		lastCheck = now;
 		next.start = now;
 	}
-	void checkpoint(FrameStatistic stat) {
+	void checkpoint(FrameStatistic stat) @safe {
 		auto now = MonoTime.currTime;
 		next.statistics[stat] = [lastCheck, now];
 		lastCheck = now;
 	}
-	void endFrame() {
+	void endFrame() @safe {
 		next.end = MonoTime.currTime;
 		copy(history[1 .. $].chain(only(next)), history[]);
 	}

@@ -13,7 +13,7 @@ const(ubyte)[] serialized(T)(auto ref const T data) {
 }
 
 /// Dumps the game state to a human-readable file
-void function(string path) dumpStateToFile = (str) {};
+void function(string path) @safe dumpStateToFile = (str) {};
 
 template typeMatches(T) {
 	enum typeMatches(alias t) = is(typeof(t) == T);
@@ -31,7 +31,7 @@ struct Texture {
 		return Array2D!T(width, height, pitch / T.sizeof, cast(T[])buffer);
 	}
 	void delegate() @safe nothrow @nogc cleanup;
-	~this() {
+	~this() @safe {
 		cleanup();
 	}
 }
@@ -406,4 +406,14 @@ auto bitRangeOf(T)(const T value) if (isIntegral!T) {
 		bool opIndex(size_t index) const => !!(value & (1 << index));
 	}
 	return Result(value);
+}
+
+package ubyte[] trustedRead(string filename) @trusted {
+	import std.file : read;
+	return cast(ubyte[])read(filename);
+}
+
+package void trustedRead(string filename, ubyte[] buffer) @trusted {
+	import std.stdio : File;
+	File(filename, "r").rawRead(buffer);
 }

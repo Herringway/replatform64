@@ -333,7 +333,7 @@ struct PlanetArchive {
 			copy(files.boxZip(), range);
 		}
 	}
-	static PlanetArchive read(ubyte[] buffer) {
+	static PlanetArchive read(ubyte[] buffer) @trusted {
 		return PlanetArchive(buffer.unboxZip.array);
 	}
 	private struct Entry {

@@ -62,35 +62,35 @@ struct Config {
 	ubyte recoilFrames = 15;
 }
 
-ushort readInput() {
+ushort readInput() @safe {
 	return snes.getControllerState(0);
 }
-void writeToVRAM(scope const ubyte[] data, ushort addr)
+void writeToVRAM(scope const ubyte[] data, ushort addr) @safe
 	in(data.length)
 {
-	snes.handleVRAMDMA(0b00000001, 0x18, data.ptr, cast(ushort)data.length, addr, 0b10000000);
+	snes.handleVRAMDMA(0b00000001, 0x18, data, cast(ushort)data.length, addr, 0b10000000);
 }
-void init() {
+void init() @safe {
 	snes.INIDISP = 0x80; // display off while we set up
 	snes.BGMODE = 0; // mode 0
 	snes.BG1SC = 0x1000 >> 8; // BG1 tilemap at $1000
 	snes.BG12NBA = 0x44; // BG 1 + 2 tiles at $4000
 	snes.OBSEL = 0x01; // OBJ tiles at $2000
 }
-void load() {
+void load() @safe {
 	writeToVRAM(objData, 0x2000);
 	writeToVRAM(fontData, 0x4000);
 	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 }
-void startRendering() {
+void startRendering() @safe {
 	snes.INIDISP = 0x0F; // screen on, max brightness
 	snes.TM = 0x11; // obj + bg 1 enabled
 	snes.NMITIMEN = 0x80; // vblank enabled
 }
-void finishFrame() {
+void finishFrame() @safe {
 	snes.wait();
 }
-void printText(ubyte x, ubyte y, string str) {
+void printText(ubyte x, ubyte y, string str) @safe {
 	ushort[16] buffer;
 	size_t position;
 	ushort addr = cast(ushort)(0x1000 + y * 32 + x);
@@ -113,7 +113,7 @@ void printText(ubyte x, ubyte y, string str) {
 	}
 }
 string punctuation = "!";
-void start() {
+void start() @safe {
 	init();
 	load();
 	startRendering();
@@ -200,7 +200,7 @@ void start() {
 		finishFrame();
 	}
 }
-void vblank() {
-	snes.handleCGRAMDMA(0b00000000, 0x22, &palettes[0][0], cast(ushort)(palettes.length * palettes[0].sizeof), 0);
-	snes.handleOAMDMA(0b00000000, 0x04, &oam[0], cast(ushort)(oam.length * OAMEntry.sizeof), 0);
+void vblank() @safe {
+	snes.handleCGRAMDMA(0b00000000, 0x22, cast(const(ubyte)[])palettes[], cast(ushort)(palettes.length * palettes[0].sizeof), 0);
+	snes.handleOAMDMA(0b00000000, 0x04, cast(const(ubyte)[])oam[], cast(ushort)(oam.length * OAMEntry.sizeof), 0);
 }

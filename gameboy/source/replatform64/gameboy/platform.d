@@ -56,7 +56,7 @@ struct GameBoySimple {
 	enum renderHeight = height;
 	enum romExtension = ".gb";
 	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
-	void function(ushort) entryPoint = model => throw new Exception("No entry point defined");
+	void function(ushort) @safe entryPoint = model => throw new Exception("No entry point defined");
 	string title;
 	string sourceFile;
 	ubyte lcdYUpdateValue = 1;
@@ -108,10 +108,10 @@ struct GameBoySimple {
 	auto ref interruptHandlerVBlank() => interrupts.vblank;
 	auto ref interruptHandlerSerial() => interrupts.serial;
 	auto ref interruptHandlerJoypad() => interrupts.joypad;
-	void waitHBlank() {
+	void waitHBlank() @safe {
 		holdWritesUntilHBlank = true;
 	}
-	ubyte[] vram() {
+	ubyte[] vram() @safe return {
 		const offset = ppu.cgbMode * ppu.registers.vbk;
 		return ppu.vram.raw[0x2000 * offset .. 0x2000 * (offset + 1)];
 	}
@@ -154,7 +154,7 @@ struct GameBoySimple {
 			dumpVRAM = false;
 		}
 	}
-	ref auto waveRAM() {
+	ref auto waveRAM() @safe {
 		static struct WaveRAM {
 			GameBoySimple* gb;
 			void opIndexAssign(ubyte val, size_t offset) {
@@ -167,7 +167,7 @@ struct GameBoySimple {
 		return WaveRAM(&this);
 	}
 	ubyte DIV; /// NYI
-	void stop() {
+	void stop() @safe {
 		key1.commitSpeedChange();
 		if (key1.pretendDoubleSpeed) {
 			timer.timerMultiplier = 2;
@@ -175,7 +175,7 @@ struct GameBoySimple {
 			assert(0, "STOP should not be used except to switch speeds!");
 		}
 	}
-	void writeRegisterPlatform(ushort addr, ubyte value) {
+	void writeRegisterPlatform(ushort addr, ubyte value) @safe {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			apu.writeRegister(addr, value);
 		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
@@ -200,7 +200,7 @@ struct GameBoySimple {
 			assert(0, format!"Not yet implemented: %04X"(addr));
 		}
 	}
-	ubyte readRegister(ushort addr) {
+	ubyte readRegister(ushort addr) @safe {
 		if ((addr >= Register.NR10) && (addr <= Register.WAVEEND)) {
 			return apu.readRegister(addr);
 		} else if ((addr >= Register.TIMA) && (addr <= Register.TAC)) {
@@ -226,14 +226,14 @@ struct GameBoySimple {
 			assert(0, format!"Not yet implemented: %04X"(addr));
 		}
 	}
-	void enableInterrupts() => interrupts.setInterrupts(true);
-	void disableInterrupts() => interrupts.setInterrupts(false);
-	void draw() {
+	void enableInterrupts() @safe => interrupts.setInterrupts(true);
+	void disableInterrupts() @safe => interrupts.setInterrupts(false);
+	void draw() @safe {
 		Texture texture;
 		platform.backend.video.getDrawingTexture(texture);
 		draw(texture.asArray2D!(PPU.ColourFormat));
 	}
-	void draw(scope Array2D!(PPU.ColourFormat) texture) {
+	void draw(scope Array2D!(PPU.ColourFormat) texture) @safe {
 		ppu.beginDrawing(texture);
 		// draw each line, one at a time
 		foreach (i; 0 .. height) {
@@ -286,7 +286,7 @@ struct GameBoySimple {
 		// reset to 0 for next frame
 		ppu.registers.ly = 0;
 	}
-	private void timerUpdate() {
+	private void timerUpdate() @safe {
 		timer.scanlineUpdate();
 		if (timer.interruptTriggered) {
 			writeRegister(Register.IF, readRegister(Register.IF) | InterruptFlag.timer);

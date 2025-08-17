@@ -124,7 +124,7 @@ unittest {
 	assert(vram[0xB001] == 0x30);
 }
 
-void handleHDMA(ref SNESRenderer renderer, ubyte hdmaChannelsEnabled, DMAChannel[] dmaChannels) pure {
+void handleHDMA(ref SNESRenderer renderer, ubyte hdmaChannelsEnabled, DMAChannel[] dmaChannels) @safe pure {
 	import std.algorithm.sorting : sort;
 	import std.algorithm.mutation : SwapStrategy;
 	renderer.numHDMA = 0;
@@ -144,7 +144,7 @@ void handleHDMA(ref SNESRenderer renderer, ubyte hdmaChannelsEnabled, DMAChannel
 	}
 }
 
-void queueHDMA(const DMAChannel channel, scope HDMAWrite[] buffer, ref ushort numHDMAWrites) pure {
+void queueHDMA(const DMAChannel channel, scope HDMAWrite[] buffer, ref ushort numHDMAWrites) @trusted pure {
 	static void readTable(const(ubyte)* data, ubyte mode, ubyte lines, ubyte lineBase, ubyte baseAddr, bool always, HDMAWrite[] buffer, out size_t count) {
 		ubyte numBytes;
 		bool shortSized;
@@ -199,7 +199,7 @@ void queueHDMA(const DMAChannel channel, scope HDMAWrite[] buffer, ref ushort nu
 	ubyte dest = channel.BBAD;
 	ubyte increment = 1;
 	if (!indirect) {
-		auto data = cast(const(ubyte)*)channel.A1T;
+		auto data = channel.A1TDirect;
 		while (data[0] != 0) {
 			const lines = (data[0] == 0x80) ? 128 : (data[0] & 0x7F);
 			const always = !!(data[0] & 0x80);
@@ -210,7 +210,7 @@ void queueHDMA(const DMAChannel channel, scope HDMAWrite[] buffer, ref ushort nu
 			lineBase += lines;
 		}
 	} else {
-		auto data = cast(const(HDMAIndirectTableEntry)*)channel.A1T;
+		auto data = channel.A1TIndirect;
 		while (data[0].lines != 0) {
 			const lines = (data[0].lines == 0x80) ? 128 : (data[0].lines & 0x7F);
 			const always = !!(data[0].lines & 0x80);

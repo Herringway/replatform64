@@ -85,14 +85,14 @@ struct OAMEntry {
 	ubyte tile; /// Tile index. Least significant bit is ignored in tall sprite mode
 	OAMFlagsValue flags; /// Palette, bank, X flip, Y flip, priority
 	///
-	this(byte a, byte b, ubyte c, ubyte d) {
+	this(byte a, byte b, ubyte c, ubyte d) @safe pure {
 		y = a;
 		x = b;
 		tile = c;
 		flags.raw = d;
 	}
 	///
-	this(ubyte a) {
+	this(ubyte a) @safe pure {
 		y = a;
 	}
 }

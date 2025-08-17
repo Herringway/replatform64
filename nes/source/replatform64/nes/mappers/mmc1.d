@@ -34,7 +34,7 @@ struct MMC1 {
 	ubyte chrBank1;
 	ubyte chrBank2;
 	ubyte prgBank;
-	void writeRegister(ushort address, ubyte value, ref PPU ppu) {
+	void writeRegister(ushort address, ubyte value, ref PPU ppu) @safe {
 		// this uses 5-bit shift registers, with only one bit written at a time
 		// address only matters on the fifth bit written
 		const bool r = !!(value & (1 << 7));
@@ -46,7 +46,7 @@ struct MMC1 {
 			shiftWrites = 0;
 		}
 	}
-	void writeRealRegister(InternalRegister register, ubyte value, ref PPU ppu) {
+	void writeRealRegister(InternalRegister register, ubyte value, ref PPU ppu) @safe {
 		final switch (register) {
 			case InternalRegister.control:
 				nameTableArrangement = cast(NameTableMode)(value & 0b00011);

@@ -56,7 +56,7 @@ struct Config {
 	ubyte recoilFrames = 15;
 }
 
-ubyte readInput() {
+ubyte readInput() @safe {
 	gb.JOYP = 0x20;
 	ubyte inputPressed = (~gb.JOYP & 0xF) << 4;
 	gb.JOYP = 0x10;
@@ -64,14 +64,14 @@ ubyte readInput() {
 	gb.JOYP = 0x30;
 	return inputPressed;
 }
-void writeToVRAM(scope const ubyte[] data, ushort addr) {
+void writeToVRAM(scope const ubyte[] data, ushort addr) @safe {
 	gb.vram[addr - 0x8000 .. addr - 0x8000 + data.length] = data;
 }
-void init() {
+void init() @safe {
 	gb.enableInterrupts();
 	gb.LCDC = 0;
 }
-void load() {
+void load() @safe {
 	writeToVRAM(objData, 0x8000);
 	assert(objData.length, "Could not load OBJ data");
 	writeToVRAM(fontData, 0x9000);
@@ -79,17 +79,17 @@ void load() {
 	gb.IE = InterruptFlag.vblank;
 	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 }
-void startRendering() {
+void startRendering() @safe {
 	gb.SCY = 0;
 	gb.SCX = 0;
 	gb.NR52 = 0;
 	gb.BGP = 0b11100100;
 	gb.LCDC = 0b10000011;
 }
-void finishFrame() {
+void finishFrame() @safe {
 	gb.wait();
 }
-void printText(ubyte x, ubyte y, string str) {
+void printText(ubyte x, ubyte y, string str) @safe {
 	ubyte[16] buffer;
 	size_t position;
 	ushort addr = cast(ushort)(0x9800 + y * 32 + x);
@@ -112,7 +112,7 @@ void printText(ubyte x, ubyte y, string str) {
 	}
 }
 string punctuation = "!";
-void start(ushort system) {
+void start(ushort system) @safe {
 	init();
 	load();
 	startRendering();
@@ -198,7 +198,7 @@ void start(ushort system) {
 		finishFrame();
 	}
 }
-void vblank() {
+void vblank() @safe {
 	(cast(OAMEntry[])(gb.oam))[] = OAMEntry(-1, -1, 64, 0);
 	(cast(OAMEntry[])(gb.oam))[0 .. 5] = oam;
 }

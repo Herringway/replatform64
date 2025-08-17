@@ -285,11 +285,11 @@ public struct SnesDrawFrameData {
 			ImGui.EndTabBar();
 		}
 	}
-	public void drawFrame(Array2D!ColourFormat texture) const {
+	public void drawFrame(Array2D!ColourFormat texture) const @safe {
 		assert(texture.stride == 512);
 		texture[] = getFrameData();
 	}
-	ColourFormat[] getFrameData() const {
+	ColourFormat[] getFrameData() const @trusted {
 		ColourFormat* rawdata = cast(ColourFormat*)libsfcppu_drawFrame(&this);
 		return rawdata[ImgW * 16 .. ImgW * (ImgH + 16)];
 	}

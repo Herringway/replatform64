@@ -63,7 +63,7 @@ struct SNESRenderer {
 		infof("SNES PPU renderer initialized");
 	}
 
-	void draw(ubyte[] texture, int pitch) {
+	void draw(ubyte[] texture, int pitch) @safe {
 		final switch (renderer) {
 			case Renderer.autoSelect: assert(0);
 			case Renderer.bsnes:

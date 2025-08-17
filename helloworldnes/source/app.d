@@ -73,10 +73,10 @@ struct Config {
 	ubyte recoilFrames = 15;
 }
 
-ubyte readInput() {
+ubyte readInput() @safe {
 	return nes.getControllerState(0);
 }
-void init() {
+void init() @safe {
 	nes.JOY2 = 0x40;
 	nes.PPUCTRL = 0;
 	nes.PPUMASK = 0;
@@ -84,7 +84,7 @@ void init() {
 	while ((nes.PPUSTATUS & 0x80) == 0) {}
 	while ((nes.PPUSTATUS & 0x80) == 0) {}
 }
-void writeToVRAM(const(ubyte)[] src, ushort dest) {
+void writeToVRAM(const(ubyte)[] src, ushort dest) @safe {
 	//tracef("Transferring %s bytes to %04X", src.length, dest);
 	nes.PPUADDR = dest >> 8;
 	nes.PPUADDR = dest & 0xFF;
@@ -93,19 +93,19 @@ void writeToVRAM(const(ubyte)[] src, ushort dest) {
 		src = src[1 .. $];
 	}
 }
-void load() {
+void load() @safe {
 	writeToVRAM(objData, 0x0000);
 	writeToVRAM(fontData, 0x1000);
 	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 }
-void startRendering() {
+void startRendering() @safe {
 	nes.PPUCTRL = 0b1001_0000;
 	nes.PPUMASK = 0b0001_1110;
 }
-void finishFrame() {
+void finishFrame() @safe {
 	nes.wait();
 }
-void printText(ubyte x, ubyte y, string str) {
+void printText(ubyte x, ubyte y, string str) @safe {
 	ubyte[16] buffer;
 	size_t position;
 	ushort addr = cast(ushort)(0x2000 + y * 32 + x);
@@ -127,7 +127,7 @@ void printText(ubyte x, ubyte y, string str) {
 		writeToVRAM(cast(ubyte[])buffer[0 .. position], addr);
 	}
 }
-void start() {
+void start() @safe {
 	string punctuation = "!";
 	init();
 	load();
@@ -214,7 +214,7 @@ void start() {
 		finishFrame();
 	}
 }
-void vblank() {
+void vblank() @safe {
 	nes.handleOAMDMA(oam[], 0);
 	writeToVRAM(cast(const(ubyte)[])palettes, 0x3F00);
 }

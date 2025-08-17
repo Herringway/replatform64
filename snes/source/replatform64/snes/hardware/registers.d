@@ -266,16 +266,16 @@ struct OAMEntry {
 			));
 		}
 	}
-	static OAMEntry offscreen() {
+	static OAMEntry offscreen() @safe pure {
 		return OAMEntry(ubyte(0), ubyte(240), ubyte(0), ubyte(0));
 	}
-	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) {
+	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) @safe pure {
 		this.xCoord = x;
 		this.yCoord = y;
 		this.startingTile = tileLower;
 		this.flags = flags;
 	}
-	this(ubyte x, ubyte y, ushort tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) {
+	this(ubyte x, ubyte y, ushort tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) @safe pure {
 		this.xCoord = x;
 		this.yCoord = y;
 		this.tile = tile;
@@ -327,6 +327,14 @@ struct DMAChannel {
 	///NTLRx - $43xA - HDMA only
 	ubyte NTLR;
 	private ubyte[5] __unused;
+	const(ubyte)* A1TDirect() const @trusted pure {
+		assert(!(DMAP & 0b01000000), "Attempted to access direct HDMA data in indirect mode!");
+		return cast(const(ubyte)*)A1T;
+	}
+	const(HDMAIndirectTableEntry)* A1TIndirect() const @trusted pure {
+		assert(!!(DMAP & 0b01000000), "Attempted to access indirect HDMA data in direct mode!");
+		return cast(const(HDMAIndirectTableEntry)*)A1T;
+	}
 }
 ///
 align(1) struct HDMAIndirectTableEntry {

@@ -22,12 +22,12 @@ struct Settings {
 
 struct NullMapper {
 	enum name = "null";
-	void writeRegister(ushort, ubyte, ref PPU) {}
+	void writeRegister(ushort, ubyte, ref PPU) @safe {}
 }
 
 struct NES(Mapper = NullMapper) {
-	void function() entryPoint = { throw new Exception("No entry point defined"); };
-	void function() interruptHandlerVBlank = {};
+	void function() @safe entryPoint = { throw new Exception("No entry point defined"); };
+	void function() @safe interruptHandlerVBlank = {};
 	string title;
 	string sourceFile;
 	bool interruptsEnabled;
@@ -101,7 +101,7 @@ struct NES(Mapper = NullMapper) {
 			ImGui.EndTabBar();
 		}
 	}
-	void writeRegisterPlatform(ushort addr, ubyte value) {
+	void writeRegisterPlatform(ushort addr, ubyte value) @safe {
 		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
 			ppu.writeRegister(addr, value);
 		} else if (addr >= 0x8000) { // anything where ROM usually lives
@@ -114,7 +114,7 @@ struct NES(Mapper = NullMapper) {
 			assert(0, "Unknown/unsupported write");
 		}
 	}
-	ubyte readRegister(ushort addr) {
+	ubyte readRegister(ushort addr) @safe {
 		if ((addr >= Register.PPUCTRL) && (addr <= Register.PPUDATA)) {
 			return ppu.readRegister(addr);
 		} else if ((addr >= Register.JOY1) && (addr <= Register.JOY2)) {

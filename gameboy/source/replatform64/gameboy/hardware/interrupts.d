@@ -4,7 +4,7 @@ import replatform64.gameboy.hardware.registers;
 import replatform64.dumping;
 import replatform64.ui;
 
-alias InterruptFunction = void function();
+alias InterruptFunction = void function() @safe;
 
 struct Interrupts {
 	@Skip InterruptFunction vblank = {};
@@ -15,7 +15,7 @@ struct Interrupts {
 	private bool ime;
 	private ubyte ie;
 	private ubyte if_;
-	void writeRegister(ushort addr, ubyte value) {
+	void writeRegister(ushort addr, ubyte value) @safe {
 		if (addr == Register.IE) {
 			ie = value;
 		} else if (addr == Register.IF) {

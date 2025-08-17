@@ -240,7 +240,8 @@ struct PlatformCommon {
 			renderUI = true;
 		}
 	}
-	bool runFrame(scope void delegate() interrupt, scope void delegate() draw) {
+	bool runFrame(scope void delegate() @safe interrupt, scope void delegate() @safe draw) @safe {
+		static auto trustedFiberCall(Fiber game) @trusted => game.call(Fiber.Rethrow.no);
 		// pet the dog each frame so it knows we're ok
 		watchDog.pet();
 		const lastInput = inputState;
@@ -262,7 +263,7 @@ struct PlatformCommon {
 					infof("Game exited normally");
 					return true;
 				}
-				if (auto thrown = game.call(Fiber.Rethrow.no)) {
+				if (auto thrown = trustedFiberCall(game)) {
 					writeDebugDump(thrown.msg, thrown.info);
 					return true;
 				}
@@ -295,9 +296,10 @@ struct PlatformCommon {
 			inputState = backend.input.getState();
 		}
 	}
-	void wait(scope void delegate() interrupt) {
+	void wait(scope void delegate() @safe interrupt) @safe {
+		static void trustedYield() @trusted => Fiber.yield();
 		if (Fiber.getThis) {
-			Fiber.yield();
+			trustedYield();
 		} else {
 			interrupt();
 		}
@@ -312,9 +314,9 @@ struct PlatformCommon {
 	bool assetsExist() @safe {
 		return (gameID~".planet").exists;
 	}
-	PlanetArchive assets() {
+	PlanetArchive assets() @safe {
 		if ((gameID~".planet").exists) {
-			return PlanetArchive.read(cast(ubyte[])read(gameID~".planet"));
+			return PlanetArchive.read(trustedRead(gameID~".planet"));
 		}
 		throw new Exception("Not found");
 	}
@@ -472,7 +474,7 @@ struct PlatformCommon {
 			}}();
 		}
 	}
-	void runHook(string id) {
+	void runHook(string id) @safe {
 		if (auto matchingHooks = id in hooks) {
 			for (int i = 0; i < matchingHooks.length; i++) {
 				(*matchingHooks)[i].func();
@@ -482,16 +484,16 @@ struct PlatformCommon {
 			}
 		}
 	}
-	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
+	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) @safe {
 		hooks.require(id, []) ~= HookState(hook, settings);
 	}
-	private void prepareSRAM(uint slot, size_t size) {
+	private void prepareSRAM(uint slot, size_t size) @safe {
 		sramSlotBuffer.require(slot, () {
 			auto buffer = new ubyte[](size);
 			const name = saveFileName(slot);
 			if (name.exists) {
 				infof("Reading SRAM file %s", name);
-				File(name, "r").rawRead(buffer);
+				trustedRead(name, buffer);
 			}
 			return buffer;
 		}());
@@ -501,25 +503,26 @@ struct PlatformCommon {
 		prepareSRAM(slot, T.sizeof);
 		return (cast(T[])sramSlotBuffer[slot][0 .. T.sizeof])[0];
 	}
-	void commitSRAM() {
+	void commitSRAM() @safe {
+		static void trustedWrite(scope const string filename, scope const ubyte[] data) @trusted => File(filename, "wb").rawWrite(data);
 		foreach (slot, data; sramSlotBuffer) {
 			const name = saveFileName(slot);
 			infof("Writing %s", name);
-			File(name, "wb").rawWrite(data);
+			trustedWrite(name, data);
 		}
 	}
-	void deleteSlot(uint slot) {
+	void deleteSlot(uint slot) @safe {
 		remove(saveFileName(slot));
 	}
-	private string saveFileName(uint slot) {
+	private string saveFileName(uint slot) @safe {
 		return format!"%s.%s.sav"(gameID, slot);
 	}
-	void dumpScreen(StateDumper dumpFunction) {
+	void dumpScreen(StateDumper dumpFunction) @safe {
 		Texture texture;
 		backend.video.getDrawingTexture(texture);
 		dumpFunction("screen.png", dumpPNG(texture));
 	}
-	private void renderUIElements() {
+	private void renderUIElements() @trusted {
 		UIState state;
 		state.window = backend.video.getWindowState();
 		state.backend = backend.video;
@@ -715,7 +718,7 @@ mixin template PlatformCommonForwarders() {
 			copyInputState(platform.inputState);
 		}
 	}
-	void wait() {
+	void wait() @safe {
 		platform.wait({ interruptHandlerVBlank(); });
 	}
 	T loadSettings(T)() {
@@ -726,32 +729,32 @@ mixin template PlatformCommonForwarders() {
 	void saveSettings(T)(T gameSettings) {
 		platform.saveSettings(settings, gameSettings);
 	}
-	void runHook(string id) {
+	void runHook(string id) @safe {
 		platform.runHook(id);
 	}
-	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) {
+	void registerHook(string id, HookFunction hook, HookSettings settings = HookSettings.init) @safe {
 		platform.registerHook(id, hook.toDelegate(), settings);
 	}
-	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) {
+	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) @safe {
 		platform.registerHook(id, hook, settings);
 	}
 	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
 		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
 	}
-	void loadWAV(const(ubyte)[] data) {
+	void loadWAV(const(ubyte)[] data) @safe {
 		platform.backend.audio.loadWAV(data);
 	}
-	void writeRegister(Parameters!writeRegisterPlatform params) {
+	void writeRegister(Parameters!writeRegisterPlatform params) @safe {
 		printRegisterAccess(params[0], params[1]);
 		writeRegisterPlatform(params);
 	}
 	ref T sram(T)(uint slot) {
 		return platform.sram!T(slot);
 	}
-	void commitSRAM() {
+	void commitSRAM() @safe {
 		platform.commitSRAM();
 	}
-	void deleteSlot(uint slot) {
+	void deleteSlot(uint slot) @safe {
 		platform.deleteSlot(slot);
 	}
 	void playbackDemo(const RecordedInputState[] demo) @safe pure {
@@ -760,7 +763,7 @@ mixin template PlatformCommonForwarders() {
 	void registerMemoryRange(string name, ubyte[] range) @safe pure {
 		platform.registerMemoryRange(name, range);
 	}
-	void debugDump(StateDumper dumpFunction) {
+	void debugDump(StateDumper dumpFunction) @safe {
 		platform.dumpScreen(dumpFunction);
 		runIfPresent!"dump"(dumpFunction);
 	}
@@ -769,14 +772,14 @@ mixin template PlatformCommonForwarders() {
 		alias Type = typeof(readRegister(0));
 		static foreach (register; EnumMembers!Register) {
 			static if (__traits(compiles, mixin("cast(const)this.", register.stringof, "();"))) {
-				mixin("Type ", register.stringof, "() const { return readRegister(", register, "); }");
+				mixin("Type ", register.stringof, "() const @safe { return readRegister(", register, "); }");
 			} else {
-				mixin("Type ", register.stringof, "() { return readRegister(", register, "); }");
+				mixin("Type ", register.stringof, "() @safe { return readRegister(", register, "); }");
 			}
 			static if (hasUDA!(register, DoubleWrite)) {
-				mixin("void ", register.stringof, "(doubleSized!Type value) { writeRegister(", register, ", value & cast(Type)~Type.init); writeRegister(", register, ", value >> (Type.sizeof * 8)); }");
+				mixin("void ", register.stringof, "(doubleSized!Type value) @safe { writeRegister(", register, ", value & cast(Type)~Type.init); writeRegister(", register, ", value >> (Type.sizeof * 8)); }");
 			} else {
-				mixin("void ", register.stringof, "(Type value) { writeRegister(", register, ", value); }");
+				mixin("void ", register.stringof, "(Type value) @safe { writeRegister(", register, ", value); }");
 			}
 		}
 	}
@@ -796,8 +799,8 @@ enum HookType {
 	repeat
 }
 
-alias HookDelegate = void delegate();
-alias HookFunction = void function();
+alias HookDelegate = void delegate() @safe;
+alias HookFunction = void function() @safe;
 struct HookState {
 	HookDelegate func;
 	HookSettings settings;

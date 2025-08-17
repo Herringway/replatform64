@@ -111,16 +111,16 @@ struct OAMEntry {
 		}
 	}
 	ubyte x;
-	static OAMEntry offscreen() {
+	static OAMEntry offscreen() @safe pure {
 		return OAMEntry(ubyte(0), ubyte(255), ubyte(0), ubyte(0));
 	}
-	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) {
+	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) @safe pure {
 		this.x = x;
 		this.y = y;
 		this.index = tileLower;
 		this.attributes = flags;
 	}
-	this(ubyte x, ubyte y, ubyte tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) {
+	this(ubyte x, ubyte y, ubyte tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) @safe pure {
 		this.x = x;
 		this.y = y;
 		this.index = tile;
