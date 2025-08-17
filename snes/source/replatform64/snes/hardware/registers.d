@@ -406,6 +406,13 @@ union TilemapEntry {
 			bool, "flipVertical", 1,
 		));
 	}
+	this(ushort index, ubyte palette, bool priority, bool flipHorizontal, bool flipVertical) @safe pure {
+		this.index = index;
+		this.palette = palette;
+		this.priority = priority;
+		this.flipHorizontal = flipHorizontal;
+		this.flipVertical = flipVertical;
+	}
 }
 ///
 enum TilemapFlag {
