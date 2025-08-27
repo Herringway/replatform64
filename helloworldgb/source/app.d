@@ -18,7 +18,6 @@ void main(string[] args) {
 	gb.entryPoint = &start;
 	gb.interruptHandlerVBlank = &vblank;
 	gb.title = "Hello World (GB)";
-	gb.sourceFile = "helloworld.gb";
 	gb.gameID = "helloworld";
 	if (gb.parseArgs(args)) {
 		return;
