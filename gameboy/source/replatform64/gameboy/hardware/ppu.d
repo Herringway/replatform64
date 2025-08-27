@@ -411,7 +411,7 @@ struct PPU {
 				}, (index) {
 					const sprite = _oam[index];
 					ImGui.Text("Coordinates: %d, %d", sprite.x, sprite.y);
-					ImGui.Text("Tile: %d", sprite.tile);
+					ImGui.Text("Tile: %d_%d", sprite.flags.bank, sprite.tile);
 					ImGui.Text("Orientation: ");
 					ImGui.SameLine();
 					ImGui.Text(["Normal", "Flipped horizontally", "Flipped vertically", "Flipped horizontally, vertically"][(sprite.flags.raw >> 5) & 3]);
