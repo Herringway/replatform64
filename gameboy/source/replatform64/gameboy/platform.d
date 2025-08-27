@@ -58,7 +58,6 @@ struct GameBoySimple {
 	alias RenderPixelFormat = PixelFormatOf!(PPU.ColourFormat);
 	void function(ushort) @safe entryPoint = model => throw new Exception("No entry point defined");
 	string title;
-	string sourceFile;
 	ubyte lcdYUpdateValue = 1;
 	LCDYUpdateStrategy lcdYUpdateStrategy;
 	uint seed = 0x12345678;
