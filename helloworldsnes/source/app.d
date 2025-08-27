@@ -12,7 +12,6 @@ struct GameState {
 struct GameSettings {}
 SNES snes;
 
-
 OAMEntry[128] oam = OAMEntry.offscreen; // all unused sprites should render offscreen
 
 void main(string[] args) {
