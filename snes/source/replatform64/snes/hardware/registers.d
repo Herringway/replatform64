@@ -2,21 +2,22 @@ module replatform64.snes.hardware.registers;
 
 import std.bitmanip;
 import replatform64.registers;
+import replatform64.util;
 
 enum Register {
-	INIDISP = 0x2100,
-	OBSEL = 0x2101,
+	@RegisterValueType!INIDISPValue INIDISP = 0x2100,
+	@RegisterValueType!OBSELValue OBSEL = 0x2101,
 	OAMADDL = 0x2102,
 	OAMADDH = 0x2103,
 	OAMDATA = 0x2104,
-	BGMODE = 0x2105,
-	MOSAIC = 0x2106,
-	BG1SC = 0x2107,
-	BG2SC = 0x2108,
-	BG3SC = 0x2109,
-	BG4SC = 0x210A,
-	BG12NBA = 0x210B,
-	BG34NBA = 0x210C,
+	@RegisterValueType!BGMODEValue BGMODE = 0x2105,
+	@RegisterValueType!MOSAICValue MOSAIC = 0x2106,
+	@RegisterValueType!BGxSCValue BG1SC = 0x2107,
+	@RegisterValueType!BGxSCValue BG2SC = 0x2108,
+	@RegisterValueType!BGxSCValue BG3SC = 0x2109,
+	@RegisterValueType!BGxSCValue BG4SC = 0x210A,
+	@RegisterValueType!BGxxNBAValue BG12NBA = 0x210B,
+	@RegisterValueType!BGxxNBAValue BG34NBA = 0x210C,
 	@DoubleWrite BG1HOFS = 0x210D,
 	@DoubleWrite BG1VOFS = 0x210E,
 	@DoubleWrite BG2HOFS = 0x210F,
@@ -30,7 +31,7 @@ enum Register {
 	VMADDH = 0x2117,
 	VMDATAL = 0x2118,
 	VMDATAH = 0x2119,
-	M7SEL = 0x211A,
+	@RegisterValueType!M7SELValue M7SEL = 0x211A,
 	M7A = 0x211B,
 	M7B = 0x211C,
 	M7C = 0x211D,
@@ -53,10 +54,10 @@ enum Register {
 	TD = TS,
 	TMW = 0x212E,
 	TSW = 0x212F,
-	CGWSEL = 0x2130,
-	CGADSUB = 0x2131,
+	@RegisterValueType!CGWSELValue CGWSEL = 0x2130,
+	@RegisterValueType!CGADSUBValue CGADSUB = 0x2131,
 	COLDATA = 0x2132,
-	SETINI = 0x2133,
+	@RegisterValueType!SETINIValue SETINI = 0x2133,
 	MPYL = 0x2134,
 	MPYM = 0x2135,
 	MPYH = 0x2136,
@@ -396,23 +397,13 @@ enum BGR555Mask {
 }
 ///
 union TilemapEntry {
-	ushort raw;
-	struct {
-		mixin(bitfields!(
-			ushort, "index", 10,
-			ubyte, "palette", 3,
-			bool, "priority", 1,
-			bool, "flipHorizontal", 1,
-			bool, "flipVertical", 1,
-		));
-	}
-	this(ushort index, ubyte palette, bool priority, bool flipHorizontal, bool flipVertical) @safe pure {
-		this.index = index;
-		this.palette = palette;
-		this.priority = priority;
-		this.flipHorizontal = flipHorizontal;
-		this.flipVertical = flipVertical;
-	}
+	mixin RegisterValue!(ushort,
+		ushort, "index", 10,
+		ubyte, "palette", 3,
+		bool, "priority", 1,
+		bool, "flipHorizontal", 1,
+		bool, "flipVertical", 1,
+	);
 }
 ///
 enum TilemapFlag {
@@ -442,113 +433,96 @@ immutable ushort[8] pixelPlaneMasks = [
 
 ///
 union INIDISPValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			uint, "screenBrightness", 4,
-			uint, "", 3,
-			bool, "forcedBlank", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		uint, "screenBrightness", 4,
+		uint, "", 3,
+		bool, "forcedBlank", 1,
+	);
+}
+
+enum OBJSize {
+	small8x8Large16x16,
+	small8x8Large32x32,
+	small8x8Large64x64,
+	small16x16Large32x32,
+	small16x16Large64x64,
+	small32x32Large64x64,
+	small16x32Large32x64,
+	small16x32Large32x32,
 }
 
 ///
 union OBSELValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			uint, "tileBase", 3,
-			uint, "hiOffset", 2,
-			uint, "size", 3,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		uint, "tileBase", 3,
+		uint, "hiOffset", 2,
+		OBJSize, "size", 3,
+	);
 }
 
 ///
 union BGMODEValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			uint, "mode", 3,
-			bool, "bg3Priority", 1,
-			bool, "largeBG1Tiles", 1,
-			bool, "largeBG2Tiles", 1,
-			bool, "largeBG3Tiles", 1,
-			bool, "largeBG4Tiles", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		uint, "mode", 3,
+		bool, "bg3Priority", 1,
+		bool, "largeBG1Tiles", 1,
+		bool, "largeBG2Tiles", 1,
+		bool, "largeBG3Tiles", 1,
+		bool, "largeBG4Tiles", 1,
+	);
 }
 
 ///
 union MOSAICValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "enabledBG1", 1,
-			bool, "enabledBG2", 1,
-			bool, "enabledBG3", 1,
-			bool, "enabledBG4", 1,
-			uint, "size", 4,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		bool, "enabledBG1", 1,
+		bool, "enabledBG2", 1,
+		bool, "enabledBG3", 1,
+		bool, "enabledBG4", 1,
+		uint, "size", 4,
+	);
 }
 
 ///
 union BGxSCValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "doubleWidth", 1,
-			bool, "doubleHeight", 1,
-			uint, "baseAddress", 6,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		bool, "doubleWidth", 1,
+		bool, "doubleHeight", 1,
+		uint, "baseAddress", 6,
+	);
 }
 
 ///
 union BGxxNBAValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			uint, "bg1", 4,
-			uint, "bg2", 4,
-		));
-	}
-	struct {
-		mixin(bitfields!(
-			uint, "bg3", 4,
-			uint, "bg4", 4,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		uint, "bg1", 4,
+		uint, "bg2", 4,
+	);
+	alias bg3 = bg1;
+	alias bg4 = bg2;
 }
 
 ///
 union M7SELValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "screenHFlip", 1,
-			bool, "screenVFlip", 1,
-			uint, "", 4,
-			bool, "tile0Fill", 1,
-			bool, "largeMap", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		bool, "screenHFlip", 1,
+		bool, "screenVFlip", 1,
+		uint, "", 4,
+		bool, "tile0Fill", 1,
+		bool, "largeMap", 1,
+	);
 }
 
 ///
 union ScreenWindowEnableValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "bg1", 1,
-			bool, "bg2", 1,
-			bool, "bg3", 1,
-			bool, "bg4", 1,
-			bool, "obj", 1,
-			uint, "", 3,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		bool, "bg1", 1,
+		bool, "bg2", 1,
+		bool, "bg3", 1,
+		bool, "bg4", 1,
+		bool, "obj", 1,
+		uint, "", 3,
+	);
 }
 
 enum MathClipMode {
@@ -566,43 +540,34 @@ enum ColourMathEnabled {
 }
 
 ///
-union CGWSELValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "directColour", 1,
-			bool, "subscreenEnable", 1,
-			ubyte, "", 2,
-			ColourMathEnabled, "mathPreventMode", 2,
-			MathClipMode, "mathClipMode", 2,
-		));
-	}
+union CGWSELValue{
+	mixin RegisterValue!(ubyte,
+		bool, "directColour", 1,
+		bool, "subscreenEnable", 1,
+		ubyte, "", 2,
+		ColourMathEnabled, "mathPreventMode", 2,
+		MathClipMode, "mathClipMode", 2,
+	);
 }
 
 ///
 union CGADSUBValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			ubyte, "layers", 6,
-			bool, "enableHalf", 1,
-			bool, "enableSubtract", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		ubyte, "layers", 6,
+		bool, "enableHalf", 1,
+		bool, "enableSubtract", 1,
+	);
 }
 
 ///
 union SETINIValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "screenInterlace", 1,
-			bool, "objInterlace", 1,
-			bool, "overscan", 1,
-			bool, "hiRes", 1,
-			uint, "", 2,
-			bool, "extbg", 1,
-			bool, "", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		bool, "screenInterlace", 1,
+		bool, "objInterlace", 1,
+		bool, "overscan", 1,
+		bool, "hiRes", 1,
+		uint, "", 2,
+		bool, "extbg", 1,
+		bool, "", 1,
+	);
 }

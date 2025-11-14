@@ -1,6 +1,6 @@
 module replatform64.gameboy.hardware.registers;
 
-import std.bitmanip;
+import replatform64.registers;
 
 public import pixelmancy.colours : BGR555;
 
@@ -34,8 +34,18 @@ enum Pad : ubyte {
 	down = 1 << 7,
 }
 
-alias IEValue = InterruptFlag;
-alias IFValue = InterruptFlag;
+alias IFValue = IEValue;
+union IEValue {
+	mixin RegisterValue!(ubyte,
+		bool, "vblank", 1,
+		bool, "lcd", 1,
+		bool, "timer", 1,
+		bool, "serial", 1,
+		bool, "joypad", 1,
+		ubyte, "", 3,
+	);
+	alias stat = lcd;
+}
 ///
 enum InterruptFlag : ubyte {
 	vblank = 1 << 0, ///
@@ -46,21 +56,29 @@ enum InterruptFlag : ubyte {
 	joypad = 1 << 4, ///
 }
 
-///
-enum TACValue : ubyte {
-	clockSlowest = 0 << 0, /// 4096 Hz
-	clockFastest = 1 << 0, /// 262144 Hz
-	clockFaster = 2 << 0, /// 65536 Hz
-	clockSlower = 3 << 0, /// 16384 Hz
-	enabled = 1 << 2, // Enable timer
+enum ClockSpeed {
+	slowest,  /// 4096 Hz
+	fastest,  /// 262144 Hz
+	faster,  /// 65536 Hz
+	slower,  /// 16384 Hz
 }
 
 ///
-enum KEY1Value : ubyte {
-	noChange = 0 << 0, /// Don't prepare a speed change
-	changeSpeed = 1 << 0, /// Prepares a speed change
-	singleSpeed = 0 << 7, /// CPU is in single-speed (DMG) mode
-	doubleSpeed = 1 << 7, /// CPU is in double-speed (CGB) mode
+union TACValue {
+	mixin RegisterValue!(ubyte,
+		ClockSpeed, "clock", 2,
+		bool, "enabled", 1,
+		ubyte, "", 5,
+	);
+}
+
+///
+union KEY1Value {
+	mixin RegisterValue!(ubyte,
+		bool, "prepareSwitch", 1,
+		ubyte, "", 6,
+		bool, "doubleSpeed", 1,
+	);
 }
 
 ///
@@ -77,6 +95,16 @@ enum STATValues : ubyte {
 	lycInterrupt = 1 << 6, /// Trigger STAT interrupt when LY == LYC
 }
 
+alias OBPValue = BGPValue;
+///
+union BGPValue {
+	mixin RegisterValue!(ubyte,
+		ubyte, "colour0", 2,
+		ubyte, "colour1", 2,
+		ubyte, "colour2", 2,
+		ubyte, "colour3", 2,
+	);
+}
 ///
 struct OAMEntry {
 	align(1):
@@ -85,15 +113,28 @@ struct OAMEntry {
 	ubyte tile; /// Tile index. Least significant bit is ignored in tall sprite mode
 	OAMFlagsValue flags; /// Palette, bank, X flip, Y flip, priority
 	///
-	this(byte a, byte b, ubyte c, ubyte d) @safe pure {
-		y = a;
-		x = b;
-		tile = c;
-		flags.raw = d;
+	this(byte y, byte x, ubyte tile, ubyte flags) @safe pure {
+		this.y = y;
+		this.x = x;
+		this.tile = tile;
+		this.flags.raw = flags;
 	}
 	///
 	this(ubyte a) @safe pure {
 		y = a;
+	}
+	this(ubyte x, ubyte y, ubyte tile, bool hFlip = false, bool vFlip = false, bool dmgPalette = false, bool priority = false, ubyte cgbPalette = 0) @safe pure {
+		this.x = x;
+		this.y = y;
+		this.tile = tile;
+		this.flags.dmgPalette = dmgPalette;
+		this.flags.cgbPalette = cgbPalette;
+		this.flags.priority = priority;
+		this.flags.xFlip = hFlip;
+		this.flags.yFlip = vFlip;
+	}
+	static OAMEntry offscreen() @safe pure {
+		return OAMEntry(y: cast(byte)160, x: 0, tile: 0, flags: 0);
 	}
 }
 
@@ -130,63 +171,63 @@ enum CGBBGAttributes {
 
 ///
 union CGBBGAttributeValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			ubyte, "palette", 3,
-			bool, "bank", 1,
-			bool, "", 1,
-			bool, "xFlip", 1,
-			bool, "yFlip", 1,
-			bool, "priority", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		ubyte, "palette", 3,
+		bool, "bank", 1,
+		bool, "", 1,
+		bool, "xFlip", 1,
+		bool, "yFlip", 1,
+		bool, "priority", 1,
+	);
 }
 ///
 union LCDCValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "bgEnabled", 1,
-			bool, "spritesEnabled", 1,
-			bool, "tallSprites", 1,
-			ubyte, "bgTilemap", 1,
-			bool, "useAltBG", 1,
-			bool, "windowDisplay", 1,
-			ubyte, "windowTilemap", 1,
-			bool, "lcdEnabled", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		bool, "bgEnabled", 1,
+		bool, "spritesEnabled", 1,
+		bool, "tallSprites", 1,
+		ubyte, "bgTilemap", 1,
+		bool, "useAltBG", 1,
+		bool, "windowDisplay", 1,
+		ubyte, "windowTilemap", 1,
+		bool, "lcdEnabled", 1,
+	);
 }
 ///
 union OAMFlagsValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			ubyte, "cgbPalette", 3,
-			bool, "bank", 1,
-			bool, "dmgPalette", 1,
-			bool, "xFlip", 1,
-			bool, "yFlip", 1,
-			bool, "priority", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		ubyte, "cgbPalette", 3,
+		bool, "bank", 1,
+		bool, "dmgPalette", 1,
+		bool, "xFlip", 1,
+		bool, "yFlip", 1,
+		bool, "priority", 1,
+	);
 }
 
 ///
 union STATValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			uint, "mode", 2,
-			bool, "lycEqualLY", 1,
-			bool, "mode0Interrupt", 1,
-			bool, "mode1Interrupt", 1,
-			bool, "mode2Interrupt", 1,
-			bool, "lycInterrupt", 1,
-			bool, "", 1,
-		));
-	}
+	mixin RegisterValue!(ubyte,
+		uint, "mode", 2,
+		bool, "lycEqualLY", 1,
+		bool, "mode0Interrupt", 1,
+		bool, "mode1Interrupt", 1,
+		bool, "mode2Interrupt", 1,
+		bool, "lycInterrupt", 1,
+		bool, "", 1,
+	);
+}
+
+///
+union NR52Value {
+	mixin RegisterValue!(ubyte,
+		bool, "channel1Enabled", 1,
+		bool, "channel2Enabled", 1,
+		bool, "channel3Enabled", 1,
+		bool, "channel4Enabled", 1,
+		ubyte, "", 3,
+		bool, "soundEnabled", 1,
+	);
 }
 
 enum Register : ushort {
@@ -197,8 +238,8 @@ enum Register : ushort {
 	DIV = 0xFF04,
 	TIMA = 0xFF05,
 	TMA = 0xFF06,
-	TAC = 0xFF07,
-	IF = 0xFF0F,
+	@RegisterValueType!TACValue TAC = 0xFF07,
+	@RegisterValueType!IFValue IF = 0xFF0F,
 	NR10 = 0xFF10,
 	AUD1SWEEP = NR10,
 	NR11 = 0xFF11,
@@ -239,23 +280,23 @@ enum Register : ushort {
 	AUDVOL = NR50,
 	NR51 = 0xFF25,
 	AUDTERM = NR51,
-	NR52 = 0xFF26,
-	AUDENA = NR52,
+	@RegisterValueType!NR52Value NR52 = 0xFF26,
+	@RegisterValueType!NR52Value AUDENA = NR52,
 	WAVESTART = 0xFF30,
 	WAVEEND = 0xFF3F,
-	LCDC = 0xFF40,
-	STAT = 0xFF41,
+	@RegisterValueType!LCDCValue LCDC = 0xFF40,
+	@RegisterValueType!STATValue STAT = 0xFF41,
 	SCY = 0xFF42,
 	SCX = 0xFF43,
 	LY = 0xFF44,
 	LYC = 0xFF45,
 	DMA = 0xFF46,
-	BGP = 0xFF47,
-	OBP0 = 0xFF48,
-	OBP1 = 0xFF49,
+	@RegisterValueType!BGPValue BGP = 0xFF47,
+	@RegisterValueType!OBPValue OBP0 = 0xFF48,
+	@RegisterValueType!OBPValue OBP1 = 0xFF49,
 	WY = 0xFF4A,
 	WX = 0xFF4B,
-	KEY1 = 0xFF4D,
+	@RegisterValueType!KEY1Value KEY1 = 0xFF4D,
 	VBK = 0xFF4F,
 	HDMA1 = 0xFF51,
 	HDMA2 = 0xFF52,
@@ -268,5 +309,5 @@ enum Register : ushort {
 	OCPS = 0xFF6A,
 	OCPD = 0xFF6B,
 	SVBK = 0xFF70,
-	IE = 0xFFFF,
+	@RegisterValueType!IEValue IE = 0xFFFF,
 }

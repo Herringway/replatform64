@@ -28,20 +28,20 @@ struct KEY {
 	with(KEY()) {
 		commitSpeedChange();
 		assert(!pretendDoubleSpeed);
-		assert(readRegister(Register.KEY1) == KEY1Value.singleSpeed);
+		assert(!KEY1Value(readRegister(Register.KEY1)).doubleSpeed);
 	}
 	with(KEY()) {
-		writeRegister(Register.KEY1, KEY1Value.changeSpeed);
+		writeRegister(Register.KEY1, KEY1Value(prepareSwitch: true, doubleSpeed: false).raw);
 		commitSpeedChange();
 		assert(pretendDoubleSpeed);
-		assert(readRegister(Register.KEY1) == KEY1Value.doubleSpeed);
+		assert(KEY1Value(readRegister(Register.KEY1)).doubleSpeed);
 	}
 	with(KEY()) {
-		writeRegister(Register.KEY1, KEY1Value.changeSpeed);
+		writeRegister(Register.KEY1, KEY1Value(prepareSwitch: true, doubleSpeed: false).raw);
 		commitSpeedChange();
-		writeRegister(Register.KEY1, KEY1Value.changeSpeed);
+		writeRegister(Register.KEY1, KEY1Value(prepareSwitch: true, doubleSpeed: false).raw);
 		commitSpeedChange();
 		assert(!pretendDoubleSpeed);
-		assert(readRegister(Register.KEY1) == KEY1Value.singleSpeed);
+		assert(!KEY1Value(readRegister(Register.KEY1)).doubleSpeed);
 	}
 }

@@ -12,7 +12,7 @@ struct GameState {
 struct GameSettings {}
 GameBoySimple gb;
 
-OAMEntry[5] oam;
+OAMEntry[5] oam = OAMEntry.offscreen;
 
 void main(string[] args) {
 	gb.entryPoint = &start;
@@ -56,11 +56,11 @@ struct Config {
 }
 
 ubyte readInput() @safe {
-	gb.JOYP = 0x20;
+	gb.JOYP = JOYPValue.dpadSelect;
 	ubyte inputPressed = (~gb.JOYP & 0xF) << 4;
-	gb.JOYP = 0x10;
+	gb.JOYP = JOYPValue.buttonSelect;
 	inputPressed |= ~gb.JOYP & 0xF;
-	gb.JOYP = 0x30;
+	gb.JOYP = JOYPValue.noneSelect;
 	return inputPressed;
 }
 void writeToVRAM(scope const ubyte[] data, ushort addr) @safe {
@@ -68,22 +68,30 @@ void writeToVRAM(scope const ubyte[] data, ushort addr) @safe {
 }
 void init() @safe {
 	gb.enableInterrupts();
-	gb.LCDC = 0;
+	// turn off the screen
+	gb.LCDC = LCDCValue(lcdEnabled: false, bgEnabled: false, spritesEnabled: false, tallSprites: false, useAltBG: false, windowDisplay: false, bgTilemap: 0, windowTilemap: 0);
 }
 void load() @safe {
+	// load graphics data into VRAM
 	writeToVRAM(objData, 0x8000);
 	assert(objData.length, "Could not load OBJ data");
 	writeToVRAM(fontData, 0x9000);
 	assert(fontData.length, "Could not load font data");
+	// enable vblank
 	gb.IE = InterruptFlag.vblank;
+	// write static text to screen
 	printText(config.textCoordinates.x, config.textCoordinates.y, config.text);
 }
 void startRendering() @safe {
+	// set screen coords to 0, 0
 	gb.SCY = 0;
 	gb.SCX = 0;
-	gb.NR52 = 0;
-	gb.BGP = 0b11100100;
-	gb.LCDC = 0b10000011;
+	// turn off sound
+	gb.NR52 = NR52Value(soundEnabled: false, channel1Enabled: false, channel2Enabled: false, channel3Enabled: false, channel4Enabled: false);
+	// initial palette
+	gb.BGP = BGPValue(0, 1, 2, 3);
+	// turn screen on
+	gb.LCDC = LCDCValue(bgEnabled: true, spritesEnabled: true, lcdEnabled: true, tallSprites: false, useAltBG: false, windowDisplay: false, bgTilemap: 0, windowTilemap: 0);
 }
 void finishFrame() @safe {
 	gb.wait();
@@ -115,11 +123,11 @@ void start(ushort system) @safe {
 	init();
 	load();
 	startRendering();
-	oam[0] = OAMEntry(0, 0, 0, 0);
-	oam[1] = OAMEntry(0, 0, 2, 0);
-	oam[2] = OAMEntry(0, 0, 3, 0);
-	oam[3] = OAMEntry(0, 0, 2, OAMFlags.yFlip);
-	oam[4] = OAMEntry(0, 0, 3, OAMFlags.xFlip);
+	oam[0] = OAMEntry(x: 0, y: 0, tile: 0);
+	oam[1] = OAMEntry(x: 0, y: 0, tile: 2);
+	oam[2] = OAMEntry(x: 0, y: 0, tile: 3);
+	oam[3] = OAMEntry(x: 0, y: 0, tile: 2, vFlip: true);
+	oam[4] = OAMEntry(x: 0, y: 0, tile: 3, hFlip: true);
 	auto state = gb.sram!GameState(0);
 	if (state.magic != state.init.magic) {
 		state = state.init;
@@ -198,6 +206,5 @@ void start(ushort system) @safe {
 	}
 }
 void vblank() @safe {
-	(cast(OAMEntry[])(gb.oam))[] = OAMEntry(-1, -1, 64, 0);
-	(cast(OAMEntry[])(gb.oam))[0 .. 5] = oam;
+	(cast(OAMEntry[])(gb.oam))[0 .. oam.length] = oam;
 }

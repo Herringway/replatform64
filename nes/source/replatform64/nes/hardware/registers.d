@@ -1,10 +1,10 @@
 module replatform64.nes.hardware.registers;
 
-import std.bitmanip;
+import replatform64.registers;
 
 enum Register {
-	PPUCTRL = 0x2000,
-	PPUMASK = 0x2001,
+	@RegisterValueType!PPUCTRLValue PPUCTRL = 0x2000,
+	@RegisterValueType!PPUMASKValue PPUMASK = 0x2001,
 	PPUSTATUS = 0x2002,
 	OAMADDR = 0x2003,
 	OAMDATA = 0x2004,
@@ -37,7 +37,7 @@ enum Register {
 	OAMDMA = 0x4014,
 	SND_CHN = 0x4015,
 	JOY1 = 0x4016,
-	JOY2 = 0x4017,
+	@RegisterValueType!JOY2Value JOY2 = 0x4017,
 }
 
 ///
@@ -53,35 +53,43 @@ enum Pad {
 }
 
 ///
-union PPUMASKValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "grayscale", 1,
-			bool, "showBGLeft8", 1,
-			bool, "showSpritesLeft8", 1,
-			bool, "enableBG", 1,
-			bool, "enableSprites", 1,
-			bool, "emphasizeRed", 1,
-			bool, "emphasizeGreen", 1,
-			bool, "emphasizeBlue", 1,
-		));
-	}
+union PPUCTRLValue {
+	mixin RegisterValue!(ubyte,
+		bool, "nametableY", 1,
+		bool, "nametableX", 1,
+		bool, "ppuDataIncreaseByRow", 1,
+		bool, "spritePatternTable", 1,
+		bool, "bgPatternTable", 1,
+		bool, "tallSprites", 1,
+		bool, "extColourOutput", 1,
+		bool, "vblankNMI", 1,
+	);
 }
 
 ///
-union PPUCTRLValue {
-	ubyte raw;
-	struct {
-		mixin(bitfields!(
-			bool, "nametableY", 1,
-			bool, "nametableX", 1,
-			bool, "ppuDataIncreaseByRow", 1,
-			bool, "spritePatternTable", 1,
-			bool, "bgPatternTable", 1,
-			bool, "tallSprites", 1,
-			bool, "extColourOutput", 1,
-			bool, "vblankNMI", 1,
-		));
-	}
+union PPUMASKValue {
+	mixin RegisterValue!(ubyte,
+		bool, "grayscale", 1,
+		bool, "showBGLeft8", 1,
+		bool, "showSpritesLeft8", 1,
+		bool, "enableBG", 1,
+		bool, "enableSprites", 1,
+		bool, "emphasizeRed", 1,
+		bool, "emphasizeGreen", 1,
+		bool, "emphasizeBlue", 1,
+	);
+}
+
+enum SequenceMode {
+	step4,
+	step5,
+}
+
+///
+union JOY2Value {
+	mixin RegisterValue!(ubyte,
+		ubyte, "", 6,
+		bool, "interruptInhibit", 1,
+		SequenceMode, "sequenceMode", 1,
+	);
 }

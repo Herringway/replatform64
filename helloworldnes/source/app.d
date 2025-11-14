@@ -77,7 +77,7 @@ ubyte readInput() @safe {
 	return nes.getControllerState(0);
 }
 void init() @safe {
-	nes.JOY2 = 0x40;
+	nes.JOY2 = JOY2Value(interruptInhibit: true, sequenceMode: SequenceMode.step4);
 	nes.PPUCTRL = 0;
 	nes.PPUMASK = 0;
 	nes.DMC_FREQ = 0;
@@ -132,11 +132,11 @@ void start() @safe {
 	init();
 	load();
 	startRendering();
-	oam[0] = OAMEntry(0, 0, 0);
-	oam[1] = OAMEntry(0, 0, 2);
-	oam[2] = OAMEntry(0, 0, 3);
-	oam[3] = OAMEntry(0, 0, 2, vFlip: true);
-	oam[4] = OAMEntry(0, 0, 3, hFlip: true);
+	oam[0] = OAMEntry(x: 0, y: 0, tile: 0);
+	oam[1] = OAMEntry(x: 0, y: 0, tile: 2);
+	oam[2] = OAMEntry(x: 0, y: 0, tile: 3);
+	oam[3] = OAMEntry(x: 0, y: 0, tile: 2, vFlip: true);
+	oam[4] = OAMEntry(x: 0, y: 0, tile: 3, hFlip: true);
 	auto state = nes.sram!GameState(0);
 	if (state.magic != state.init.magic) {
 		state = state.init;

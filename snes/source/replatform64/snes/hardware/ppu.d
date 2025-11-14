@@ -1467,7 +1467,7 @@ unittest {
 					BGMODE.mode = byteData & 0b00000111;
 					break;
 				case "ppu.oamMode":
-					OBSEL.size = byteData & 0b00000111;
+					OBSEL.size = cast(OBJSize)(byteData & 0b00000111);
 					break;
 				case "ppu.oamBaseAddress":
 					OBSEL.tileBase = (shortData & 0xE000) >> 13;

@@ -69,6 +69,7 @@ struct PlatformCommon {
 	bool testing;
 	private ORect[] overlays = [];
 	private CommonSettings commonSettings;
+	private bool hasCrashed;
 	LogConsole logger;
 	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
@@ -258,13 +259,17 @@ struct PlatformCommon {
 				return true;
 			}
 
-			if (!paused || frameStep) {
+			if ((!paused || frameStep) && !hasCrashed) {
 				if (game.state != Fiber.State.HOLD) {
 					infof("Game exited normally");
 					return true;
 				}
 				if (auto thrown = trustedFiberCall(game)) {
 					writeDebugDump(thrown.msg, thrown.info);
+					if (commonSettings.waitOnCrash) {
+						hasCrashed = true;
+						return false;
+					}
 					return true;
 				}
 				interrupt();
@@ -768,18 +773,34 @@ mixin template PlatformCommonForwarders() {
 		runIfPresent!"dump"(dumpFunction);
 	}
 	static if (is(Register)) {
-		import std.traits : hasUDA;
-		alias Type = typeof(readRegister(0));
 		static foreach (register; EnumMembers!Register) {
-			static if (__traits(compiles, mixin("cast(const)this.", register.stringof, "();"))) {
-				mixin("Type ", register.stringof, "() const @safe { return readRegister(", register, "); }");
-			} else {
-				mixin("Type ", register.stringof, "() @safe { return readRegister(", register, "); }");
+			mixin("alias ", register.stringof, " = RegisterHelper!register;");
+		}
+	}
+	private template RegisterHelper(alias register) {
+		import std.meta : Filter;
+		import std.traits : hasUDA, TemplateArgsOf, TemplateOf;
+		alias Type = typeof(readRegister(0));
+		static if (__traits(compiles, (cast(const)this).readRegister(register))) {
+			Type RegisterHelper() const @safe => readRegister(register);
+		} else {
+			Type RegisterHelper() @safe => readRegister(register);
+		}
+		static if (hasUDA!(register, DoubleWrite)) {
+			void RegisterHelper(doubleSized!Type value) @safe {
+				writeRegister(register, value & cast(Type)~Type.init);
+				writeRegister(register, value >> (Type.sizeof * 8));
 			}
-			static if (hasUDA!(register, DoubleWrite)) {
-				mixin("void ", register.stringof, "(doubleSized!Type value) @safe { writeRegister(", register, ", value & cast(Type)~Type.init); writeRegister(", register, ", value >> (Type.sizeof * 8)); }");
-			} else {
-				mixin("void ", register.stringof, "(Type value) @safe { writeRegister(", register, ", value); }");
+		} else {
+			void RegisterHelper(Type value) @safe {
+				writeRegister(register, value);
+			}
+		}
+		static foreach (Attr; __traits(getAttributes, register)) {
+			static if (is(typeof(Attr) == RegisterValueType_!AltType, AltType)) {
+				void RegisterHelper(AltType value) @safe {
+					writeRegister(register, value.raw);
+				}
 			}
 		}
 	}
@@ -810,6 +831,7 @@ struct HookSettings {
 }
 private struct CommonSettings {
 	bool startPaused;
+	bool waitOnCrash;
 }
 private struct FullSettings(SystemSettings, GameSettings) {
 	CommonSettings common;

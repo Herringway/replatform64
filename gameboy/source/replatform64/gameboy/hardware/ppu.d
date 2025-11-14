@@ -207,10 +207,10 @@ struct PPU {
 		void writePaletteDMG(ubyte value, size_t paletteIndex) {
 			if (!cgbMode) {
 				ColourFormat[] palette = paletteRAM[paletteIndex][];
-				palette[0] = gbPalette[paletteIndex][value & 3];
-				palette[1] = gbPalette[paletteIndex][(value >> 2) & 3];
-				palette[2] = gbPalette[paletteIndex][(value >> 4) & 3];
-				palette[3] = gbPalette[paletteIndex][(value >> 6) & 3];
+				palette[0] = gbPalette[paletteIndex][BGPValue(value).colour0];
+				palette[1] = gbPalette[paletteIndex][BGPValue(value).colour1];
+				palette[2] = gbPalette[paletteIndex][BGPValue(value).colour2];
+				palette[3] = gbPalette[paletteIndex][BGPValue(value).colour3];
 			}
 		}
 		switch (addr) {
@@ -454,12 +454,10 @@ unittest {
 	import std.string : lineSplitter;
 	import std.stdio : File;
 	import replatform64.dumping : convert, writePNG;
-	enum width = 160;
-	enum height = 144;
 	static auto draw(ref PPU ppu, FauxDMA[] dma) {
-		auto buffer = Array2D!(PPU.ColourFormat)(width, height);
+		auto buffer = Array2D!(PPU.ColourFormat)(ppu.width, ppu.height);
 		ppu.beginDrawing(buffer);
-		foreach (i; 0 .. height) {
+		foreach (i; 0 .. ppu.height) {
 			foreach (entry; dma) {
 				if (i == entry.scanline) {
 					ppu.writeRegister(cast(Register)entry.register, entry.value);

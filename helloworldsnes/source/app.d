@@ -44,6 +44,9 @@ void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction repor
 	infof("Loaded data successfully");
 }
 
+enum textLayerTilemap = 0x1000;
+enum bgTiles = 0x4000;
+enum objTiles = 0x2000;
 struct Vector {
 	ubyte x;
 	ubyte y;
@@ -70,11 +73,11 @@ void writeToVRAM(scope const ubyte[] data, ushort addr) @safe
 	snes.handleVRAMDMA(0b00000001, 0x18, data, cast(ushort)data.length, addr, 0b10000000);
 }
 void init() @safe {
-	snes.INIDISP = 0x80; // display off while we set up
+	snes.INIDISP = INIDISPValue(screenBrightness: 0, forcedBlank: true); // display off while we set up
 	snes.BGMODE = 0; // mode 0
-	snes.BG1SC = 0x1000 >> 8; // BG1 tilemap at $1000
-	snes.BG12NBA = 0x44; // BG 1 + 2 tiles at $4000
-	snes.OBSEL = 0x01; // OBJ tiles at $2000
+	snes.BG1SC = textLayerTilemap >> 8; // BG1 tilemap at $1000
+	snes.BG12NBA = (bgTiles >> 12) | ((bgTiles >> 12) << 4); // BG 1 + 2 tiles at $4000
+	snes.OBSEL = OBSELValue(tileBase: objTiles >> 13, hiOffset: 0, size: OBJSize.small8x8Large16x16); // OBJ tiles at $2000
 }
 void load() @safe {
 	writeToVRAM(objData, 0x2000);
@@ -92,7 +95,7 @@ void finishFrame() @safe {
 void printText(ubyte x, ubyte y, string str) @safe {
 	ushort[16] buffer;
 	size_t position;
-	ushort addr = cast(ushort)(0x1000 + y * 32 + x);
+	ushort addr = cast(ushort)(textLayerTilemap + y * 32 + x);
 	foreach (chr; str) {
 		if (chr < ' ') {
 			continue;
@@ -116,11 +119,11 @@ void start() @safe {
 	init();
 	load();
 	startRendering();
-	oam[0] = OAMEntry(0, 0, 0);
-	oam[1] = OAMEntry(0, 0, 2);
-	oam[2] = OAMEntry(0, 0, 3);
-	oam[3] = OAMEntry(0, 0, 2, vFlip: true);
-	oam[4] = OAMEntry(0, 0, 3, hFlip: true);
+	oam[0] = OAMEntry(x: 0, y: 0, tile: 0);
+	oam[1] = OAMEntry(x: 0, y: 0, tile: 2);
+	oam[2] = OAMEntry(x: 0, y: 0, tile: 3);
+	oam[3] = OAMEntry(x: 0, y: 0, tile: 2, vFlip: true);
+	oam[4] = OAMEntry(x: 0, y: 0, tile: 3, hFlip: true);
 	auto state = snes.sram!GameState(0);
 	if (state.magic != state.init.magic) {
 		state = state.init;
