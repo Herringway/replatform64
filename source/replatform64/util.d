@@ -3,6 +3,7 @@ module replatform64.util;
 import std.algorithm.comparison;
 import std.bitmanip;
 import std.range;
+import std.stdio : File;
 import std.traits;
 
 public import pixelmancy.util : Array2D;
@@ -408,12 +409,12 @@ auto bitRangeOf(T)(const T value) if (isIntegral!T) {
 	return Result(value);
 }
 
+package void trustedWrite(scope const string filename, scope const ubyte[] data) @trusted => File(filename, "wb").rawWrite(data);
 package ubyte[] trustedRead(string filename) @trusted {
 	import std.file : read;
 	return cast(ubyte[])read(filename);
 }
 
 package void trustedRead(string filename, ubyte[] buffer) @trusted {
-	import std.stdio : File;
 	File(filename, "r").rawRead(buffer);
 }

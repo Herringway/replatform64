@@ -70,6 +70,7 @@ struct PlatformCommon {
 	private ORect[] overlays = [];
 	private CommonSettings commonSettings;
 	private bool hasCrashed;
+	private bool wantScreenshot;
 	LogConsole logger;
 	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
@@ -185,6 +186,9 @@ struct PlatformCommon {
 				ImGui.MenuItem("Enable metrics", null, &metricsEnabled);
 				ImGui.MenuItem("Enable log window", null, &logEnabled);
 				ImGui.MenuItem("Enable UI metrics", null, &uiMetricsEnabled);
+				if (ImGui.MenuItem("Save screenshot")) {
+					wantScreenshot = true;
+				}
 				if (ImGui.BeginMenu("Memory")) {
 					foreach (ref memoryEditor; memoryEditors) {
 						ImGui.MenuItem(memoryEditor.name, null, &memoryEditor.active);
@@ -275,6 +279,10 @@ struct PlatformCommon {
 				interrupt();
 			}
 			frameStatTracker.checkpoint(FrameStatistic.gameLogic);
+			if (wantScreenshot) {
+				dumpScreen(&trustedWrite);
+				wantScreenshot = false;
+			}
 			backend.video.startFrame();
 			draw();
 			frameStatTracker.checkpoint(FrameStatistic.ppu);
@@ -509,7 +517,6 @@ struct PlatformCommon {
 		return (cast(T[])sramSlotBuffer[slot][0 .. T.sizeof])[0];
 	}
 	void commitSRAM() @safe {
-		static void trustedWrite(scope const string filename, scope const ubyte[] data) @trusted => File(filename, "wb").rawWrite(data);
 		foreach (slot, data; sramSlotBuffer) {
 			const name = saveFileName(slot);
 			infof("Writing %s", name);
@@ -523,6 +530,11 @@ struct PlatformCommon {
 		return format!"%s.%s.sav"(gameID, slot);
 	}
 	void dumpScreen(StateDumper dumpFunction) @safe {
+		Texture texture;
+		backend.video.getDrawingTexture(texture);
+		dumpFunction("screen.png", dumpPNG(texture));
+	}
+	void dumpScreen(StateDumperFunction dumpFunction) @safe {
 		Texture texture;
 		backend.video.getDrawingTexture(texture);
 		dumpFunction("screen.png", dumpPNG(texture));

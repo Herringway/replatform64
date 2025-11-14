@@ -17,9 +17,10 @@ import replatform64.util;
 public import siryul : Skip;
 
 alias StateDumper = void delegate(scope string filename, scope const(ubyte)[] data) @safe;
+alias StateDumperFunction = void function(scope string filename, scope const(ubyte)[] data) @safe;
 alias CrashHandler = void delegate(StateDumper) @safe;
 
-CrashHandler crashHandler;
+__gshared CrashHandler crashHandler;
 string repositoryURL;
 
 package shared string otherThreadCrashMsg;
@@ -61,7 +62,7 @@ void writeDebugDump(string msg, Throwable.TraceInfo traceInfo) @safe {
 	}
 	trustedWriteDebugMessage(&addFile, msg, traceInfo);
 	dumpStateToFile(buildPath(crashDir, "state.yaml"));
-	crashHandler(&addFile);
+	() @trusted { assert(crashHandler); crashHandler(&addFile); }();
 	if (repositoryURL != "") {
 		infof("Game crashed! Details written to '%s', please report this bug at %s with as many details as you can include.", crashDir, repositoryURL);
 	} else {
