@@ -813,6 +813,9 @@ mixin template PlatformCommonForwarders() {
 		}
 		return platform.originalData;
 	}
+	noreturn unimplemented() @safe pure {
+		assert(0, "NYI");
+	}
 }
 
 enum HookType {
