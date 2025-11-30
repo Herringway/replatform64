@@ -10,8 +10,8 @@
 		"siryul": "~>0.6",
 		"pixelmancy": "~>0.0",
 		"squiz-box": "~>0.3",
-		"d_imgui": { "repository": "git+https://github.com/Herringway/imgui.git", "version": "d88d230e58c85866a1225f53256f2bbdc5d1f8d3" },
-		"dimgui_extras": { "repository": "git+https://github.com/Herringway/dimgui_extras.git", "version": "ae5f2d343f731812332b9ea0c4597ca4c2bfffa7" }
+		"herringway_dimgui": "~>0.0.0",
+		"herringway_dimgui_extras": "~>0.0.0"
 	},
 	"subPackages": [
 		"gameboy",
