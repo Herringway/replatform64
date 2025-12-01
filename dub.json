@@ -11,7 +11,8 @@
 		"pixelmancy": "~>0.0",
 		"squiz-box": "~>0.3",
 		"herringway_dimgui": "~>0.0.0",
-		"herringway_dimgui_extras": "~>0.0.0"
+		"herringway_dimgui_extras": "~>0.0.0",
+		"hlogger": "~>0.0.0"
 	},
 	"subPackages": [
 		"gameboy",

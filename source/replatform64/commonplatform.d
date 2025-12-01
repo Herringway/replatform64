@@ -29,6 +29,7 @@ import std.path;
 import std.stdio;
 import std.string;
 import siryul;
+import hlogger;
 
 enum settingsFile = "settings.yaml";
 
@@ -109,9 +110,19 @@ struct PlatformCommon {
 			"l|logfile", "Log to file", &logFile,
 			"v|verbose", "Verbose logging", &verbose,
 		);
+		Logger logger;
 		if (logFile != "") {
-			sharedLog = cast(shared)new FileLogger(logFile, LogLevel.info);
+			logger = new FileLogger(logFile, LogLevel.info);
+		} else {
+			logger = new HLogger(stdout, LogLevel.info);
+			if (verbose) {
+				with(cast(HLogger)logger) {
+					config.fullTimestamp = true;
+					config.includeSource = true;
+				}
+			}
 		}
+		sharedLog = cast(shared)logger;
 		if (verbose) {
 			(cast(Logger)sharedLog).logLevel = LogLevel.trace;
 		}
