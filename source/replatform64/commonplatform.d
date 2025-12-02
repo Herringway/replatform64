@@ -18,6 +18,7 @@ import core.thread;
 import std.algorithm.comparison;
 import std.algorithm.iteration;
 import std.algorithm.mutation;
+import std.array;
 import std.concurrency;
 import std.conv;
 import std.exception;
@@ -72,6 +73,7 @@ struct PlatformCommon {
 	private CommonSettings commonSettings;
 	private bool hasCrashed;
 	private bool wantScreenshot;
+	private bool useFS;
 	LogConsole logger;
 	alias EntryPoint = void delegate();
 	static struct MemoryEditorState {
@@ -107,6 +109,7 @@ struct PlatformCommon {
 		bool verbose;
 		string logFile;
 		auto result = getopt(args, config.passThrough,
+			"f|filesystem", "Save/load game data from filesystem", &useFS,
 			"l|logfile", "Log to file", &logFile,
 			"v|verbose", "Verbose logging", &verbose,
 		);
@@ -328,30 +331,38 @@ struct PlatformCommon {
 			interrupt();
 		}
 	}
-	void handleAssets(Modules...)(immutable(ubyte)[] romData, ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
-		if (!assetsExist) {
+	void handleAssets(Modules...)(immutable(ubyte)[] romData, immutable ExtractFunction extractor, immutable LoadFunction loader) {
+		handleAssets!Modules(romData, [extractor], [immutable LoaderFunction(loader)]);
+	}
+	void handleAssets(Modules...)(immutable(ubyte)[] romData, immutable ExtractFunction[] extractors, immutable LoadFunction[] loaders) {
+		handleAssets!Modules(romData, extractors, loaders.map!(x => immutable LoaderFunction(x)).array);
+	}
+	void handleAssets(Modules...)(immutable(ubyte)[] romData, immutable ExtractFunction[] extractors, immutable LoaderFunction[] loaders) {
+		if (!useFS && !assetsExist) {
 			enforce(romData != [], "No ROM data loaded!");
-			extractAssets!Modules(extractor, romData, toFilesystem);
+			extractAssets!Modules(extractors, romData, false);
 		}
-		loadAssets!Modules(loader);
+		if (useFS && !assetsDirExists) {
+			enforce(romData != [], "No ROM data loaded!");
+			extractAssets!Modules(extractors, romData, true);
+		}
+		loadAssets!Modules(loaders);
 	}
-	bool assetsExist() @safe {
-		return (gameID~".planet").exists;
-	}
+	bool assetsExist() @safe => (gameID~".planet").exists;
+	bool assetsDirExists() @safe => assetsDir.exists;
+	string assetsDir() @safe => "data";
 	PlanetArchive assets() @safe {
-		if ((gameID~".planet").exists) {
-			return PlanetArchive.read(trustedRead(gameID~".planet"));
-		}
-		throw new Exception("Not found");
+		enforce(assetsExist, "Not found");
+		return PlanetArchive.read(trustedRead(gameID~".planet"));
 	}
-	void extractAssets(Modules...)(ExtractFunction extractor, immutable(ubyte)[] data, bool toFilesystem = false) {
-		static void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem, ExtractFunction extractor, string gameID) {
+	void extractAssets(Modules...)(immutable ExtractFunction[] extractors, immutable(ubyte)[] data, bool toFilesystem = false) {
+		static void extractAllData(Tid main, immutable(ubyte)[] rom, bool toFilesystem, immutable ExtractFunction[] extractors, string gameID, string assetsDir) {
 			try {
 				PlanetArchive archive;
 				void addFile(string name, const ubyte[] data) @trusted {
 					archive.addFile(name, data);
 					if (toFilesystem) {
-						auto fullPath = buildPath("data", name);
+						auto fullPath = buildPath(assetsDir, name);
 						mkdirRecurse(fullPath.dirName);
 						File(fullPath, "w").rawWrite(data);
 					}
@@ -377,7 +388,7 @@ struct PlatformCommon {
 				}}
 
 				// extract extra game data that needs special handling
-				if (extractor !is null) {
+				foreach (extractor; extractors) {
 					extractor(&addFile, (str) @trusted { send(main, str); }, rom);
 				}
 
@@ -393,23 +404,9 @@ struct PlatformCommon {
 			// done
 			send(main, true);
 		}
-		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, toFilesystem, extractor, gameID);
+		auto extractorThread = spawn(cast(shared)&extractAllData, thisTid, data, toFilesystem, extractors, gameID, assetsDir);
 		bool extractionDone;
 		auto progress = Progress("Initializing");
-		void renderExtractionUI() {
-			ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, ImVec2(0.5f, 0.5f));
-			ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
-				Spinner("##spinning", 15, 6, ImGui.GetColorU32(ImGuiCol.ButtonHovered));
-				ImGui.SameLine();
-				ImGui.Text("Extracting assets. Please wait.");
-				ImGui.Text(progress.title);
-				if (progress.totalItems == 0) {
-					ImGui.ProgressBar(0, ImVec2(0, 0));
-				} else {
-					ImGui.ProgressBar(cast(float)progress.completedItems / progress.totalItems, ImVec2(ImGui.GetContentRegionAvail().x, 0), format!"%s/%s"(progress.completedItems, progress.totalItems));
-				}
-			ImGui.End();
-		}
 		while (!extractionDone) {
 			while (receiveTimeout(0.seconds,
 				(bool) { extractionDone = true; },
@@ -422,12 +419,26 @@ struct PlatformCommon {
 				}
 				backend.video.startFrame();
 				if (!testing) {
-					renderExtractionUI();
+					renderExtractionUI(progress);
 				}
 				backend.video.finishFrame();
 				backend.video.waitNextFrame();
 			}
 		}
+	}
+	private void renderExtractionUI(const Progress progress) {
+		ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, ImVec2(0.5f, 0.5f));
+		ImGui.Begin("Creating planet archive", null, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings);
+			Spinner("##spinning", 15, 6, ImGui.GetColorU32(ImGuiCol.ButtonHovered));
+			ImGui.SameLine();
+			ImGui.Text("Extracting assets. Please wait.");
+			ImGui.Text(progress.title);
+			if (progress.totalItems == 0) {
+				ImGui.ProgressBar(0, ImVec2(0, 0));
+			} else {
+				ImGui.ProgressBar(cast(float)progress.completedItems / progress.totalItems, ImVec2(ImGui.GetContentRegionAvail().x, 0), format!"%s/%s"(progress.completedItems, progress.totalItems));
+			}
+		ImGui.End();
 	}
 	private void loadAsset(bool structured, T)(ref T dest, const(ubyte)[] data, const SymbolMetadata metadata, string label, string source) {
 		tracef("Loading %s from %s", label, source);
@@ -442,15 +453,11 @@ struct PlatformCommon {
 			dest = symbolData;
 		}
 	}
-	void loadAssets(Modules...)(LoadFunction func) {
+	void loadAssets(Modules...)(immutable LoaderFunction[] funcs) {
 		import std.algorithm.sorting : sort;
-		PlanetArchive archive;
-		if (assetsExist) {
-			archive = assets;
-		}
 		const(ubyte)[][][string] arrayAssets;
 		bool[string] nonArrayAlreadyLoaded;
-		foreach (asset; archive.entries) {
+		void tryLoadAsset(AssetFile asset) {
 			bool matched;
 			static foreach (Symbol; SymbolData!Modules) {
 				() {
@@ -467,7 +474,25 @@ struct PlatformCommon {
 				}}();
 			}
 			if (!matched) {
-				func(asset.name, asset.data, backend);
+				foreach (func; funcs) {
+					if (func.matchesFilename(asset.name)) {
+						func.func(asset.name, asset.data, backend);
+					}
+				}
+			}
+		}
+		if (!useFS && assetsExist) {
+			PlanetArchive archive = assets;
+			foreach (asset; archive.entries) {
+				tryLoadAsset(asset);
+			}
+		} else if (assetsDirExists) {
+			foreach (file; dirEntries(assetsDir, SpanMode.depth)) {
+				if (file.isDir) {
+					continue;
+				}
+				infof("Found asset %s", relativePath(file, assetsDir));
+				tryLoadAsset(AssetFile(relativePath(file, assetsDir), trustedRead(file)));
 			}
 		}
 		foreach (file; arrayAssets.keys.sort) {
@@ -488,7 +513,7 @@ struct PlatformCommon {
 			if ((assetPath(Symbol.metadata, 0) !in arrayAssets) && (assetPath(Symbol.metadata, 0) !in nonArrayAlreadyLoaded)) {
 				import std.range : only;
 				foreach (candidate; only(assetPath(Symbol.metadata, 0), Symbol.metadata.name)) {
-					const path = buildPath("data", candidate);
+					const path = buildPath(assetsDir, candidate);
 					if (path.exists) {
 						const fileData = Symbol.metadata.preProcess(loadROMAsset(cast(ubyte[])read(path), Symbol.metadata));
 						loadAsset!(Symbol.metadata.type == DataType.structured)(Symbol.data, fileData, Symbol.metadata, path, "filesystem");
@@ -647,7 +672,7 @@ struct PlatformCommon {
 		static SomeStruct[] someStructArray = [SomeStruct(2, [2, 3], "bleh"), SomeStruct(6, [222, 3], "!!!")];
 	}
 	immutable(ubyte)[] fakeData = [0, 1, 2, 3];
-	static void extractor(scope AddFileFunction addFile, scope ProgressUpdateFunction, immutable(ubyte)[]) {
+	static void extractor(scope AddFileFunction addFile, scope ProgressUpdateFunction, scope immutable(ubyte)[]) {
 		addFile("big test.bin", [4, 6, 8, 10]);
 	}
 	static count = 0;
@@ -658,7 +683,7 @@ struct PlatformCommon {
 	}
 	PlatformCommon sample;
 	sample.gameID = "TEST";
-	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader, toFilesystem: false);
+	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader);
 	assert("TEST.planet".exists);
 	assert(count == 1);
 	scope(exit) std.file.remove("TEST.planet");
@@ -674,7 +699,7 @@ struct PlatformCommon {
 	FakeModule.sample3Processed = [];
 	FakeModule.someStruct = FakeModule.SomeStruct(2, [], "???");
 	FakeModule.someStructArray = [];
-	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader, toFilesystem: false);
+	sample.handleAssets!(FakeModule)(fakeData, &extractor, &loader);
 	assert(FakeModule.sample == [0, 1, 2, 3]);
 	assert(FakeModule.sample2 == [0, 1, 2, 3]);
 	assert(FakeModule.sample3 == [[0], [1, 2, 3]]);
@@ -766,8 +791,11 @@ mixin template PlatformCommonForwarders() {
 	void registerHook(string id, HookDelegate hook, HookSettings settings = HookSettings.init) @safe {
 		platform.registerHook(id, hook, settings);
 	}
-	void handleAssets(Modules...)(ExtractFunction extractor = null, LoadFunction loader = null, bool toFilesystem = false) {
-		platform.handleAssets!Modules(romData, extractor, loader, toFilesystem);
+	void handleAssets(Modules...)(immutable(ExtractFunction)[] extractors, immutable LoadFunction[] loaders) {
+		platform.handleAssets!Modules(romData, extractors, loaders);
+	}
+	void handleAssets(Modules...)(immutable ExtractFunction extractor, immutable LoadFunction loader) {
+		platform.handleAssets!Modules(romData, [extractor], [loader]);
 	}
 	void loadWAV(const(ubyte)[] data) @safe {
 		platform.backend.audio.loadWAV(data);

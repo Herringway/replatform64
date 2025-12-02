@@ -24,7 +24,7 @@ void main(string[] args) {
 	}
 	auto settings = snes.loadSettings!GameSettings();
 	snes.initialize();
-	snes.handleAssets!(mixin(__MODULE__))(&loadStuff);
+	snes.handleAssets!(mixin(__MODULE__))([&extractStuff], [&loadStuff]);
 	snes.run();
 	snes.saveSettings(settings);
 }
@@ -40,7 +40,10 @@ immutable(ubyte)[] objData;
 
 @Asset("config.yaml", DataType.structured)
 Config config;
-void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, immutable(ubyte)[] rom) @safe {
+void extractStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, scope immutable(ubyte)[] rom) @safe {
+	infof("Extracted data successfully");
+}
+void loadStuff(scope const char[] filename, scope const ubyte[] data, scope PlatformBackend) @safe {
 	infof("Loaded data successfully");
 }
 

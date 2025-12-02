@@ -19,8 +19,14 @@ import squiz_box;
 
 alias ProgressUpdateFunction = void delegate(scope const Progress) @safe;
 alias AddFileFunction = void delegate(string, const ubyte[]) @safe;
-alias ExtractFunction = void function(scope AddFileFunction, scope ProgressUpdateFunction, immutable(ubyte)[]);
+alias ExtractFunction = void function(scope AddFileFunction, scope ProgressUpdateFunction, scope immutable(ubyte)[]);
 alias LoadFunction = void function(const scope char[], const scope ubyte[], scope PlatformBackend);
+
+struct LoaderFunction {
+	LoadFunction func;
+	string glob = "*";
+	bool matchesFilename(scope string filename) const @safe pure => globMatch(filename, glob);
+}
 
 enum DataType {
 	raw,
@@ -318,6 +324,10 @@ struct Progress {
 	uint totalItems = 1;
 }
 
+struct AssetFile {
+	string name;
+	ubyte[] data;
+}
 
 struct PlanetArchive {
 	private UnboxEntry[] loaded;
@@ -336,12 +346,8 @@ struct PlanetArchive {
 	static PlanetArchive read(ubyte[] buffer) @trusted {
 		return PlanetArchive(buffer.unboxZip.array);
 	}
-	private struct Entry {
-		string name;
-		ubyte[] data;
-	}
 	auto entries() {
-		return loaded.map!(x => Entry(x.path, x.readContent));
+		return loaded.map!(x => AssetFile(x.path, x.readContent));
 	}
 	bool empty() const @safe pure {
 		return files.length == 0;
