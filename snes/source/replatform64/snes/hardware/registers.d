@@ -268,13 +268,15 @@ struct OAMEntry {
 		}
 	}
 	static OAMEntry offscreen() @safe pure {
-		return OAMEntry(ubyte(0), ubyte(240), ubyte(0), ubyte(0));
+		return OAMEntry.fromBytes(x: 0, y: 240, tileLower: 0, flags: 0);
 	}
-	this(ubyte x, ubyte y, ubyte tileLower, ubyte flags) @safe pure {
-		this.xCoord = x;
-		this.yCoord = y;
-		this.startingTile = tileLower;
-		this.flags = flags;
+	static OAMEntry fromBytes(ubyte x, ubyte y, ubyte tileLower, ubyte flags) @safe pure {
+		OAMEntry result;
+		result.xCoord = x;
+		result.yCoord = y;
+		result.startingTile = tileLower;
+		result.flags = flags;
+		return result;
 	}
 	this(ubyte x, ubyte y, ushort tile, bool hFlip = false, bool vFlip = false, ubyte palette = 0, ubyte priority = 0) @safe pure {
 		this.xCoord = x;

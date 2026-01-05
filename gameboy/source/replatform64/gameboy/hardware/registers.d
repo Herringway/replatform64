@@ -113,15 +113,13 @@ struct OAMEntry {
 	ubyte tile; /// Tile index. Least significant bit is ignored in tall sprite mode
 	OAMFlagsValue flags; /// Palette, bank, X flip, Y flip, priority
 	///
-	this(byte y, byte x, ubyte tile, ubyte flags) @safe pure {
-		this.y = y;
-		this.x = x;
-		this.tile = tile;
-		this.flags.raw = flags;
-	}
-	///
-	this(ubyte a) @safe pure {
-		y = a;
+	static OAMEntry fromBytes(ubyte y, ubyte x, ubyte tile, ubyte flags) @safe pure {
+		OAMEntry result;
+		result.y = y;
+		result.x = x;
+		result.tile = tile;
+		result.flags.raw = flags;
+		return result;
 	}
 	this(ubyte x, ubyte y, ubyte tile, bool hFlip = false, bool vFlip = false, bool dmgPalette = false, bool priority = false, ubyte cgbPalette = 0) @safe pure {
 		this.x = x;
@@ -134,7 +132,7 @@ struct OAMEntry {
 		this.flags.yFlip = vFlip;
 	}
 	static OAMEntry offscreen() @safe pure {
-		return OAMEntry(y: cast(byte)160, x: 0, tile: 0, flags: 0);
+		return OAMEntry.fromBytes(y: 160, x: 0, tile: 0, flags: 0);
 	}
 }
 
