@@ -46,6 +46,17 @@ union IEValue {
 	);
 	alias stat = lcd;
 }
+
+enum IEValues {
+	none = 0,
+	vblank = 1 << 0,
+	lcd = 1 << 1,
+	stat = lcd,
+	timer = 1 << 2,
+	serial = 1 << 3,
+	joypad = 1 << 4,
+}
+
 ///
 enum InterruptFlag : ubyte {
 	vblank = 1 << 0, ///
@@ -72,6 +83,15 @@ union TACValue {
 	);
 }
 
+enum TACValues {
+	slowestClock = 0 << 0,
+	fastestClock = 1 << 0,
+	fasterClock = 2 << 0,
+	slowerClock = 3 << 0,
+	enabled = 1 << 2,
+	disabled = 1 << 2,
+}
+
 ///
 union KEY1Value {
 	mixin RegisterValue!(ubyte,
@@ -79,6 +99,13 @@ union KEY1Value {
 		ubyte, "", 6,
 		bool, "doubleSpeed", 1,
 	);
+}
+
+enum KEY1Values {
+	switching = 1 << 0,
+	notSwitching = 0 << 0,
+	noDoubleSpeed = 0 << 7,
+	doubleSpeed = 1 << 7,
 }
 
 ///
