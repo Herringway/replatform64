@@ -110,11 +110,11 @@ mixin template generateStateDumpFunctions() {
 	shared static this() {
 		dumpStateToFile = &dumpStateToYAML;
 	}
-	void dumpStateToYAML(string outPath) {
+	void dumpStateToYAML(string outPath) @safe {
 		import siryul : toFile, YAML;
 		getState().toFile!YAML(outPath);
 	}
-	auto getState() {
+	auto getState() @trusted {
 		static struct State {
 			static foreach (mem; __traits(allMembers, mixin(__MODULE__))) {
 				static if (isStateVar!(__traits(getMember, mixin(__MODULE__), mem))) {
