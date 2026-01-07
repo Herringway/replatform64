@@ -24,7 +24,7 @@ void main(string[] args) {
 	}
 	auto settings = gb.loadSettings!GameSettings();
 	gb.initialize();
-	gb.handleAssets!(mixin(__MODULE__))(&loadStuff);
+	gb.handleAssets!(mixin(__MODULE__))([&extractStuff], [&loadStuff]);
 	gb.run();
 	gb.saveSettings(settings);
 }
@@ -36,7 +36,9 @@ immutable(ubyte)[] objData;
 
 @Asset("config.yaml", DataType.structured)
 Config config;
-void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, immutable(ubyte)[] rom) @safe {}
+
+void loadStuff(const scope char[] name, const scope ubyte[] data, scope PlatformBackend backend) @safe {}
+void extractStuff(scope AddFileFunction, scope ProgressUpdateFunction, scope immutable(ubyte)[] data) @safe {}
 
 struct Vector {
 	ubyte x;

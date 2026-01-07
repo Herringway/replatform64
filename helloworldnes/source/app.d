@@ -41,7 +41,7 @@ void main(string[] args) {
 	}
 	auto settings = nes.loadSettings!GameSettings();
 	nes.initialize();
-	nes.handleAssets!(mixin(__MODULE__))(&loadStuff);
+	nes.handleAssets!(mixin(__MODULE__))([&extractStuff], [&loadStuff]);
 	nes.run();
 	nes.saveSettings(settings);
 }
@@ -54,7 +54,8 @@ immutable(ubyte)[] objData;
 @Asset("config.yaml", DataType.structured)
 Config config;
 
-void loadStuff(scope AddFileFunction addFile, scope ProgressUpdateFunction reportProgress, immutable(ubyte)[] rom) @safe {}
+void loadStuff(const scope char[] name, const scope ubyte[] data, scope PlatformBackend backend) @safe {}
+void extractStuff(scope AddFileFunction, scope ProgressUpdateFunction, scope immutable(ubyte)[] data) @safe {}
 
 struct Vector {
 	ubyte x;
